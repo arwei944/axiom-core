@@ -56,7 +56,10 @@ pub(crate) fn install_hooks(project_root: &Path) -> Result<()> {
         .context("Failed to run 'git config core.hooksPath'")?;
 
     if !status.success() {
-        anyhow::bail!("git config core.hooksPath failed with exit code: {:?}", status.code());
+        anyhow::bail!(
+            "git config core.hooksPath failed with exit code: {:?}",
+            status.code()
+        );
     }
 
     println!("  ✓ configured core.hooksPath -> hooks/");

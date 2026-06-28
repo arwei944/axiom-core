@@ -83,10 +83,7 @@ impl Check for DepsAuditCheck {
                 Ok(deps) => {
                     for dep in deps {
                         if let Err(reason) = axiom_core::gate::audit_dependency(&dep) {
-                            violations.push(format!(
-                                "{}: {}",
-                                cargo_path.display(), reason
-                            ));
+                            violations.push(format!("{}: {}", cargo_path.display(), reason));
                         }
                     }
                 }
@@ -117,4 +114,3 @@ impl Check for DepsAuditCheck {
         }
     }
 }
-

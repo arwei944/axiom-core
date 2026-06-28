@@ -47,7 +47,10 @@ pub const AUDITED_DEPS: &[&str] = &[
 
 /// Find layer index for a crate by name.
 pub fn crate_level(name: &str) -> Option<usize> {
-    CRATE_LAYERS.iter().find(|(n, _)| *n == name).map(|(_, l)| *l)
+    CRATE_LAYERS
+        .iter()
+        .find(|(n, _)| *n == name)
+        .map(|(_, l)| *l)
 }
 
 /// Verify local dependency direction. Returns list of violation messages.
@@ -96,8 +99,10 @@ mod tests {
 
     #[test]
     fn test_reverse_dependency_detected() {
-        let violations =
-            verify_dependencies("axiom-runtime", &["axiom-oversight".into(), "axiom-core".into()]);
+        let violations = verify_dependencies(
+            "axiom-runtime",
+            &["axiom-oversight".into(), "axiom-core".into()],
+        );
         assert_eq!(violations.len(), 1);
         assert!(violations[0].contains("REVERSE DEPENDENCY"));
     }
@@ -108,7 +113,10 @@ mod tests {
             "axiom-oversight",
             &["axiom-runtime".into(), "axiom-core".into()],
         );
-        assert!(violations.is_empty(), "expected no violations: {violations:?}");
+        assert!(
+            violations.is_empty(),
+            "expected no violations: {violations:?}"
+        );
     }
 
     #[test]

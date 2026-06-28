@@ -90,10 +90,7 @@ impl Check for VerifyCheck {
             }
         };
 
-        let order: HashMap<&str, usize> = axiom_core::gate::CRATE_LAYERS
-            .iter()
-            .copied()
-            .collect();
+        let order: HashMap<&str, usize> = axiom_core::gate::CRATE_LAYERS.iter().copied().collect();
 
         let mut violations = Vec::new();
         let mut seen: HashSet<&str> = HashSet::new();
