@@ -23,6 +23,8 @@ pub enum Commands {
     Check,
     /// Verify architecture constraints (dependency direction, layer rules)
     Verify,
+    /// Update the constraints lock file (after reviewing changes to .axiom/)
+    UpdateConstraints,
     /// Show version information for all axiom crates
     Version,
 }
@@ -39,6 +41,7 @@ pub fn run(cli: &Cli) -> Result<ExitCode, anyhow::Error> {
         Commands::Preflight(args) => run_preflight(args),
         Commands::Check => run_check(),
         Commands::Verify => run_verify(),
+        Commands::UpdateConstraints => run_update_constraints(),
         Commands::Version => {
             println!("axm {}", env!("CARGO_PKG_VERSION"));
             Ok(ExitCode::SUCCESS)
@@ -118,4 +121,11 @@ fn run_verify() -> Result<ExitCode, anyhow::Error> {
         println!("\nArchitecture constraints satisfied.");
         Ok(ExitCode::SUCCESS)
     }
+}
+
+fn run_update_constraints() -> Result<ExitCode, anyhow::Error> {
+    println!("Updating .axiom/.constraints.lock ...");
+    checks::constraints_hash::ConstraintsHashCheck::update_lock()?;
+    println!("  ✓ constraints lock updated.");
+    Ok(ExitCode::SUCCESS)
 }

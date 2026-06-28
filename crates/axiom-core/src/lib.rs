@@ -24,7 +24,9 @@ pub mod error;
 pub mod id;
 pub mod layer;
 pub mod lens;
+pub mod registry;
 pub mod schema;
+pub mod sealed;
 pub mod signal;
 pub mod version;
 pub mod witness;
@@ -33,8 +35,17 @@ pub use entropy::EntropyScore;
 pub use error::{AxiomError, Result};
 pub use id::{AxiomId, CellId, CorrelationId, LensId, MsgId, TraceId, WitnessId};
 pub use layer::Layer;
+pub use registry::{
+    count_registered_axioms, registered_migration_chains, verify_migration_chain_completeness,
+};
 pub use schema::Schema;
+pub use sealed::{
+    AgentLayer, CanSendTo, ExecLayer, LayerMarker, OversightLayer, ValidateLayer,
+    can_send_at_runtime,
+};
 pub use version::{
     Compatibility, CrateVersion, IdentityVersion, Migration, MigrationRegistry, ProtocolVersion,
     SchemaVersion, Version, VersionInfo, Versioned,
 };
+
+pub use axiom_macros::{cell, axiom, migration, schema_version, SignalPayload};

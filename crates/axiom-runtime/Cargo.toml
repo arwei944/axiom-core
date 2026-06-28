@@ -10,6 +10,6 @@ description = "Tokio-based runtime with supervision tree"
 axiom-core = { path = "../axiom-core" }
 tokio = { workspace = true }
 serde = { workspace = true }
+serde_json = { workspace = true }
 thiserror = { workspace = true }
 tracing = { workspace = true }
-futures = { workspace = true }

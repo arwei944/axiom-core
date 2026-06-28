@@ -19,6 +19,8 @@ tracing = { workspace = true }
 sha2 = { workspace = true, optional = true }
 uuid = { workspace = true, optional = true }
 futures = { workspace = true }
+linkme = { workspace = true }
+axiom-macros = { workspace = true }
 
 [dev-dependencies]
 tokio = { workspace = true, features = ["rt-multi-thread", "macros"] }

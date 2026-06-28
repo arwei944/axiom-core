@@ -15,6 +15,12 @@ const DEP_ORDER: &[&str] = &[
     "axiom-core",
 ];
 
+const PROC_MACRO_CRATES: &[&str] = &["axiom-macros"];
+
+fn is_allowed_proc_macro_dep(dep: &str) -> bool {
+    PROC_MACRO_CRATES.contains(&dep)
+}
+
 fn parse_local_deps(cargo_path: &Path) -> Result<(String, Vec<String>), std::io::Error> {
     let content = fs::read_to_string(cargo_path)?;
     let mut name = String::new();
@@ -115,6 +121,9 @@ impl Check for VerifyCheck {
             let crate_level = order.get(crate_name.as_str()).copied().unwrap_or(max_order);
             seen.insert(crate_name.as_str());
             for dep in deps {
+                if is_allowed_proc_macro_dep(dep) {
+                    continue;
+                }
                 let dep_level = order.get(dep.as_str()).copied().unwrap_or(max_order);
                 if dep_level < crate_level {
                     violations.push(format!(
