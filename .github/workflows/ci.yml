@@ -38,7 +38,7 @@ jobs:
         run: cargo build --workspace
 
       - name: Cargo clippy
-        run: cargo clippy --workspace -- -D warnings
+        run: cargo clippy --workspace --all-targets -- -D warnings
 
       - name: Cargo test
         run: cargo test --workspace
