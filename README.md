@@ -1,0 +1,157 @@
+# Axiom Core
+
+> **架构就是一切。** 一切失败都是架构失败；一切成功都是架构成功。
+
+**Axiom Core** 是一个面向智能体（Agent）的确定性优先运行时架构——用五个核心原语构建低熵、可观测、可自愈的多智能体系统。
+
+## 为什么需要 Axiom Core？
+
+UC Berkeley 对 1642+ 条多智能体执行轨迹的研究发现：**41%–86.7% 的失败源于架构缺陷，而非 AI 能力不足**。现有智能体框架（LangChain、CrewAI、AutoGPT 等）本质是"把 LLM 调用串起来"的工具库，没有解决分布式系统的经典问题——状态一致性、故障隔离、因果追踪、架构约束——这些问题在非确定性的 LLM 场景下被指数级放大。
+
+Axiom Core 从底层重新设计，解决以下核心痛点：
+
+| 痛点 | Axiom Core 的解法 |
+|------|------------------|
+| 🔴 **黑盒运行** | 每次状态转换自动产生 Witness（不可篡改审计记录），一秒定位根因 |
+| 🔴 **静默退化** | 熵值实时监控，黄线告警、红线熔断、自动减熵 |
+| 🔴 **消息字符串传递** | Signal 类型安全 + Vector Clock 因果追踪 |
+| 🔴 **上下文爆炸** | Lens 按需投影状态，渐进式披露 Skill 元数据 |
+| 🔴 **错误传染** | 四层架构 + 监督树 + Axiom 硬约束，故障不扩散 |
+| 🔴 **无法自愈** | Erlang 风格"让它崩溃"+ 监督树自动重启 + 事件溯源恢复 |
+| 🔴 **调试地狱** | `axm why` 一秒速查，Witness 链即"时间线录像机" |
+| 🔴 **工具碎片化** | 内置 Identity/Skill/Rules/MCP 完整配套，不用从零造轮子 |
+
+## 核心理念
+
+- **可视化**：系统内部状态像仪表盘一样一目了然
+- **工程化**：生产级运行时——可监控、可调试、可回滚
+- **结构化**：一切有类型、有边界、有 Schema
+- **极简化**：五个原语构建整个系统
+- **低熵化**：熵是第一公民，可度量、可监控、可主动消减
+- **一秒速查**：任何问题一秒内定位根因
+- **自愈化**：局部崩溃自动恢复，不扩散
+- **架构就是一切**：模型会犯错，架构不能；约束者必先受约束
+- **智能体专用**：从零为 Agent 设计，不是把 Web 框架硬套上去
+
+## 五大核心原语
+
+```
+┌─────────────────────────────────────────────────────────┐
+│  Cell  │ 隔离的状态单元——私有状态 + 消息信箱，单线程执行 │
+├────────┼────────────────────────────────────────────────┤
+│ Signal │ 类型化不可变消息——Vector Clock + 链路追踪       │
+├────────┼────────────────────────────────────────────────┤
+│  Lens  │ 按需状态投影——不是塞全部历史，而是精确查询      │
+├────────┼────────────────────────────────────────────────┤
+│ Axiom  │ 全局不变量约束——违反即熔断，熵的减压阀          │
+├────────┼────────────────────────────────────────────────┤
+│Witness │ 不可篡改审计链——每次状态转换自动记录            │
+└─────────────────────────────────────────────────────────┘
+```
+
+## 四层架构
+
+```
+┌─────────────────────────────────────────────────────┐
+│  Layer 0: 监督层（Oversight）← 元层，监督一切       │
+│  熵治理 · 架构合规 · 意图审计 · 资源管控 · 死锁检测  │
+├─────────────────────────────────────────────────────┤
+│  Layer 3: 推理层（LLM/非确定性）  ← 可以犯错        │
+│  输出必须经过 Axiom 验证，不直接产生副作用           │
+├─────────────────────────────────────────────────────┤
+│  Layer 2: 验证层（确定性）        ← 守门人          │
+│  Schema 校验 · 规则引擎 · Axiom 不变量检查           │
+├─────────────────────────────────────────────────────┤
+│  Layer 1: 执行层（确定性）        ← 不出错          │
+│  数据库 · API 调用 · 计算，幂等 + 自动重试           │
+└─────────────────────────────────────────────────────┘
+```
+
+**铁律**：调用方向只能从上往下（Oversight→Agent→Validate→Exec），编译期 + 运行时双层检查。
+
+## Agent 配套体系
+
+在五大原语之上，提供完整的 Agent 开发配套：
+
+| 概念 | 一句话 | 说明 |
+|------|--------|------|
+| **Identity（身份）** | Agent 是谁 | Persona + 能力边界 + 权限集，可组合、可热切换 |
+| **Skill（技能）** | Agent 会什么 | 遵循 agentskills.io 开放标准，渐进式披露三层加载，支持绑定 Axiom/Lens/Permission |
+| **Rules（规则）** | Agent 守什么底线 | 软约束（区别于 Axiom 硬约束），Prompt注入+输出验证+升级Axiom三层执行 |
+| **MCP（模型上下文协议）** | Agent 连什么外部世界 | 双向桥接（Client+Server），四层安全检查（Permission→Rules→Axiom→Human-in-the-loop） |
+
+## 项目结构
+
+```
+axiom-core/
+├── crates/
+│   ├── axiom-core/          # 核心原语：Cell/Signal/Lens/Axiom/Witness + Layer/Entropy
+│   ├── axiom-runtime/       # Tokio 运行时：监督树 + 消息总线 + MPSC 信箱
+│   ├── axiom-oversight/     # Layer 0 监督层：熵治理 + 架构合规
+│   ├── axiom-store/         # 事件存储：Append-Only Event Log + 快照 + 重放
+│   ├── axiom-agent/         # Agent 开发配套：Identity + Skill + Rules 引擎
+│   ├── axiom-mcp/           # MCP 协议桥接（计划中）
+│   ├── axiom-viz/           # 可视化数据导出：拓扑/时间轴/熵值
+│   ├── axiom-macros/        # 过程宏
+│   └── axiom-cli/           # axm 命令行工具（计划中）
+├── docs/
+│   └── architecture/
+│       ├── 00-requirements.md              # 需求文档
+│       └── 01-agent-identity-skills-mcp-rules.md  # Agent配套设计
+└── examples/
+    └── hello_cell.rs        # 最小示例
+```
+
+## 快速开始
+
+```rust
+use axiom_core::*;
+
+// 定义一个 Greeting Cell
+struct GreetingCell {
+    greetings: Vec<String>,
+}
+
+#[async_trait::async_trait]
+impl Cell for GreetingCell {
+    type Signal = GreetingSignal;
+    type State = Vec<String>;
+
+    fn cell_id(&self) -> CellId { CellId("greeting-cell".into()) }
+    fn layer(&self) -> Layer { Layer::Agent }
+
+    async fn handle(&mut self, signal: Self::Signal, ctx: &mut CellContext) -> Result<()> {
+        self.greetings.push(signal.message.clone());
+        println!("Received: {}", signal.message);
+        ctx.emit_witness(TransitionOutcome::Success).await?;
+        Ok(())
+    }
+}
+```
+
+## CLI 预览（计划中）
+
+```bash
+axm new my-agent              # 创建项目脚手架
+axm run                       # 启动系统
+axm top                       # 实时 TUI 仪表盘
+axm why <correlation-id>      # 一秒速查：为什么发生？
+axm trace <id>                # 追踪完整调用链
+axm cell list                 # 查看所有 Cell 状态
+axm skill list                # 列出可用技能
+axm mcp list                  # 列出已连接的 MCP 服务器
+axm doctor                    # 系统健康诊断
+```
+
+## 状态
+
+⚠️ **早期开发阶段** — API 可能会变化，核心原语已定义，运行时和 Agent 配套正在实现中。
+
+## 设计文档
+
+- [需求文档](docs/architecture/00-requirements.md)
+- [Agent Identity·Skill·Rules·MCP 配套设计](docs/architecture/01-agent-identity-skills-mcp-rules.md)
+
+## License
+
+MIT
