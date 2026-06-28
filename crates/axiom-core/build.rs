@@ -6,6 +6,7 @@ fn main() {
         Ok(o) => o,
         Err(e) => {
             eprintln!("Warning: failed to run rustc --version: {}", e);
+            gate_check("axiom-core");
             return;
         }
     };
@@ -14,6 +15,7 @@ fn main() {
         Ok(s) => s,
         Err(_) => {
             eprintln!("Warning: rustc --version output is not valid UTF-8");
+            gate_check("axiom-core");
             return;
         }
     };
@@ -38,7 +40,7 @@ fn main() {
         }
     }
 
-    println!("cargo:rerun-if-changed=build.rs");
+    gate_check("axiom-core");
 }
 
 fn parse_rustc_version(output: &str) -> Option<(u32, u32, u32)> {
@@ -55,3 +57,5 @@ fn parse_rustc_version(output: &str) -> Option<(u32, u32, u32)> {
         .ok()?;
     Some((major, minor, patch))
 }
+
+include!("../../tools/gate_check.rs");
