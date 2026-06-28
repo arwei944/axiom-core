@@ -1,0 +1,32 @@
+[workspace]
+members = [
+    "crates/axiom-core",
+    "crates/axiom-runtime",
+    "crates/axiom-store",
+    "crates/axiom-oversight",
+    "crates/axiom-agent",
+    "crates/axiom-viz",
+    "crates/axiom-macros",
+]
+resolver = "2"
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+repository = "https://github.com/arwei944/axiom-core"
+description = "Axiom Core - Deterministic-first runtime architecture for reliable agentic systems with built-in Oversight, CLI, and complete agent toolkit"
+
+[workspace.dependencies]
+tokio = { version = "1", features = ["full"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+thiserror = "1"
+anyhow = "1"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+async-trait = "0.1"
+futures = "0.3"
+pin-project-lite = "0.2"
+clap = { version = "4", features = ["derive"] }
+ratatui = "0.29"

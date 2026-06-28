@@ -1,0 +1,11 @@
+[package]
+name = "axiom-viz"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Visualization data export: topology, timeline, entropy, traces, metrics"
+
+[dependencies]
+axiom-core = { path = "../axiom-core" }
+serde = { workspace = true }
+serde_json = { workspace = true }
