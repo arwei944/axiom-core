@@ -21,8 +21,8 @@ pub enum ViolationAction {
 }
 
 pub trait Axiom: Send + Sync {
-    type State;
-    type Message;
+    type State: 'static;
+    type Message: 'static;
 
     fn name(&self) -> &'static str;
 
@@ -37,17 +37,32 @@ pub trait Axiom: Send + Sync {
     }
 }
 
+/// Object-safe trait for runtime axiom dispatch.
+/// This is automatically implemented by the `#[axiom]` macro for all Axiom types.
+pub trait DynAxiom: Send + Sync {
+    fn name(&self) -> &'static str;
+    fn applies_to_layer(&self, layer: Layer) -> bool;
+    fn violation_action(&self) -> ViolationAction;
+    fn check_dyn(
+        &self,
+        current: &dyn std::any::Any,
+        new: &dyn std::any::Any,
+        msg: &dyn std::any::Any,
+    ) -> Result<()>;
+}
+
 pub struct AxiomViolation {
     pub axiom_name: &'static str,
     pub error: AxiomError,
     pub action: ViolationAction,
 }
 
+/// Typed axiom chain for compile-time checked validation of specific state/message types.
 pub struct AxiomChain<T, M> {
     axioms: Vec<Box<dyn Axiom<State = T, Message = M>>>,
 }
 
-impl<T, M> AxiomChain<T, M> {
+impl<T: 'static, M: 'static> AxiomChain<T, M> {
     pub fn new() -> Self {
         Self { axioms: Vec::new() }
     }
@@ -88,9 +103,54 @@ impl<T, M> AxiomChain<T, M> {
     }
 }
 
-impl<T, M> Default for AxiomChain<T, M> {
+impl<T: 'static, M: 'static> Default for AxiomChain<T, M> {
     fn default() -> Self {
         Self::new()
+    }
+}
+
+/// Dynamic axiom chain built from the distributed registry at runtime.
+/// Used by ArchitectureGuardian to check all registered axioms for a given layer.
+pub struct DynAxiomChain {
+    axioms: Vec<&'static dyn DynAxiom>,
+}
+
+impl DynAxiomChain {
+    pub fn from_registry_for_layer(layer: Layer) -> Self {
+        let axioms: Vec<&'static dyn DynAxiom> = crate::registry::AXIOM_REGISTRY
+            .iter()
+            .copied()
+            .filter(|a| a.applies_to_layer(layer))
+            .collect();
+        Self { axioms }
+    }
+
+    pub fn from_registry_all() -> Self {
+        let axioms: Vec<&'static dyn DynAxiom> =
+            crate::registry::AXIOM_REGISTRY.iter().copied().collect();
+        Self { axioms }
+    }
+
+    pub fn check_all(
+        &self,
+        current: &dyn std::any::Any,
+        new: &dyn std::any::Any,
+        msg: &dyn std::any::Any,
+    ) -> Vec<AxiomViolation> {
+        self.axioms
+            .iter()
+            .filter_map(|a| {
+                a.check_dyn(current, new, msg).err().map(|e| AxiomViolation {
+                    axiom_name: a.name(),
+                    error: e,
+                    action: a.violation_action(),
+                })
+            })
+            .collect()
+    }
+
+    pub fn count(&self) -> usize {
+        self.axioms.len()
     }
 }
 
@@ -162,5 +222,11 @@ mod tests {
         let violations = chain.check_all(&"".into(), &"this is way too long".into(), &"set".into());
         assert_eq!(violations.len(), 1);
         assert!(!chain.has_reject_violations(&violations));
+    }
+
+    #[test]
+    fn test_dyn_axiom_chain_from_registry() {
+        let chain = DynAxiomChain::from_registry_all();
+        let _ = chain.count();
     }
 }

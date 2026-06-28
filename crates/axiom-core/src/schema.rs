@@ -117,7 +117,10 @@ pub trait Schema {
     fn validate(&self) -> ValidationResult;
 
     /// Maximum serialized size in bytes (0 = unlimited).
-    fn max_size_bytes() -> usize {
+    fn max_size_bytes() -> usize
+    where
+        Self: Sized,
+    {
         0
     }
 
@@ -143,6 +146,14 @@ pub mod validators {
         let mut result = ValidationResult::default();
         if value.len() > max {
             result.add_error(field, format!("exceeds max length of {}", max));
+        }
+        result
+    }
+
+    pub fn require_min_length(field: &str, value: &str, min: usize) -> ValidationResult {
+        let mut result = ValidationResult::default();
+        if value.len() < min {
+            result.add_error(field, format!("below min length of {}", min));
         }
         result
     }
@@ -176,6 +187,66 @@ pub mod validators {
                 field,
                 format!("value {} outside range [{}, {}]", value, min, max),
             );
+        }
+        result
+    }
+
+    pub fn require_id_format(field: &str, value: &str) -> ValidationResult {
+        let mut result = ValidationResult::default();
+        if value.is_empty() {
+            result.add_error(field, "id must not be empty");
+        } else if !value
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_' || c == '.')
+        {
+            result.add_error(
+                field,
+                "id must contain only alphanumerics, '-', '_', or '.'",
+            );
+        }
+        result
+    }
+
+    pub fn require_url_like(field: &str, value: &str) -> ValidationResult {
+        let mut result = ValidationResult::default();
+        if value.is_empty() {
+            result.add_error(field, "URL must not be empty");
+        } else if !(value.starts_with("http://")
+            || value.starts_with("https://")
+            || value.starts_with("cell://")
+            || value.starts_with("axiom://"))
+        {
+            result.add_warning(field, "URL should start with http://, https://, cell://, or axiom://");
+        }
+        result
+    }
+
+    pub fn require_none_if<T>(field: &str, value: &Option<T>, condition: bool, msg: &str) -> ValidationResult {
+        let mut result = ValidationResult::default();
+        if condition && value.is_some() {
+            result.add_error(field, msg);
+        }
+        result
+    }
+
+    pub fn require_some<T>(field: &str, value: &Option<T>, msg: &str) -> ValidationResult {
+        let mut result = ValidationResult::default();
+        if value.is_none() {
+            result.add_error(field, msg);
+        }
+        result
+    }
+
+    pub fn require_contains_only(field: &str, value: &str, allowed: &[char]) -> ValidationResult {
+        let mut result = ValidationResult::default();
+        for c in value.chars() {
+            if !allowed.contains(&c) {
+                result.add_error(
+                    field,
+                    format!("contains disallowed character '{}'", c),
+                );
+                break;
+            }
         }
         result
     }

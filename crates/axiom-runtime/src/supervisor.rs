@@ -159,15 +159,13 @@ impl Supervisor {
         if s.circuit_breaker.is_open() {
             let until = Instant::now()
                 + match s.strategy {
-                    axiom_core::cell::SupervisionStrategy::CircuitBreak { reset_after_ms, .. } => {
-                        Duration::from_millis(reset_after_ms)
-                    }
+                    axiom_core::cell::SupervisionStrategy::CircuitBreak {
+                        reset_after_ms, ..
+                    } => Duration::from_millis(reset_after_ms),
                     _ => Duration::from_secs(30),
                 };
             s.state = CellState::CircuitOpen { until };
-            return SupervisionDecision::CircuitBreak {
-                until,
-            };
+            return SupervisionDecision::CircuitBreak { until };
         }
 
         match s.strategy {
@@ -285,7 +283,10 @@ mod tests {
         let _ = sup.record_panic("test-cell").await;
         let _ = sup.record_panic("test-cell").await;
         let d4 = sup.record_panic("test-cell").await;
-        assert!(matches!(d4, SupervisionDecision::Stop), "after max retries should stop");
+        assert!(
+            matches!(d4, SupervisionDecision::Stop),
+            "after max retries should stop"
+        );
     }
 
     #[tokio::test]

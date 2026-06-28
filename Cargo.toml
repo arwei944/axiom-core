@@ -32,8 +32,10 @@ uuid = { version = "1", features = ["v4", "serde"] }
 futures = "0.3"
 clap = { version = "4", features = ["derive"] }
 linkme = "0.3"
+trybuild = "1"
 ratatui = "0.29"
 crossterm = "0.28"
+regex = "1"
 
 axiom-core = { path = "crates/axiom-core" }
 axiom-runtime = { path = "crates/axiom-runtime" }

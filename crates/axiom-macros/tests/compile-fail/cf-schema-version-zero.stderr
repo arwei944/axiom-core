@@ -1,0 +1,5 @@
+error: schema version must be >= 1
+ --> tests/compile-fail/cf-schema-version-zero.rs:3:32
+  |
+3 | #[axiom_macros::schema_version(0)]
+  |                                ^

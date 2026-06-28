@@ -1,0 +1,6 @@
+#!/bin/sh
+# axiom pre-commit hook
+# Runs axiom quality gates before allowing a commit.
+set -e
+
+axm check

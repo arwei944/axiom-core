@@ -4,6 +4,8 @@ use clap::{Args, Parser, Subcommand};
 
 use crate::checks;
 
+mod init;
+
 #[derive(Parser)]
 #[command(
     name = "axm",
@@ -17,6 +19,8 @@ pub struct Cli {
 
 #[derive(Subcommand)]
 pub enum Commands {
+    /// Initialize an axiom project (install hooks, generate constraints lock)
+    Init,
     /// Run preflight checks before starting a coding session
     Preflight(PreflightArgs),
     /// Run all quality gates (build/test/clippy/fmt/verify)
@@ -38,6 +42,7 @@ pub struct PreflightArgs {
 
 pub fn run(cli: &Cli) -> Result<ExitCode, anyhow::Error> {
     match &cli.command {
+        Commands::Init => init::run_init(),
         Commands::Preflight(args) => run_preflight(args),
         Commands::Check => run_check(),
         Commands::Verify => run_verify(),

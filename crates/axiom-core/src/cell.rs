@@ -47,6 +47,13 @@ pub enum CellHealth {
     Crashed,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CellMeta {
+    pub cell_id: String,
+    pub layer: Layer,
+    pub supervision: SupervisionStrategy,
+}
+
 pub trait Cell: Send + 'static {
     type Message: Signal;
     fn id(&self) -> &CellId;
@@ -77,16 +84,76 @@ pub trait Cell: Send + 'static {
     }
 }
 
-/// Marker traits for compile-time layer enforcement.
-/// These traits carry no methods - they exist purely to constrain which
-/// CellContext send methods are available to each layer.
+pub trait DynCell: Send + 'static {
+    fn id(&self) -> &CellId;
+    fn layer(&self) -> Layer;
+    fn supervision_strategy(&self) -> SupervisionStrategy;
+    fn meta(&self) -> CellMeta;
+    fn state_hash(&self) -> Option<[u8; 32]>;
+    fn as_any(&self) -> &dyn std::any::Any;
+    fn as_any_mut(&mut self) -> &mut dyn std::any::Any;
+}
+
+impl<C: Cell> DynCell for C {
+    fn id(&self) -> &CellId {
+        self.id()
+    }
+    fn layer(&self) -> Layer {
+        C::layer()
+    }
+    fn supervision_strategy(&self) -> SupervisionStrategy {
+        self.supervision_strategy()
+    }
+    fn meta(&self) -> CellMeta {
+        CellMeta {
+            cell_id: self.id().as_str().to_string(),
+            layer: C::layer(),
+            supervision: self.supervision_strategy(),
+        }
+    }
+    fn state_hash(&self) -> Option<[u8; 32]> {
+        self.state_hash()
+    }
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
+    fn as_any_mut(&mut self) -> &mut dyn std::any::Any {
+        self
+    }
+}
+
+pub struct CellHandle {
+    inner: Box<dyn DynCell>,
+}
+
+impl CellHandle {
+    pub fn new<C: Cell + 'static>(cell: C) -> Self {
+        Self {
+            inner: Box::new(cell),
+        }
+    }
+
+    pub fn downcast_ref<C: Cell + 'static>(&self) -> Option<&C> {
+        self.inner.as_any().downcast_ref::<C>()
+    }
+
+    pub fn downcast_mut<C: Cell + 'static>(&mut self) -> Option<&mut C> {
+        self.inner.as_any_mut().downcast_mut::<C>()
+    }
+}
+
+impl std::ops::Deref for CellHandle {
+    type Target = dyn DynCell;
+    fn deref(&self) -> &Self::Target {
+        &*self.inner
+    }
+}
+
 pub trait ExecCell: Cell {}
 pub trait ValidateCell: Cell {}
 pub trait AgentCell: Cell {}
 pub trait OversightCell: Cell {}
 
-/// Compile-time proof that a Cell belongs to a specific layer.
-/// Used by CellContext to restrict send targets per layer.
 pub trait LayerOf {
     const LAYER: Layer;
 }
@@ -97,7 +164,7 @@ mod tests {
     use crate::context::CellContext;
     use crate::id::{CorrelationId, MsgId};
     use crate::schema::ValidationResult;
-    use crate::signal::{now_ns, VectorClock};
+    use crate::signal::{now_ns, SignalKind, VectorClock};
 
     #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
     struct ExecCmd {
@@ -107,7 +174,7 @@ mod tests {
         data: String,
     }
 
-    impl Signal for ExecCmd {
+    impl crate::signal::Signal for ExecCmd {
         fn signal_type(&self) -> &'static str {
             "ExecCmd"
         }
@@ -123,17 +190,23 @@ mod tests {
         fn timestamp_ns(&self) -> u64 {
             now_ns()
         }
-        fn kind(&self) -> crate::signal::SignalKind {
-            crate::signal::SignalKind::Command
+        fn kind(&self) -> SignalKind {
+            SignalKind::Command
         }
         fn layer(&self) -> Layer {
             Layer::Exec
         }
-    }
-
-    impl crate::schema::Schema for ExecCmd {
+        fn as_any(&self) -> &dyn std::any::Any {
+            self
+        }
+        fn clone_signal(&self) -> Box<dyn crate::signal::Signal> {
+            Box::new(self.clone())
+        }
         fn validate(&self) -> ValidationResult {
             ValidationResult::ok()
+        }
+        fn serialize_to_json(&self) -> serde_json::Value {
+            serde_json::to_value(self).unwrap_or(serde_json::Value::Null)
         }
     }
 
@@ -160,11 +233,7 @@ mod tests {
             Layer::Exec
         }
 
-        async fn handle(
-            &mut self,
-            signal: ExecCmd,
-            _ctx: &mut CellContext<'_>,
-        ) -> crate::Result<()> {
+        async fn handle(&mut self, signal: ExecCmd, _ctx: &mut CellContext<'_>) -> crate::Result<()> {
             self.received.push(signal.data);
             Ok(())
         }
@@ -185,5 +254,14 @@ mod tests {
         let mut ctx = CellContext::new(&cell_id, Layer::Exec);
         cell.handle(cmd, &mut ctx).await.unwrap();
         assert_eq!(cell.received, vec!["hello"]);
+    }
+
+    #[test]
+    fn test_cell_handle_downcast() {
+        let cell = TestExecCell::new();
+        let handle = CellHandle::new(cell);
+        assert!(handle.downcast_ref::<TestExecCell>().is_some());
+        assert_eq!(handle.id().as_str(), "test-exec");
+        assert_eq!(handle.layer(), Layer::Exec);
     }
 }

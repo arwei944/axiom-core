@@ -1,18 +1,24 @@
-//! Axiom Oversight - Layer 0 meta-governance layer.
-//!
-//! The Oversight Layer is the "prefrontal cortex" of the system.
-//! Unlike the supervision tree (which handles Cell crashes),
-//! Oversight handles architecture compliance, entropy governance,
-//! intent auditing, resource management, and global deadlock detection.
-//!
-//! # Oversight Cells
-//! - **EntropyGovernor**: monitors system/cell entropy, triggers de-entropy actions
-//! - **ArchitectureGuardian**: detects illegal cross-layer calls and dependency violations
-//! - **IntentAuditor**: checks agent output for intent drift
-//! - **ResourceManager**: token budgets, API rate limits, fair scheduling
-//! - **LoopDetector**: global message loop detection, handoff limit enforcement
-//! - **ComplianceGuard**: PII detection, dangerous operation approval
-//! - **OversightOversight**: meta-oversight - supervises the overseers
-
+pub mod prelude;
+pub mod error;
+pub mod supervisor;
+pub mod loop_detector;
 pub mod architecture_guardian;
 pub mod entropy_governor;
+pub mod resource_manager;
+pub mod intent_auditor;
+pub mod compliance_guard;
+pub mod meta_oversight;
+pub mod startup;
+pub mod health;
+
+pub use error::{OversightError, OversightResult};
+pub use supervisor::OversightSupervisor;
+pub use loop_detector::LoopDetector;
+pub use architecture_guardian::ArchitectureGuardianCell;
+pub use entropy_governor::{EntropyGovernorCell, GovernanceAction, EntropyEvent, EntropyLevel, EntropySnapshot};
+pub use resource_manager::{ResourceManagerCell, TokenBucket, ConcurrencyLimiter, ResourceStats};
+pub use intent_auditor::{IntentAuditorCell, IntentProfile};
+pub use compliance_guard::{ComplianceGuardCell, ComplianceResult, ComplianceViolation, Severity, ComplianceAction};
+pub use meta_oversight::MetaOversightCell;
+pub use startup::{StartupVerification, CheckResult, VerificationReport, StartupError};
+pub use health::{HealthCollectorCell, SystemHealth, CellHealth, HealthStatus};

@@ -101,13 +101,10 @@ impl MessageBus {
 
     pub async fn register_cell(&self, cell_id: &CellId, mailbox: Arc<Mailbox>, layer: Layer) {
         let id_str = cell_id.as_str().to_string();
-        self.cells.write().await.insert(
-            id_str.clone(),
-            CellEntry {
-                mailbox,
-                layer,
-            },
-        );
+        self.cells
+            .write()
+            .await
+            .insert(id_str.clone(), CellEntry { mailbox, layer });
         self.routing.write().await.register_cell(&id_str, layer);
     }
 
@@ -123,7 +120,12 @@ impl MessageBus {
                     return Err(AxiomError::LayerViolation {
                         from: env.source_layer,
                         to: env.target_layer,
-                        signal_type: format!("{} (rejected by {}: {})", env.signal_type, interceptor.name(), reason),
+                        signal_type: format!(
+                            "{} (rejected by {}: {})",
+                            env.signal_type,
+                            interceptor.name(),
+                            reason
+                        ),
                     });
                 }
                 InterceptDecision::Redirect { target_cell } => {
@@ -166,11 +168,13 @@ impl MessageBus {
     }
 
     pub fn rejected_count(&self) -> u64 {
-        self.rejected_count.load(std::sync::atomic::Ordering::Relaxed)
+        self.rejected_count
+            .load(std::sync::atomic::Ordering::Relaxed)
     }
 
     pub fn delivered_count(&self) -> u64 {
-        self.delivered_count.load(std::sync::atomic::Ordering::Relaxed)
+        self.delivered_count
+            .load(std::sync::atomic::Ordering::Relaxed)
     }
 
     pub async fn cell_count(&self) -> usize {

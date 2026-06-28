@@ -32,10 +32,7 @@ impl Mailbox {
         self.queue.lock().await.is_empty()
     }
 
-    pub async fn push(
-        &self,
-        env: SignalEnvelope,
-    ) -> Result<(), SignalEnvelope> {
+    pub async fn push(&self, env: SignalEnvelope) -> Result<(), SignalEnvelope> {
         let permit = match self.permits.try_acquire() {
             Ok(p) => p,
             Err(_) => return Err(env),
@@ -132,6 +129,9 @@ mod tests {
 
         mb.push(make_env("m1")).await.unwrap();
         let result = mb.push(make_env("m2")).await;
-        assert!(result.is_err(), "second push should be rejected at capacity 1");
+        assert!(
+            result.is_err(),
+            "second push should be rejected at capacity 1"
+        );
     }
 }

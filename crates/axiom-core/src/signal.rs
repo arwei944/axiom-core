@@ -5,20 +5,19 @@
 //! - correlation_id: trace propagation chain
 //! - vector_clock: causal ordering
 //! - timestamp_ns: freshness
-//! - kind: Command/Event/Query
+//! - kind: Command/Event/Query/Response
 //! - layer: which layer this signal originates from
 //!
 //! SignalEnvelope provides type-erased wrapping for the message bus.
 
 use crate::id::{CorrelationId, MsgId, TraceId};
 use crate::layer::Layer;
-use crate::schema::{Schema, ValidationResult};
-use crate::version::{SchemaVersion, SignalSchema, Versioned};
+use crate::schema::ValidationResult;
+use crate::version::SchemaVersion;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::time::{SystemTime, UNIX_EPOCH};
 
-/// Vector Clock for causal ordering - tracks logical time across Cells.
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct VectorClock(pub HashMap<String, u64>);
 
@@ -27,12 +26,10 @@ impl VectorClock {
         Self::default()
     }
 
-    /// Increment the counter for a given cell after processing an event.
     pub fn increment(&mut self, cell_id: &str) {
         *self.0.entry(cell_id.to_string()).or_insert(0) += 1;
     }
 
-    /// Merge another vector clock (takes max for each entry) on message receive.
     pub fn merge(&mut self, other: &VectorClock) {
         for (key, value) in &other.0 {
             let entry = self.0.entry(key.clone()).or_insert(0);
@@ -40,7 +37,6 @@ impl VectorClock {
         }
     }
 
-    /// Check if this clock causally precedes another (this happens-before other).
     pub fn causally_precedes(&self, other: &VectorClock) -> bool {
         for (key, &self_val) in &self.0 {
             match other.0.get(key) {
@@ -52,18 +48,15 @@ impl VectorClock {
         true
     }
 
-    /// Check for concurrent (non-orderable) events.
     pub fn concurrent_with(&self, other: &VectorClock) -> bool {
         !self.causally_precedes(other) && !other.causally_precedes(self)
     }
 
-    /// Get the counter for a specific cell.
     pub fn get(&self, cell_id: &str) -> u64 {
         self.0.get(cell_id).copied().unwrap_or(0)
     }
 }
 
-/// Signal categories - determines routing and processing semantics.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum SignalKind {
     Command,
@@ -72,11 +65,7 @@ pub enum SignalKind {
     Response,
 }
 
-/// Base trait for all signals - NO default implementations for required fields.
-///
-/// All methods are required (no unimplemented!() defaults), ensuring every
-/// signal implementation provides complete metadata.
-pub trait Signal: Send + Sync + 'static + Schema + serde::Serialize {
+pub trait Signal: Send + Sync + 'static {
     fn signal_type(&self) -> &'static str;
     fn msg_id(&self) -> &MsgId;
     fn correlation_id(&self) -> &CorrelationId;
@@ -91,14 +80,21 @@ pub trait Signal: Send + Sync + 'static + Schema + serde::Serialize {
         None
     }
     fn schema_version(&self) -> SchemaVersion {
-        SignalSchema::schema_version()
+        SchemaVersion::new(1)
+    }
+
+    fn as_any(&self) -> &dyn std::any::Any;
+    fn clone_signal(&self) -> Box<dyn Signal>;
+    fn validate(&self) -> ValidationResult;
+    fn serialize_to_json(&self) -> serde_json::Value;
+}
+
+impl Clone for Box<dyn Signal> {
+    fn clone(&self) -> Self {
+        self.clone_signal()
     }
 }
 
-/// Type-erased signal envelope for the message bus.
-///
-/// Contains all metadata needed for routing, validation, and tracing,
-/// with the payload as a serialized JSON value.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SignalEnvelope {
     pub msg_id: MsgId,
@@ -126,13 +122,13 @@ impl SignalEnvelope {
             trace_id: signal.trace_id().cloned(),
             signal_type: signal.signal_type().to_string(),
             vector_clock: signal.vector_clock().clone(),
-            timestamp_ns: now_ns(),
+            timestamp_ns: signal.timestamp_ns(),
             kind: signal.kind(),
             source_layer: signal.layer(),
             target_layer,
             source_cell: signal.sender().map(|s| s.to_string()),
             target_cell: None,
-            payload: serde_json::to_value(signal).unwrap_or(serde_json::Value::Null),
+            payload: signal.serialize_to_json(),
             schema_version: signal.schema_version(),
             parent_msg_id: None,
             hop_count: 0,
@@ -166,6 +162,21 @@ impl SignalEnvelope {
         Ok(())
     }
 
+    pub fn validate_payload_size(&self, max_bytes: usize) -> crate::Result<()> {
+        if max_bytes > 0 {
+            let payload_bytes = self.payload.to_string().len();
+            if payload_bytes > max_bytes {
+                return Err(crate::AxiomError::SignalValidation {
+                    message: format!(
+                        "payload size {} bytes exceeds max {} bytes",
+                        payload_bytes, max_bytes
+                    ),
+                });
+            }
+        }
+        Ok(())
+    }
+
     pub fn increment_hop(&mut self) -> crate::Result<()> {
         self.hop_count += 1;
         const MAX_HOPS: u32 = 8;
@@ -184,7 +195,6 @@ impl SignalEnvelope {
     }
 }
 
-/// Current time in nanoseconds since UNIX epoch.
 pub fn now_ns() -> u64 {
     SystemTime::now()
         .duration_since(UNIX_EPOCH)
@@ -192,65 +202,10 @@ pub fn now_ns() -> u64 {
         .as_nanos() as u64
 }
 
-/// Clone box for dyn Signal compatibility.
-pub trait SignalClone: Send + Sync {
-    fn clone_box(&self) -> Box<dyn SignalDyn>;
-}
-
-/// Object-safe trait for dyn dispatch (no generics).
-pub trait SignalDyn: SignalClone + Send + Sync + 'static {
-    fn signal_type_dyn(&self) -> &'static str;
-    fn msg_id_dyn(&self) -> &MsgId;
-    fn correlation_id_dyn(&self) -> &CorrelationId;
-    fn vector_clock_dyn(&self) -> &VectorClock;
-    fn timestamp_ns_dyn(&self) -> u64;
-    fn kind_dyn(&self) -> SignalKind;
-    fn layer_dyn(&self) -> Layer;
-    fn validate_dyn(&self) -> ValidationResult;
-}
-
-impl<T: Signal + Clone + serde::Serialize> SignalClone for T {
-    fn clone_box(&self) -> Box<dyn SignalDyn> {
-        Box::new(self.clone())
-    }
-}
-
-impl<T: Signal + Clone + serde::Serialize> SignalDyn for T {
-    fn signal_type_dyn(&self) -> &'static str {
-        self.signal_type()
-    }
-    fn msg_id_dyn(&self) -> &MsgId {
-        self.msg_id()
-    }
-    fn correlation_id_dyn(&self) -> &CorrelationId {
-        self.correlation_id()
-    }
-    fn vector_clock_dyn(&self) -> &VectorClock {
-        self.vector_clock()
-    }
-    fn timestamp_ns_dyn(&self) -> u64 {
-        self.timestamp_ns()
-    }
-    fn kind_dyn(&self) -> SignalKind {
-        self.kind()
-    }
-    fn layer_dyn(&self) -> Layer {
-        self.layer()
-    }
-    fn validate_dyn(&self) -> ValidationResult {
-        <Self as Schema>::validate(self)
-    }
-}
-
-impl Clone for Box<dyn SignalDyn> {
-    fn clone(&self) -> Self {
-        self.clone_box()
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::id::{CorrelationId, MsgId};
 
     #[test]
     fn test_vector_clock_increment() {
@@ -288,7 +243,8 @@ mod tests {
         let env = SignalEnvelope::new(&cmd, Layer::Exec);
         assert!(env.validate_layer_transition().is_ok());
 
-        let env2 = SignalEnvelope::new(&cmd, Layer::Validate);
+        let mut env2 = SignalEnvelope::new(&cmd, Layer::Exec);
+        env2.target_layer = Layer::Validate;
         assert!(env2.validate_layer_transition().is_err());
 
         let mut bad_env = SignalEnvelope::new(&cmd, Layer::Exec);
@@ -307,6 +263,35 @@ mod tests {
         assert!(env.increment_hop().is_err());
     }
 
+    #[test]
+    fn test_signal_envelope_payload_serialization() {
+        let cmd = TestCommand::new("hello");
+        let env = SignalEnvelope::new(&cmd, Layer::Exec);
+        assert_eq!(env.signal_type, "TestCommand");
+        assert_eq!(env.payload["payload"], serde_json::json!("hello"));
+        assert_eq!(env.schema_version, SchemaVersion::new(1));
+    }
+
+    #[test]
+    fn test_box_dyn_signal_clone() {
+        let cmd = TestCommand::new("clone-test");
+        let boxed: Box<dyn Signal> = Box::new(cmd);
+        let cloned = boxed.clone();
+        assert_eq!(cloned.signal_type(), "TestCommand");
+        assert_eq!(cloned.msg_id().as_str(), "test-msg");
+    }
+
+    #[test]
+    fn test_signal_reply_to_sets_correlation() {
+        let cmd = TestCommand::new("original");
+        let original_env = SignalEnvelope::new(&cmd, Layer::Exec);
+        let reply = TestCommand::new("reply");
+        let reply_env = SignalEnvelope::reply_to(&reply, &original_env, Layer::Exec);
+        assert_eq!(reply_env.correlation_id.as_str(), "test-corr");
+        assert_eq!(reply_env.parent_msg_id.unwrap().as_str(), "test-msg");
+        assert_eq!(reply_env.hop_count, 1);
+    }
+
     #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
     struct TestCommand {
         msg_id: MsgId,
@@ -316,12 +301,12 @@ mod tests {
     }
 
     impl TestCommand {
-        fn new(payload: &str) -> Self {
+        fn new(p: &str) -> Self {
             Self {
                 msg_id: MsgId::new("test-msg"),
                 correlation_id: CorrelationId::new("test-corr"),
                 vector_clock: VectorClock::new(),
-                payload: payload.to_string(),
+                payload: p.to_string(),
             }
         }
     }
@@ -348,11 +333,17 @@ mod tests {
         fn layer(&self) -> Layer {
             Layer::Exec
         }
-    }
-
-    impl Schema for TestCommand {
+        fn as_any(&self) -> &dyn std::any::Any {
+            self
+        }
+        fn clone_signal(&self) -> Box<dyn Signal> {
+            Box::new(self.clone())
+        }
         fn validate(&self) -> ValidationResult {
             ValidationResult::ok()
+        }
+        fn serialize_to_json(&self) -> serde_json::Value {
+            serde_json::to_value(self).unwrap_or(serde_json::Value::Null)
         }
     }
 }

@@ -21,6 +21,7 @@ use crate::entropy_gov::EntropyGovernor;
 use crate::guardian::ArchitectureGuardian;
 use crate::mailbox::Mailbox;
 use crate::supervisor::Supervisor;
+use axiom_oversight::OversightSupervisor;
 
 pub struct CellRegistration {
     pub id: CellId,
@@ -87,15 +88,59 @@ fn now_ns() -> u64 {
         .as_nanos() as u64
 }
 
+pub struct RuntimeBuilder {
+    config: RuntimeConfig,
+    auto_register_builtin_interceptors: bool,
+}
+
+impl RuntimeBuilder {
+    pub fn new() -> Self {
+        Self {
+            config: RuntimeConfig::default(),
+            auto_register_builtin_interceptors: true,
+        }
+    }
+
+    pub fn with_config(mut self, config: RuntimeConfig) -> Self {
+        self.config = config;
+        self
+    }
+
+    pub fn mailbox_capacity(mut self, cap: usize) -> Self {
+        self.config.mailbox_capacity = cap;
+        self
+    }
+
+    pub fn auto_register_builtins(mut self, b: bool) -> Self {
+        self.auto_register_builtin_interceptors = b;
+        self
+    }
+
+    pub fn build(self) -> AxiomRuntime {
+        let rt = AxiomRuntime::new(self.config);
+        rt.auto_interceptors.store(self.auto_register_builtin_interceptors, Ordering::Relaxed);
+        rt
+    }
+}
+
+impl Default for RuntimeBuilder {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 pub struct AxiomRuntime {
     bus: Arc<MessageBus>,
     supervisor: Arc<Supervisor>,
     governor: Arc<EntropyGovernor>,
+    oversight: Arc<OversightSupervisor>,
     config: RuntimeConfig,
     cells: RwLock<Vec<RegisteredCell>>,
     stop_tx: tokio::sync::Mutex<Option<oneshot::Sender<()>>>,
     dispatch_handle: tokio::sync::Mutex<Option<JoinHandle<()>>>,
     health: Arc<RwLock<RuntimeHealth>>,
+    dlq: Arc<crate::dlq::DeadLetterQueue>,
+    auto_interceptors: std::sync::atomic::AtomicBool,
 }
 
 impl AxiomRuntime {
@@ -103,16 +148,28 @@ impl AxiomRuntime {
         let bus = Arc::new(MessageBus::new());
         let supervisor = Arc::new(Supervisor::new());
         let governor = Arc::new(EntropyGovernor::new(config.entropy_threshold));
+        let oversight = OversightSupervisor::new();
         Self {
             bus,
             supervisor,
             governor,
+            oversight,
             config,
             cells: RwLock::new(Vec::new()),
             stop_tx: tokio::sync::Mutex::new(None),
             dispatch_handle: tokio::sync::Mutex::new(None),
             health: Arc::new(RwLock::new(RuntimeHealth::default())),
+            dlq: Arc::new(crate::dlq::DeadLetterQueue::default()),
+            auto_interceptors: std::sync::atomic::AtomicBool::new(true),
         }
+    }
+
+    pub fn oversight(&self) -> &Arc<OversightSupervisor> {
+        &self.oversight
+    }
+
+    pub fn dlq(&self) -> Arc<crate::dlq::DeadLetterQueue> {
+        self.dlq.clone()
     }
 
     pub fn bus(&self) -> Arc<MessageBus> {
@@ -171,6 +228,24 @@ impl AxiomRuntime {
             }
         }
 
+        let report = self.oversight.startup().run();
+        for c in report.blocking_failures.iter() {
+            let msg = c
+                .error
+                .as_ref()
+                .map(|e| e.to_string())
+                .unwrap_or_default();
+            issues.push(format!("startup check [{}] failed: {}", c.name, msg));
+        }
+        for c in report.warnings.iter() {
+            let msg = c
+                .error
+                .as_ref()
+                .map(|e| e.to_string())
+                .unwrap_or_default();
+            tracing::warn!("startup warning [{}]: {}", c.name, msg);
+        }
+
         if issues.is_empty() {
             Ok(())
         } else {
@@ -196,6 +271,23 @@ impl AxiomRuntime {
 
         let guardian = Arc::new(ArchitectureGuardian::new());
         self.bus.register_interceptor(guardian).await;
+
+        if self.auto_interceptors.load(Ordering::Relaxed) {
+            self.bus.register_interceptor(Arc::new(crate::interceptors::HopLimitInterceptor::default())).await;
+            self.bus.register_interceptor(Arc::new(crate::interceptors::IdempotencyInterceptor::default())).await;
+            self.bus.register_interceptor(Arc::new(crate::interceptors::SchemaVersionInterceptor)).await;
+            self.bus.register_interceptor(Arc::new(crate::interceptors::LoopDetectInterceptor::default())).await;
+            self.bus.register_interceptor(Arc::new(crate::interceptors::OversightReportInterceptor::new(
+                self.oversight.architecture_guardian(),
+                self.oversight.entropy_governor(),
+            ))).await;
+            self.bus.register_interceptor(Arc::new(crate::interceptors::ResourceInterceptor::new(
+                self.oversight.resource_manager(),
+            ))).await;
+            self.bus.register_interceptor(Arc::new(crate::interceptors::ComplianceInterceptor::new(
+                self.oversight.compliance_guard(),
+            ))).await;
+        }
 
         let (tx, rx) = oneshot::channel::<()>();
         *self.stop_tx.lock().await = Some(tx);
@@ -258,16 +350,33 @@ impl AxiomRuntime {
         let bus_h = self.bus.clone();
         let gov_h = self.governor.clone();
         let health = self.health.clone();
+        let health_collector = self.oversight.health_collector();
+        let meta = self.oversight.meta_oversight();
+        let cells_data2: Vec<_> = self
+            .cells
+            .read()
+            .await
+            .iter()
+            .map(|r| (r.mailbox.clone(), r.id.clone()))
+            .collect();
         tokio::spawn(async move {
             let start = Instant::now();
+            let mut tick = tokio::time::interval(Duration::from_secs(1));
             loop {
-                tokio::time::sleep(Duration::from_secs(1)).await;
+                tick.tick().await;
                 let mut h = health.write().await;
                 h.uptime_ms = start.elapsed().as_millis() as u64;
                 h.messages_delivered = bus_h.delivered_count();
                 h.messages_rejected = bus_h.rejected_count();
                 h.entropy_score = gov_h.snapshot().score;
                 h.total_restarts = 0;
+                health_collector.set_message_stats(
+                    h.messages_delivered,
+                    h.messages_rejected,
+                    0,
+                    cells_data2.len(),
+                );
+                let _ = meta.tick_ping();
             }
         });
 

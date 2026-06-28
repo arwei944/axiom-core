@@ -1,0 +1,6 @@
+#!/bin/sh
+# axiom pre-push hook
+# Runs architecture verification before allowing a push.
+set -e
+
+axm verify

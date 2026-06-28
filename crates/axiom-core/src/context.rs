@@ -11,19 +11,15 @@
 
 use crate::id::{CellId, CorrelationId, MsgId, TraceId};
 use crate::layer::Layer;
-use crate::signal::{Signal, SignalEnvelope, VectorClock};
-use crate::witness::{Witness, WitnessBuilder};
+use crate::signal::{Signal, SignalEnvelope, VectorClock, now_ns};
+use crate::witness::{TransitionOutcome, Witness, WitnessBuilder};
 
-/// Outgoing signal envelope queued for delivery.
 #[derive(Debug, Clone)]
 pub struct OutgoingEnvelope(pub SignalEnvelope);
 
-/// Outgoing witness record.
 #[derive(Debug, Clone)]
 pub struct OutgoingWitness(pub Witness);
 
-/// The base CellContext used internally by the runtime.
-/// Layer-specific wrapper types provide compile-time send restrictions.
 pub struct CellContext<'a> {
     pub(crate) cell_id: &'a CellId,
     pub(crate) layer: Layer,
@@ -34,6 +30,13 @@ pub struct CellContext<'a> {
     pub(crate) outgoing: Vec<OutgoingEnvelope>,
     pub(crate) witnesses: Vec<OutgoingWitness>,
     pub(crate) witness_sample_rate: f64,
+    pub(crate) spawn_requests: Vec<CellSpawnRequest>,
+}
+
+#[derive(Debug, Clone)]
+#[allow(dead_code)]
+pub(crate) struct CellSpawnRequest {
+    pub target_layer: Layer,
 }
 
 impl<'a> CellContext<'a> {
@@ -48,6 +51,7 @@ impl<'a> CellContext<'a> {
             outgoing: Vec::new(),
             witnesses: Vec::new(),
             witness_sample_rate: 1.0,
+            spawn_requests: Vec::new(),
         }
     }
 
@@ -61,6 +65,10 @@ impl<'a> CellContext<'a> {
 
     pub fn current_correlation_id(&self) -> Option<&CorrelationId> {
         self.current_correlation.as_ref()
+    }
+
+    pub fn current_msg_id(&self) -> Option<&MsgId> {
+        self.current_msg_id.as_ref()
     }
 
     pub fn vector_clock(&self) -> &VectorClock {
@@ -80,6 +88,7 @@ impl<'a> CellContext<'a> {
         self.vector_clock.increment(self.cell_id.as_str());
         self.outgoing.clear();
         self.witnesses.clear();
+        self.spawn_requests.clear();
     }
 
     #[allow(dead_code)]
@@ -94,16 +103,22 @@ impl<'a> CellContext<'a> {
         signal: S,
         target_cell: Option<&str>,
         target_layer: Layer,
-    ) {
-        if !self.layer.can_send_to(target_layer) {
-            tracing::error!(
-                "Layer violation: {} cannot send to {} (signal: {})",
-                self.layer,
-                target_layer,
-                signal.signal_type()
-            );
-            return;
+    ) -> crate::Result<()> {
+        let validation = signal.validate();
+        if validation.has_errors() {
+            return Err(crate::AxiomError::SignalValidation {
+                message: format!("{}", validation),
+            });
         }
+
+        if !self.layer.can_send_to(target_layer) {
+            return Err(crate::AxiomError::LayerViolation {
+                from: self.layer,
+                to: target_layer,
+                signal_type: signal.signal_type().to_string(),
+            });
+        }
+
         let mut env = match target_cell {
             Some(tc) => SignalEnvelope::to_cell(&signal, tc, target_layer),
             None => SignalEnvelope::new(&signal, target_layer),
@@ -111,6 +126,7 @@ impl<'a> CellContext<'a> {
         env.vector_clock = self.vector_clock.clone();
         env.parent_msg_id = self.current_msg_id.clone();
         env.hop_count = 0;
+        env.source_cell = Some(self.cell_id.as_str().to_string());
         if let Some(ref corr) = self.current_correlation {
             env.correlation_id = corr.clone();
         }
@@ -118,33 +134,80 @@ impl<'a> CellContext<'a> {
             env.trace_id = Some(trace.clone());
         }
         self.outgoing.push(OutgoingEnvelope(env));
+        Ok(())
     }
 
-    /// Internal send to any layer - only used by Oversight and runtime internals.
-    pub fn send_any<S: Signal>(&mut self, signal: S, target_cell: &str, target_layer: Layer) {
-        self.emit_internal(signal, Some(target_cell), target_layer);
+    pub fn send<S: Signal>(&mut self, signal: S, target_cell: &str, target_layer: Layer) -> crate::Result<()> {
+        self.emit_internal(signal, Some(target_cell), target_layer)
     }
 
-    pub fn emit_to_layer<S: Signal>(&mut self, signal: S, target_layer: Layer) {
-        self.emit_internal(signal, None, target_layer);
+    pub fn emit_event<S: Signal>(&mut self, signal: S, target_layer: Layer) -> crate::Result<()> {
+        self.emit_internal(signal, None, target_layer)
+    }
+
+    pub fn reply<S: Signal>(&mut self, incoming: &SignalEnvelope, response: S) -> crate::Result<()> {
+        let target_cell = incoming.source_cell.clone().unwrap_or_default();
+        let target_layer = incoming.source_layer;
+        self.emit_internal(response, Some(&target_cell), target_layer)
+    }
+
+    pub fn reply_raw<S: Signal>(&mut self, response: S) -> crate::Result<()> {
+        if self.current_msg_id.is_some() {
+            let target_cell = self.cell_id.as_str().to_string();
+            self.emit_internal(response, Some(&target_cell), self.layer)
+        } else {
+            Err(crate::AxiomError::CorrelationBroken {
+                message: "reply called without current message context".into(),
+            })
+        }
+    }
+
+    pub fn emit_success(&mut self, summary: &str) {
+        let builder = self.witness().summary(summary).outcome(TransitionOutcome::Success);
+        builder.emit(self);
+    }
+
+    pub fn emit_failure(&mut self, summary: &str, reason: &str) {
+        let builder = self
+            .witness()
+            .summary(summary)
+            .outcome(TransitionOutcome::Failed {
+                reason: reason.to_string(),
+            });
+        builder.emit(self);
+    }
+
+    pub fn emit_axiom_violation(&mut self, axiom_name: &str, message: &str) {
+        let builder = self.witness().summary("axiom violation").outcome(
+            TransitionOutcome::AxiomViolated {
+                axiom_name: axiom_name.to_string(),
+                message: message.to_string(),
+            },
+        );
+        builder.emit(self);
     }
 
     pub fn witness(&self) -> WitnessBuilder {
         WitnessBuilder::new()
     }
 
-    pub(crate) fn add_witness(&mut self, witness: Witness) {
+    pub(crate) fn add_witness(&mut self, mut witness: Witness) {
         let should_sample = self.witness_sample_rate >= 1.0
             || (self.witness_sample_rate > 0.0 && {
-                let r: f64 = {
-                    use std::hash::{Hash, Hasher};
-                    let mut h = std::collections::hash_map::DefaultHasher::new();
-                    witness.witness_id.as_str().hash(&mut h);
-                    (h.finish() as f64) / (u64::MAX as f64)
-                };
+                use std::hash::{Hash, Hasher};
+                let mut h = std::collections::hash_map::DefaultHasher::new();
+                witness.witness_id.as_str().hash(&mut h);
+                let r = (h.finish() as f64) / (u64::MAX as f64);
                 r < self.witness_sample_rate
             });
         if should_sample {
+            if let Some(last) = self.witnesses.last() {
+                witness.prev_hash = Some(last.0.hash.clone());
+                #[cfg(feature = "sha2-id")]
+                {
+                    witness.hash = witness.compute_hash(&witness.prev_hash);
+                }
+            }
             self.witnesses.push(OutgoingWitness(witness));
         }
     }
@@ -156,9 +219,16 @@ impl<'a> CellContext<'a> {
     pub fn take_witnesses(&mut self) -> Vec<OutgoingWitness> {
         std::mem::take(&mut self.witnesses)
     }
+
+    pub fn spawn(&mut self, target_layer: Layer) -> crate::Result<CellId> {
+        self.spawn_requests.push(CellSpawnRequest { target_layer });
+        Ok(CellId::new(format!(
+            "spawn-{}",
+            now_ns()
+        )))
+    }
 }
 
-/// Layer-specific CellContext wrappers that enforce send restrictions at compile time.
 pub struct ExecCellContext<'a>(pub(crate) &'a mut CellContext<'a>);
 
 impl<'a> ExecCellContext<'a> {
@@ -168,13 +238,34 @@ impl<'a> ExecCellContext<'a> {
     pub fn vector_clock(&self) -> &VectorClock {
         self.0.vector_clock()
     }
-
-    pub fn send_to_exec<S: Signal>(&mut self, signal: S, target_cell: &str) {
-        self.0.emit_internal(signal, Some(target_cell), Layer::Exec);
+    pub fn current_correlation_id(&self) -> Option<&CorrelationId> {
+        self.0.current_correlation_id()
     }
 
-    pub fn emit_exec_event<S: Signal>(&mut self, signal: S) {
-        self.0.emit_internal(signal, None, Layer::Exec);
+    pub fn send_to_exec<S: Signal>(&mut self, signal: S, target_cell: &str) -> crate::Result<()> {
+        self.0.send(signal, target_cell, Layer::Exec)
+    }
+
+    pub fn send_to_validate<S: Signal>(&mut self, signal: S, target_cell: &str) -> crate::Result<()> {
+        self.0.send(signal, target_cell, Layer::Validate)
+    }
+
+    pub fn emit_exec_event<S: Signal>(&mut self, signal: S) -> crate::Result<()> {
+        self.0.emit_event(signal, Layer::Exec)
+    }
+
+    pub fn reply<S: Signal>(&mut self, incoming: &SignalEnvelope, response: S) -> crate::Result<()> {
+        self.0.reply(incoming, response)
+    }
+
+    pub fn emit_success(&mut self, summary: &str) {
+        self.0.emit_success(summary);
+    }
+    pub fn emit_failure(&mut self, summary: &str, reason: &str) {
+        self.0.emit_failure(summary, reason);
+    }
+    pub fn emit_axiom_violation(&mut self, axiom_name: &str, message: &str) {
+        self.0.emit_axiom_violation(axiom_name, message);
     }
 
     pub fn witness(&self) -> WitnessBuilder {
@@ -191,22 +282,42 @@ impl<'a> ValidateCellContext<'a> {
     pub fn vector_clock(&self) -> &VectorClock {
         self.0.vector_clock()
     }
-
-    pub fn send_to_validate<S: Signal>(&mut self, signal: S, target_cell: &str) {
-        self.0
-            .emit_internal(signal, Some(target_cell), Layer::Validate);
+    pub fn current_correlation_id(&self) -> Option<&CorrelationId> {
+        self.0.current_correlation_id()
     }
 
-    pub fn send_to_exec<S: Signal>(&mut self, signal: S, target_cell: &str) {
-        self.0.emit_internal(signal, Some(target_cell), Layer::Exec);
+    pub fn send_to_validate<S: Signal>(&mut self, signal: S, target_cell: &str) -> crate::Result<()> {
+        self.0.send(signal, target_cell, Layer::Validate)
     }
 
-    pub fn emit_validate_event<S: Signal>(&mut self, signal: S) {
-        self.0.emit_internal(signal, None, Layer::Validate);
+    pub fn send_to_exec<S: Signal>(&mut self, signal: S, target_cell: &str) -> crate::Result<()> {
+        self.0.send(signal, target_cell, Layer::Exec)
     }
 
-    pub fn emit_exec_event<S: Signal>(&mut self, signal: S) {
-        self.0.emit_internal(signal, None, Layer::Exec);
+    pub fn send_to_agent<S: Signal>(&mut self, signal: S, target_cell: &str) -> crate::Result<()> {
+        self.0.send(signal, target_cell, Layer::Agent)
+    }
+
+    pub fn emit_validate_event<S: Signal>(&mut self, signal: S) -> crate::Result<()> {
+        self.0.emit_event(signal, Layer::Validate)
+    }
+
+    pub fn emit_exec_event<S: Signal>(&mut self, signal: S) -> crate::Result<()> {
+        self.0.emit_event(signal, Layer::Exec)
+    }
+
+    pub fn reply<S: Signal>(&mut self, incoming: &SignalEnvelope, response: S) -> crate::Result<()> {
+        self.0.reply(incoming, response)
+    }
+
+    pub fn emit_success(&mut self, summary: &str) {
+        self.0.emit_success(summary);
+    }
+    pub fn emit_failure(&mut self, summary: &str, reason: &str) {
+        self.0.emit_failure(summary, reason);
+    }
+    pub fn emit_axiom_violation(&mut self, axiom_name: &str, message: &str) {
+        self.0.emit_axiom_violation(axiom_name, message);
     }
 
     pub fn witness(&self) -> WitnessBuilder {
@@ -223,23 +334,38 @@ impl<'a> AgentCellContext<'a> {
     pub fn vector_clock(&self) -> &VectorClock {
         self.0.vector_clock()
     }
-
-    pub fn send_to_agent<S: Signal>(&mut self, signal: S, target_cell: &str) {
-        self.0
-            .emit_internal(signal, Some(target_cell), Layer::Agent);
+    pub fn current_correlation_id(&self) -> Option<&CorrelationId> {
+        self.0.current_correlation_id()
     }
 
-    pub fn send_to_validate<S: Signal>(&mut self, signal: S, target_cell: &str) {
-        self.0
-            .emit_internal(signal, Some(target_cell), Layer::Validate);
+    pub fn send_to_agent<S: Signal>(&mut self, signal: S, target_cell: &str) -> crate::Result<()> {
+        self.0.send(signal, target_cell, Layer::Agent)
     }
 
-    pub fn emit_agent_event<S: Signal>(&mut self, signal: S) {
-        self.0.emit_internal(signal, None, Layer::Agent);
+    pub fn send_to_validate<S: Signal>(&mut self, signal: S, target_cell: &str) -> crate::Result<()> {
+        self.0.send(signal, target_cell, Layer::Validate)
     }
 
-    pub fn emit_validate_event<S: Signal>(&mut self, signal: S) {
-        self.0.emit_internal(signal, None, Layer::Validate);
+    pub fn emit_agent_event<S: Signal>(&mut self, signal: S) -> crate::Result<()> {
+        self.0.emit_event(signal, Layer::Agent)
+    }
+
+    pub fn emit_validate_event<S: Signal>(&mut self, signal: S) -> crate::Result<()> {
+        self.0.emit_event(signal, Layer::Validate)
+    }
+
+    pub fn reply<S: Signal>(&mut self, incoming: &SignalEnvelope, response: S) -> crate::Result<()> {
+        self.0.reply(incoming, response)
+    }
+
+    pub fn emit_success(&mut self, summary: &str) {
+        self.0.emit_success(summary);
+    }
+    pub fn emit_failure(&mut self, summary: &str, reason: &str) {
+        self.0.emit_failure(summary, reason);
+    }
+    pub fn emit_axiom_violation(&mut self, axiom_name: &str, message: &str) {
+        self.0.emit_axiom_violation(axiom_name, message);
     }
 
     pub fn witness(&self) -> WitnessBuilder {
@@ -256,13 +382,30 @@ impl<'a> OversightCellContext<'a> {
     pub fn vector_clock(&self) -> &VectorClock {
         self.0.vector_clock()
     }
-
-    pub fn send_any<S: Signal>(&mut self, signal: S, target_cell: &str, target_layer: Layer) {
-        self.0.send_any(signal, target_cell, target_layer);
+    pub fn current_correlation_id(&self) -> Option<&CorrelationId> {
+        self.0.current_correlation_id()
     }
 
-    pub fn emit_event<S: Signal>(&mut self, signal: S, target_layer: Layer) {
-        self.0.emit_to_layer(signal, target_layer);
+    pub fn send_any<S: Signal>(&mut self, signal: S, target_cell: &str, target_layer: Layer) -> crate::Result<()> {
+        self.0.send(signal, target_cell, target_layer)
+    }
+
+    pub fn emit_event<S: Signal>(&mut self, signal: S, target_layer: Layer) -> crate::Result<()> {
+        self.0.emit_event(signal, target_layer)
+    }
+
+    pub fn reply<S: Signal>(&mut self, incoming: &SignalEnvelope, response: S) -> crate::Result<()> {
+        self.0.reply(incoming, response)
+    }
+
+    pub fn emit_success(&mut self, summary: &str) {
+        self.0.emit_success(summary);
+    }
+    pub fn emit_failure(&mut self, summary: &str, reason: &str) {
+        self.0.emit_failure(summary, reason);
+    }
+    pub fn emit_axiom_violation(&mut self, axiom_name: &str, message: &str) {
+        self.0.emit_axiom_violation(axiom_name, message);
     }
 
     pub fn witness(&self) -> WitnessBuilder {

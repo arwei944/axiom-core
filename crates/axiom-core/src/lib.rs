@@ -31,21 +31,24 @@ pub mod signal;
 pub mod version;
 pub mod witness;
 
-pub use entropy::EntropyScore;
+pub use entropy::{EntropyLevel, EntropyScore, EntropySnapshot, EntropyWeights};
 pub use error::{AxiomError, Result};
 pub use id::{AxiomId, CellId, CorrelationId, LensId, MsgId, TraceId, WitnessId};
 pub use layer::Layer;
 pub use registry::{
     count_registered_axioms, registered_migration_chains, verify_migration_chain_completeness,
 };
-pub use schema::Schema;
+pub use schema::{Schema, ValidationResult};
 pub use sealed::{
-    AgentLayer, CanSendTo, ExecLayer, LayerMarker, OversightLayer, ValidateLayer,
-    can_send_at_runtime,
+    can_send_at_runtime, AgentLayer, CanSendTo, ExecLayer, LayerMarker, OversightLayer,
+    ValidateLayer,
 };
+pub use signal::{Signal, SignalEnvelope, SignalKind, VectorClock};
 pub use version::{
     Compatibility, CrateVersion, IdentityVersion, Migration, MigrationRegistry, ProtocolVersion,
     SchemaVersion, Version, VersionInfo, Versioned,
 };
+pub use witness::{TransitionOutcome, Witness, WitnessBatch, WitnessBuilder, WitnessHash, WitnessMetrics};
 
-pub use axiom_macros::{cell, axiom, migration, schema_version, SignalPayload};
+pub use axiom_macros::{axiom, cell, migration, schema_version, SignalPayload};
+pub use linkme;

@@ -1,0 +1,9 @@
+error: migration requires `from = N` where N >= 1
+  --> tests/compile-fail/cf-migration-from-zero.rs:6:1
+   |
+ 6 | / impl axiom_core::version::Migration for BadMigration {
+ 7 | |     fn migrate(&self, input: serde_json::Value) -> axiom_core::Result<serde_json::Value> {
+ 8 | |         Ok(input)
+ 9 | |     }
+10 | | }
+   | |_^

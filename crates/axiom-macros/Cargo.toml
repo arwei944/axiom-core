@@ -3,7 +3,7 @@ name = "axiom-macros"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
-description = "Procedural macros: #[cell], #[axiom]"
+description = "Procedural macros: #[cell], #[axiom], #[signal_payload], #[schema_version], #[migration]"
 
 [lib]
 proc-macro = true
@@ -12,3 +12,10 @@ proc-macro = true
 syn = { version = "2", features = ["full"] }
 quote = "1"
 proc-macro2 = "1"
+
+[dev-dependencies]
+trybuild = { workspace = true }
+axiom-core = { path = "../axiom-core" }
+tokio = { workspace = true, features = ["rt", "macros", "test-util"] }
+serde = { workspace = true }
+serde_json = { workspace = true }
