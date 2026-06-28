@@ -1,6 +1,51 @@
 #!/bin/sh
-# axiom pre-commit hook
-# Runs axiom quality gates before allowing a commit.
+# axiom-core pre-commit hook
+# Runs format check, build, clippy, test, and architecture verification.
+# Installed via: axm init (sets git config core.hooksPath to hooks/)
+#
+# Can be bypassed with: git commit --no-verify (NOT RECOMMENDED)
+
 set -e
 
-axm check
+echo "=== axiom pre-commit ==="
+
+# Stash unstaged changes to test only staged content
+STASHED=0
+if ! git diff --cached --quiet; then
+    if ! git diff --quiet; then
+        echo "Stashing unstaged changes..."
+        git stash -q --keep-index
+        STASHED=1
+    fi
+fi
+
+cleanup() {
+    if [ "$STASHED" -eq 1 ]; then
+        echo "Restoring unstaged changes..."
+        git stash pop -q
+    fi
+}
+trap cleanup EXIT
+
+echo "[1/5] cargo fmt --check..."
+cargo fmt --all -- --check
+
+echo "[2/5] cargo build..."
+cargo build --workspace
+
+echo "[3/5] cargo clippy (warnings as errors)..."
+cargo clippy --workspace --all-targets -- -D warnings
+
+echo "[4/5] cargo test..."
+cargo test --workspace
+
+echo "[5/5] axiom verify (architecture constraints)..."
+if command -v axm >/dev/null 2>&1; then
+    axm verify
+else
+    echo "axm not installed, using cargo run..."
+    cargo run --quiet --bin axm -- verify
+fi
+
+echo ""
+echo "All pre-commit checks passed."

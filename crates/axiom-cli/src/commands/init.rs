@@ -30,46 +30,38 @@ pub fn run_init() -> Result<ExitCode> {
     Ok(ExitCode::SUCCESS)
 }
 
-fn install_hooks(project_root: &Path) -> Result<()> {
+pub(crate) fn install_hooks(project_root: &Path) -> Result<()> {
     let hooks_src = project_root.join("hooks");
     if !hooks_src.exists() {
-        println!("  ⚠ hooks/ directory not found in project root, skipping hook installation.");
-        return Ok(());
+        anyhow::bail!(
+            "hooks/ directory not found in project root. Expected at {}.",
+            hooks_src.display()
+        );
     }
-
-    let git_dir = project_root.join(".git");
-    if !git_dir.exists() {
-        println!("  ⚠ .git/ directory not found, skipping hook installation.");
-        return Ok(());
-    }
-
-    let git_hooks = git_dir.join("hooks");
-    std::fs::create_dir_all(&git_hooks).context("Failed to create .git/hooks/ directory")?;
 
     for hook_name in &["pre-commit", "pre-push"] {
-        let src = hooks_src.join(hook_name);
-        let dst = git_hooks.join(hook_name);
-        if src.exists() {
-            std::fs::copy(&src, &dst)
-                .with_context(|| format!("Failed to copy {} to .git/hooks/", hook_name))?;
-            set_executable_permission(&dst)?;
-            println!("  ✓ installed {}", hook_name);
+        let hook_path = hooks_src.join(hook_name);
+        if !hook_path.exists() {
+            anyhow::bail!("Required hook '{}' not found in hooks/", hook_name);
         }
     }
 
-    Ok(())
-}
+    let hooks_abs = hooks_src
+        .canonicalize()
+        .context("Failed to resolve hooks/ absolute path")?;
+    let status = std::process::Command::new("git")
+        .args(["config", "core.hooksPath", hooks_abs.to_str().unwrap()])
+        .current_dir(project_root)
+        .status()
+        .context("Failed to run 'git config core.hooksPath'")?;
 
-#[cfg(unix)]
-fn set_executable_permission(path: &Path) -> Result<()> {
-    use std::os::unix::fs::PermissionsExt;
-    let perms = std::fs::Permissions::from_mode(0o755);
-    std::fs::set_permissions(path, perms).context("Failed to set executable permission")?;
-    Ok(())
-}
+    if !status.success() {
+        anyhow::bail!("git config core.hooksPath failed with exit code: {:?}", status.code());
+    }
 
-#[cfg(not(unix))]
-fn set_executable_permission(_path: &Path) -> Result<()> {
+    println!("  ✓ configured core.hooksPath -> hooks/");
+    println!("  ✓ hooks active: pre-commit, pre-push");
+
     Ok(())
 }
 

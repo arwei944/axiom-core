@@ -1,6 +1,12 @@
 #!/bin/sh
-# axiom pre-push hook
-# Runs architecture verification before allowing a push.
+# axiom-core pre-push hook
+# Runs full quality gates before allowing push.
 set -e
 
-axm verify
+echo "=== axiom pre-push ==="
+if command -v axm >/dev/null 2>&1; then
+    axm verify
+else
+    echo "axm not installed, using cargo run..."
+    cargo run --quiet --bin axm -- verify
+fi
