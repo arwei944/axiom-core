@@ -21,6 +21,7 @@ pub mod cell;
 pub mod context;
 pub mod entropy;
 pub mod error;
+pub mod gate;
 pub mod id;
 pub mod layer;
 pub mod lens;
@@ -48,7 +49,9 @@ pub use version::{
     Compatibility, CrateVersion, IdentityVersion, Migration, MigrationRegistry, ProtocolVersion,
     SchemaVersion, Version, VersionInfo, Versioned,
 };
-pub use witness::{TransitionOutcome, Witness, WitnessBatch, WitnessBuilder, WitnessHash, WitnessMetrics};
+pub use witness::{
+    TransitionOutcome, Witness, WitnessBatch, WitnessBuilder, WitnessHash, WitnessMetrics,
+};
 
 pub use axiom_macros::{axiom, cell, migration, schema_version, SignalPayload};
 pub use linkme;
