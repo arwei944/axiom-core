@@ -1,7 +1,7 @@
 //! In-memory event store implementation (for testing and development).
 
 use crate::event::Event;
-use crate::store::{EventReceiver, EventStore, StoreError};
+use crate::store::{BoxFuture, EventReceiver, EventStore, StoreError};
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
@@ -38,121 +38,145 @@ impl Default for MemoryStore {
     }
 }
 
-#[async_trait::async_trait]
 impl EventStore for MemoryStore {
-    async fn append(&self, mut event: Event) -> Result<u64, StoreError> {
-        let event_id = event.event_id.clone();
+    fn append<'a>(&'a self, mut event: Event) -> BoxFuture<'a, Result<u64, StoreError>> {
+        Box::pin(async move {
+            let event_id = event.event_id.clone();
 
-        {
-            let index = self.inner.event_index.read().await;
-            if index.contains_key(&event_id) {
-                return Err(StoreError::DuplicateEvent(event_id));
-            }
-        }
-
-        let seq = self.inner.sequence.fetch_add(1, Ordering::SeqCst) + 1;
-        event.sequence_number = seq;
-
-        {
-            let mut events = self.inner.events.write().await;
-            let mut index = self.inner.event_index.write().await;
-            index.insert(event_id, events.len());
-            let arc_event = Arc::new(event.clone());
-            events.push(event);
-            let _ = self.inner.sender.send(arc_event);
-        }
-        Ok(seq)
-    }
-
-    async fn append_batch(&self, events: Vec<Event>) -> Result<Vec<u64>, StoreError> {
-        let mut seqs = Vec::with_capacity(events.len());
-
-        {
-            let index = self.inner.event_index.read().await;
-            for event in &events {
-                if index.contains_key(&event.event_id) {
-                    return Err(StoreError::DuplicateEvent(event.event_id.clone()));
+            {
+                let index = self.inner.event_index.read().await;
+                if index.contains_key(&event_id) {
+                    return Err(StoreError::DuplicateEvent(event_id));
                 }
             }
-        }
 
-        let mut events_mut = self.inner.events.write().await;
-        let mut index = self.inner.event_index.write().await;
-
-        for mut event in events {
             let seq = self.inner.sequence.fetch_add(1, Ordering::SeqCst) + 1;
             event.sequence_number = seq;
-            let event_id = event.event_id.clone();
-            let arc_event = Arc::new(event.clone());
-            index.insert(event_id, events_mut.len());
-            seqs.push(seq);
-            let _ = self.inner.sender.send(arc_event);
-            events_mut.push(event);
-        }
-        Ok(seqs)
+
+            {
+                let mut events = self.inner.events.write().await;
+                let mut index = self.inner.event_index.write().await;
+                index.insert(event_id, events.len());
+                let arc_event = Arc::new(event.clone());
+                events.push(event);
+                let _ = self.inner.sender.send(arc_event);
+            }
+            Ok(seq)
+        })
     }
 
-    async fn read(&self, aggregate_id: &str) -> Result<Vec<Event>, StoreError> {
-        let events = self.inner.events.read().await;
-        Ok(events
-            .iter()
-            .filter(|e| e.aggregate_id == aggregate_id)
-            .cloned()
-            .collect())
+    fn append_batch<'a>(
+        &'a self,
+        events: Vec<Event>,
+    ) -> BoxFuture<'a, Result<Vec<u64>, StoreError>> {
+        Box::pin(async move {
+            let mut seqs = Vec::with_capacity(events.len());
+
+            {
+                let index = self.inner.event_index.read().await;
+                for event in &events {
+                    if index.contains_key(&event.event_id) {
+                        return Err(StoreError::DuplicateEvent(event.event_id.clone()));
+                    }
+                }
+            }
+
+            let mut events_mut = self.inner.events.write().await;
+            let mut index = self.inner.event_index.write().await;
+
+            for mut event in events {
+                let seq = self.inner.sequence.fetch_add(1, Ordering::SeqCst) + 1;
+                event.sequence_number = seq;
+                let event_id = event.event_id.clone();
+                let arc_event = Arc::new(event.clone());
+                index.insert(event_id, events_mut.len());
+                seqs.push(seq);
+                let _ = self.inner.sender.send(arc_event);
+                events_mut.push(event);
+            }
+            Ok(seqs)
+        })
     }
 
-    async fn read_all(&self) -> Result<Vec<Event>, StoreError> {
-        let events = self.inner.events.read().await;
-        Ok(events.clone())
+    fn read<'a>(&'a self, aggregate_id: &'a str) -> BoxFuture<'a, Result<Vec<Event>, StoreError>> {
+        Box::pin(async move {
+            let events = self.inner.events.read().await;
+            Ok(events
+                .iter()
+                .filter(|e| e.aggregate_id == aggregate_id)
+                .cloned()
+                .collect())
+        })
     }
 
-    async fn read_after(&self, after_ns: u64) -> Result<Vec<Event>, StoreError> {
-        let events = self.inner.events.read().await;
-        Ok(events
-            .iter()
-            .filter(|e| e.timestamp_ns > after_ns)
-            .cloned()
-            .collect())
+    fn read_all<'a>(&'a self) -> BoxFuture<'a, Result<Vec<Event>, StoreError>> {
+        Box::pin(async move {
+            let events = self.inner.events.read().await;
+            Ok(events.clone())
+        })
     }
 
-    async fn read_after_sequence(&self, seq: u64) -> Result<Vec<Event>, StoreError> {
-        let events = self.inner.events.read().await;
-        Ok(events
-            .iter()
-            .filter(|e| e.sequence_number > seq)
-            .cloned()
-            .collect())
+    fn read_after<'a>(&'a self, after_ns: u64) -> BoxFuture<'a, Result<Vec<Event>, StoreError>> {
+        Box::pin(async move {
+            let events = self.inner.events.read().await;
+            Ok(events
+                .iter()
+                .filter(|e| e.timestamp_ns > after_ns)
+                .cloned()
+                .collect())
+        })
     }
 
-    async fn read_range(
-        &self,
-        aggregate_id: &str,
+    fn read_after_sequence<'a>(
+        &'a self,
+        seq: u64,
+    ) -> BoxFuture<'a, Result<Vec<Event>, StoreError>> {
+        Box::pin(async move {
+            let events = self.inner.events.read().await;
+            Ok(events
+                .iter()
+                .filter(|e| e.sequence_number > seq)
+                .cloned()
+                .collect())
+        })
+    }
+
+    fn read_range<'a>(
+        &'a self,
+        aggregate_id: &'a str,
         from_seq: u64,
         to_seq: u64,
-    ) -> Result<Vec<Event>, StoreError> {
-        let events = self.inner.events.read().await;
-        Ok(events
-            .iter()
-            .filter(|e| {
-                e.aggregate_id == aggregate_id
-                    && e.sequence_number >= from_seq
-                    && e.sequence_number <= to_seq
-            })
-            .cloned()
-            .collect())
+    ) -> BoxFuture<'a, Result<Vec<Event>, StoreError>> {
+        Box::pin(async move {
+            let events = self.inner.events.read().await;
+            Ok(events
+                .iter()
+                .filter(|e| {
+                    e.aggregate_id == aggregate_id
+                        && e.sequence_number >= from_seq
+                        && e.sequence_number <= to_seq
+                })
+                .cloned()
+                .collect())
+        })
     }
 
-    async fn read_by_correlation(&self, correlation_id: &str) -> Result<Vec<Event>, StoreError> {
-        let events = self.inner.events.read().await;
-        Ok(events
-            .iter()
-            .filter(|e| e.correlation_id.as_str() == correlation_id)
-            .cloned()
-            .collect())
+    fn read_by_correlation<'a>(
+        &'a self,
+        correlation_id: &'a str,
+    ) -> BoxFuture<'a, Result<Vec<Event>, StoreError>> {
+        Box::pin(async move {
+            let events = self.inner.events.read().await;
+            Ok(events
+                .iter()
+                .filter(|e| e.correlation_id.as_str() == correlation_id)
+                .cloned()
+                .collect())
+        })
     }
 
-    async fn latest_sequence(&self) -> Result<u64, StoreError> {
-        Ok(self.inner.sequence.load(Ordering::SeqCst))
+    fn latest_sequence<'a>(&'a self) -> BoxFuture<'a, Result<u64, StoreError>> {
+        Box::pin(async move { Ok(self.inner.sequence.load(Ordering::SeqCst)) })
     }
 
     fn subscribe(&self) -> EventReceiver {
@@ -194,7 +218,9 @@ mod tests {
     async fn test_batch_append_atomic() {
         let store = MemoryStore::new();
         let events: Vec<Event> = (0..5)
-            .map(|i| EventBuilder::new("batch", &format!("e{}", i), serde_json::json!({"i": i})).build())
+            .map(|i| {
+                EventBuilder::new("batch", &format!("e{}", i), serde_json::json!({"i": i})).build()
+            })
             .collect();
         let seqs = store.append_batch(events).await.unwrap();
         assert_eq!(seqs, vec![1, 2, 3, 4, 5]);

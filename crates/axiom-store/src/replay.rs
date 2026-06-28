@@ -37,10 +37,7 @@ pub struct ReplayEngine {
 }
 
 impl ReplayEngine {
-    pub fn new(
-        event_store: Arc<dyn EventStore>,
-        snapshot_store: Arc<dyn SnapshotStore>,
-    ) -> Self {
+    pub fn new(event_store: Arc<dyn EventStore>, snapshot_store: Arc<dyn SnapshotStore>) -> Self {
         Self {
             event_store,
             snapshot_store,
@@ -212,8 +209,7 @@ mod tests {
 
     async fn populate(store: &MemoryStore, agg: &str) {
         for _ in 1..=5 {
-            let e = EventBuilder::new(agg, "increment", serde_json::json!({"by": 1}))
-                .build();
+            let e = EventBuilder::new(agg, "increment", serde_json::json!({"by": 1})).build();
             store.append(e).await.unwrap();
         }
         let e = EventBuilder::new(agg, "set_name", serde_json::json!({"name": "test"})).build();
@@ -251,8 +247,7 @@ mod tests {
             .unwrap();
 
         for _ in 0..5 {
-            let e = EventBuilder::new("c2", "increment", serde_json::json!({"by": 2}))
-                .build();
+            let e = EventBuilder::new("c2", "increment", serde_json::json!({"by": 2})).build();
             store.append(e).await.unwrap();
         }
 

@@ -1,9 +1,12 @@
 //! EventStore trait - abstraction for event storage.
 
 use crate::event::Event;
-use async_trait::async_trait;
+use std::future::Future;
+use std::pin::Pin;
 use std::sync::Arc;
 use tokio::sync::broadcast;
+
+pub type BoxFuture<'a, T> = Pin<Box<dyn Future<Output = T> + Send + 'a>>;
 
 #[derive(Debug, thiserror::Error)]
 pub enum StoreError {
@@ -28,30 +31,36 @@ pub enum StoreError {
 pub type EventSender = broadcast::Sender<Arc<Event>>;
 pub type EventReceiver = broadcast::Receiver<Arc<Event>>;
 
-#[async_trait]
 pub trait EventStore: Send + Sync {
-    async fn append(&self, event: Event) -> Result<u64, StoreError>;
+    fn append<'a>(&'a self, event: Event) -> BoxFuture<'a, Result<u64, StoreError>>;
 
-    async fn append_batch(&self, events: Vec<Event>) -> Result<Vec<u64>, StoreError>;
+    fn append_batch<'a>(
+        &'a self,
+        events: Vec<Event>,
+    ) -> BoxFuture<'a, Result<Vec<u64>, StoreError>>;
 
-    async fn read(&self, aggregate_id: &str) -> Result<Vec<Event>, StoreError>;
+    fn read<'a>(&'a self, aggregate_id: &'a str) -> BoxFuture<'a, Result<Vec<Event>, StoreError>>;
 
-    async fn read_all(&self) -> Result<Vec<Event>, StoreError>;
+    fn read_all<'a>(&'a self) -> BoxFuture<'a, Result<Vec<Event>, StoreError>>;
 
-    async fn read_after(&self, after_ns: u64) -> Result<Vec<Event>, StoreError>;
+    fn read_after<'a>(&'a self, after_ns: u64) -> BoxFuture<'a, Result<Vec<Event>, StoreError>>;
 
-    async fn read_after_sequence(&self, seq: u64) -> Result<Vec<Event>, StoreError>;
+    fn read_after_sequence<'a>(&'a self, seq: u64)
+        -> BoxFuture<'a, Result<Vec<Event>, StoreError>>;
 
-    async fn read_range(
-        &self,
-        aggregate_id: &str,
+    fn read_range<'a>(
+        &'a self,
+        aggregate_id: &'a str,
         from_seq: u64,
         to_seq: u64,
-    ) -> Result<Vec<Event>, StoreError>;
+    ) -> BoxFuture<'a, Result<Vec<Event>, StoreError>>;
 
-    async fn read_by_correlation(&self, correlation_id: &str) -> Result<Vec<Event>, StoreError>;
+    fn read_by_correlation<'a>(
+        &'a self,
+        correlation_id: &'a str,
+    ) -> BoxFuture<'a, Result<Vec<Event>, StoreError>>;
 
-    async fn latest_sequence(&self) -> Result<u64, StoreError>;
+    fn latest_sequence<'a>(&'a self) -> BoxFuture<'a, Result<u64, StoreError>>;
 
     fn subscribe(&self) -> EventReceiver;
 }

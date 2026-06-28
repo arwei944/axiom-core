@@ -83,7 +83,9 @@ impl LoopDetector {
         if cells.len() >= self.max_cells_per_correlation {
             return Err(format!(
                 "message chain too long for correlation {}: visited {} cells (max {})",
-                cid, cells.len(), self.max_cells_per_correlation
+                cid,
+                cells.len(),
+                self.max_cells_per_correlation
             ));
         }
 

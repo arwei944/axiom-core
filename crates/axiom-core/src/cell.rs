@@ -233,7 +233,11 @@ mod tests {
             Layer::Exec
         }
 
-        async fn handle(&mut self, signal: ExecCmd, _ctx: &mut CellContext<'_>) -> crate::Result<()> {
+        async fn handle(
+            &mut self,
+            signal: ExecCmd,
+            _ctx: &mut CellContext<'_>,
+        ) -> crate::Result<()> {
             self.received.push(signal.data);
             Ok(())
         }

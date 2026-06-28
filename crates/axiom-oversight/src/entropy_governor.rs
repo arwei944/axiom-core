@@ -17,9 +17,16 @@ pub enum EntropyLevel {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum GovernanceAction {
     None,
-    Warn { message: String },
-    Throttle { target_cell: Option<String>, factor: f64 },
-    Emergency { reason: String },
+    Warn {
+        message: String,
+    },
+    Throttle {
+        target_cell: Option<String>,
+        factor: f64,
+    },
+    Emergency {
+        reason: String,
+    },
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -249,7 +256,10 @@ mod tests {
             });
         }
         let s = g.snapshot();
-        assert!(matches!(s.level, EntropyLevel::Red | EntropyLevel::Critical));
+        assert!(matches!(
+            s.level,
+            EntropyLevel::Red | EntropyLevel::Critical
+        ));
         let action = g.take_action();
         assert!(matches!(
             action,

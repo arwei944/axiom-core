@@ -100,13 +100,16 @@ impl HealthCollectorCell {
     }
 
     pub fn update_cell(&self, health: CellHealth) {
-        self.cells
-            .lock()
-            .unwrap()
-            .insert(health.id.clone(), health);
+        self.cells.lock().unwrap().insert(health.id.clone(), health);
     }
 
-    pub fn set_message_stats(&self, delivered: u64, rejected: u64, dlq: usize, active_cells: usize) {
+    pub fn set_message_stats(
+        &self,
+        delivered: u64,
+        rejected: u64,
+        dlq: usize,
+        active_cells: usize,
+    ) {
         let mut m = self.message_stats.lock().unwrap();
         m.total_delivered = delivered;
         m.total_rejected = rejected;
@@ -130,18 +133,8 @@ impl HealthCollectorCell {
         let uptime = self.started_at.elapsed().as_secs();
         let cells: Vec<CellHealth> = self.cells.lock().unwrap().values().cloned().collect();
         let messages = self.message_stats.lock().unwrap().clone();
-        let entropy = self
-            .entropy
-            .lock()
-            .unwrap()
-            .as_ref()
-            .map(|g| g.snapshot());
-        let resources = self
-            .resources
-            .lock()
-            .unwrap()
-            .as_ref()
-            .map(|r| r.stats());
+        let entropy = self.entropy.lock().unwrap().as_ref().map(|g| g.snapshot());
+        let resources = self.resources.lock().unwrap().as_ref().map(|r| r.stats());
         let oversight = self.oversight_health.lock().unwrap().clone();
 
         let mut status = HealthStatus::Healthy;
@@ -167,12 +160,16 @@ impl HealthCollectorCell {
             status = HealthStatus::Critical;
         }
 
-        let any_stopped = cells.iter().any(|c| c.state == "Stopped" || c.state == "Crashed");
+        let any_stopped = cells
+            .iter()
+            .any(|c| c.state == "Stopped" || c.state == "Crashed");
         if any_stopped {
             status = HealthStatus::Critical;
         }
 
-        let any_restarting = cells.iter().any(|c| c.state == "Restarting" || c.state == "CircuitOpen");
+        let any_restarting = cells
+            .iter()
+            .any(|c| c.state == "Restarting" || c.state == "CircuitOpen");
         if any_restarting && status == HealthStatus::Healthy {
             status = HealthStatus::Degraded;
         }

@@ -8,7 +8,6 @@ description = "Tokio-based runtime with supervision tree"
 
 [dependencies]
 axiom-core = { path = "../axiom-core" }
-axiom-oversight = { path = "../axiom-oversight" }
 tokio = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }

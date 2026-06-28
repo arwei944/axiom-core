@@ -8,6 +8,7 @@ description = "Layer 0 Oversight - meta-governance: entropy, architecture compli
 
 [dependencies]
 axiom-core = { path = "../axiom-core" }
+axiom-runtime = { path = "../axiom-runtime" }
 tokio = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }

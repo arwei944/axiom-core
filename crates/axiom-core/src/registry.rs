@@ -44,7 +44,10 @@ pub fn verify_migration_chain_completeness(up_to: u16) -> Result<(), Vec<String>
 }
 
 /// Verify migration chains for a specific signal type by name.
-pub fn verify_migration_chain_for_type(signal_type: &str, current_version: u16) -> Result<(), Vec<String>> {
+pub fn verify_migration_chain_for_type(
+    signal_type: &str,
+    current_version: u16,
+) -> Result<(), Vec<String>> {
     let chains = registered_migration_chains();
     let relevant: Vec<_> = chains
         .iter()

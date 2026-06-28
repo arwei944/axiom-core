@@ -30,13 +30,31 @@ impl OversightSupervisor {
         })
     }
 
-    pub fn architecture_guardian(&self) -> Arc<super::ArchitectureGuardianCell> { self.architecture_guardian.clone() }
-    pub fn entropy_governor(&self) -> Arc<super::EntropyGovernorCell> { self.entropy_governor.clone() }
-    pub fn resource_manager(&self) -> Arc<super::ResourceManagerCell> { self.resource_manager.clone() }
-    pub fn intent_auditor(&self) -> Arc<super::IntentAuditorCell> { self.intent_auditor.clone() }
-    pub fn compliance_guard(&self) -> Arc<super::ComplianceGuardCell> { self.compliance_guard.clone() }
-    pub fn meta_oversight(&self) -> Arc<super::MetaOversightCell> { self.meta_oversight.clone() }
-    pub fn health_collector(&self) -> Arc<super::HealthCollectorCell> { self.health_collector.clone() }
-    pub fn loop_detector(&self) -> Arc<super::LoopDetector> { self.loop_detector.clone() }
-    pub fn startup(&self) -> &super::StartupVerification { &self.startup }
+    pub fn architecture_guardian(&self) -> Arc<super::ArchitectureGuardianCell> {
+        self.architecture_guardian.clone()
+    }
+    pub fn entropy_governor(&self) -> Arc<super::EntropyGovernorCell> {
+        self.entropy_governor.clone()
+    }
+    pub fn resource_manager(&self) -> Arc<super::ResourceManagerCell> {
+        self.resource_manager.clone()
+    }
+    pub fn intent_auditor(&self) -> Arc<super::IntentAuditorCell> {
+        self.intent_auditor.clone()
+    }
+    pub fn compliance_guard(&self) -> Arc<super::ComplianceGuardCell> {
+        self.compliance_guard.clone()
+    }
+    pub fn meta_oversight(&self) -> Arc<super::MetaOversightCell> {
+        self.meta_oversight.clone()
+    }
+    pub fn health_collector(&self) -> Arc<super::HealthCollectorCell> {
+        self.health_collector.clone()
+    }
+    pub fn loop_detector(&self) -> Arc<super::LoopDetector> {
+        self.loop_detector.clone()
+    }
+    pub fn startup(&self) -> &super::StartupVerification {
+        &self.startup
+    }
 }

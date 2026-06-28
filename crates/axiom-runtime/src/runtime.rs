@@ -1,9 +1,12 @@
-//! Axiom Runtime - the main entry point that wires all L2 guards.
+//! Axiom Runtime - the main entry point that wires all components.
 //!
 //! Boots up Bus (with ArchitectureGuardian interceptor), Mailbox per
 //! Cell, Supervisor per Cell, EntropyGovernor, and runs the dispatcher
 //! loop. Validates migration chain, version compatibility, and
 //! startup preflight before processing any messages.
+//!
+//! L2 Oversight interceptors are provided by the axiom-oversight crate
+//! and can be registered via bus().register_interceptor().
 
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
@@ -21,7 +24,6 @@ use crate::entropy_gov::EntropyGovernor;
 use crate::guardian::ArchitectureGuardian;
 use crate::mailbox::Mailbox;
 use crate::supervisor::Supervisor;
-use axiom_oversight::OversightSupervisor;
 
 pub struct CellRegistration {
     pub id: CellId,
@@ -118,7 +120,8 @@ impl RuntimeBuilder {
 
     pub fn build(self) -> AxiomRuntime {
         let rt = AxiomRuntime::new(self.config);
-        rt.auto_interceptors.store(self.auto_register_builtin_interceptors, Ordering::Relaxed);
+        rt.auto_interceptors
+            .store(self.auto_register_builtin_interceptors, Ordering::Relaxed);
         rt
     }
 }
@@ -133,7 +136,6 @@ pub struct AxiomRuntime {
     bus: Arc<MessageBus>,
     supervisor: Arc<Supervisor>,
     governor: Arc<EntropyGovernor>,
-    oversight: Arc<OversightSupervisor>,
     config: RuntimeConfig,
     cells: RwLock<Vec<RegisteredCell>>,
     stop_tx: tokio::sync::Mutex<Option<oneshot::Sender<()>>>,
@@ -148,12 +150,10 @@ impl AxiomRuntime {
         let bus = Arc::new(MessageBus::new());
         let supervisor = Arc::new(Supervisor::new());
         let governor = Arc::new(EntropyGovernor::new(config.entropy_threshold));
-        let oversight = OversightSupervisor::new();
         Self {
             bus,
             supervisor,
             governor,
-            oversight,
             config,
             cells: RwLock::new(Vec::new()),
             stop_tx: tokio::sync::Mutex::new(None),
@@ -162,10 +162,6 @@ impl AxiomRuntime {
             dlq: Arc::new(crate::dlq::DeadLetterQueue::default()),
             auto_interceptors: std::sync::atomic::AtomicBool::new(true),
         }
-    }
-
-    pub fn oversight(&self) -> &Arc<OversightSupervisor> {
-        &self.oversight
     }
 
     pub fn dlq(&self) -> Arc<crate::dlq::DeadLetterQueue> {
@@ -228,24 +224,6 @@ impl AxiomRuntime {
             }
         }
 
-        let report = self.oversight.startup().run();
-        for c in report.blocking_failures.iter() {
-            let msg = c
-                .error
-                .as_ref()
-                .map(|e| e.to_string())
-                .unwrap_or_default();
-            issues.push(format!("startup check [{}] failed: {}", c.name, msg));
-        }
-        for c in report.warnings.iter() {
-            let msg = c
-                .error
-                .as_ref()
-                .map(|e| e.to_string())
-                .unwrap_or_default();
-            tracing::warn!("startup warning [{}]: {}", c.name, msg);
-        }
-
         if issues.is_empty() {
             Ok(())
         } else {
@@ -256,7 +234,7 @@ impl AxiomRuntime {
     pub async fn start(&self) -> Result<(), AxiomError> {
         match self.preflight().await {
             Ok(()) => {
-                tracing::info!("L2 preflight passed");
+                tracing::info!("preflight passed");
             }
             Err(issues) => {
                 for i in &issues {
@@ -273,20 +251,22 @@ impl AxiomRuntime {
         self.bus.register_interceptor(guardian).await;
 
         if self.auto_interceptors.load(Ordering::Relaxed) {
-            self.bus.register_interceptor(Arc::new(crate::interceptors::HopLimitInterceptor::default())).await;
-            self.bus.register_interceptor(Arc::new(crate::interceptors::IdempotencyInterceptor::default())).await;
-            self.bus.register_interceptor(Arc::new(crate::interceptors::SchemaVersionInterceptor)).await;
-            self.bus.register_interceptor(Arc::new(crate::interceptors::LoopDetectInterceptor::default())).await;
-            self.bus.register_interceptor(Arc::new(crate::interceptors::OversightReportInterceptor::new(
-                self.oversight.architecture_guardian(),
-                self.oversight.entropy_governor(),
-            ))).await;
-            self.bus.register_interceptor(Arc::new(crate::interceptors::ResourceInterceptor::new(
-                self.oversight.resource_manager(),
-            ))).await;
-            self.bus.register_interceptor(Arc::new(crate::interceptors::ComplianceInterceptor::new(
-                self.oversight.compliance_guard(),
-            ))).await;
+            self.bus
+                .register_interceptor(Arc::new(crate::interceptors::HopLimitInterceptor::default()))
+                .await;
+            self.bus
+                .register_interceptor(Arc::new(
+                    crate::interceptors::IdempotencyInterceptor::default(),
+                ))
+                .await;
+            self.bus
+                .register_interceptor(Arc::new(crate::interceptors::SchemaVersionInterceptor))
+                .await;
+            self.bus
+                .register_interceptor(Arc::new(
+                    crate::interceptors::LoopDetectInterceptor::default(),
+                ))
+                .await;
         }
 
         let (tx, rx) = oneshot::channel::<()>();
@@ -313,6 +293,7 @@ impl AxiomRuntime {
             .iter()
             .map(|r| (r.mailbox.clone(), r.id.clone()))
             .collect();
+        let cells_len = cells_data.len();
 
         let handle = tokio::spawn(async move {
             let mut rx = rx;
@@ -350,15 +331,6 @@ impl AxiomRuntime {
         let bus_h = self.bus.clone();
         let gov_h = self.governor.clone();
         let health = self.health.clone();
-        let health_collector = self.oversight.health_collector();
-        let meta = self.oversight.meta_oversight();
-        let cells_data2: Vec<_> = self
-            .cells
-            .read()
-            .await
-            .iter()
-            .map(|r| (r.mailbox.clone(), r.id.clone()))
-            .collect();
         tokio::spawn(async move {
             let start = Instant::now();
             let mut tick = tokio::time::interval(Duration::from_secs(1));
@@ -370,17 +342,11 @@ impl AxiomRuntime {
                 h.messages_rejected = bus_h.rejected_count();
                 h.entropy_score = gov_h.snapshot().score;
                 h.total_restarts = 0;
-                health_collector.set_message_stats(
-                    h.messages_delivered,
-                    h.messages_rejected,
-                    0,
-                    cells_data2.len(),
-                );
-                let _ = meta.tick_ping();
+                h.cells_running = cells_len as u64;
             }
         });
 
-        tracing::info!("L2 runtime started with {cells_count} cells");
+        tracing::info!("runtime started with {cells_count} cells");
         Ok(())
     }
 
@@ -484,7 +450,7 @@ mod tests {
         let result = rt.bus().publish(bad).await;
         assert!(
             result.is_err(),
-            "Exec→Agent must be blocked by L2 guardian (compile-time CanSendTo already prevents it, but runtime doubles down)"
+            "Exec->Agent must be blocked by L2 guardian (compile-time CanSendTo already prevents it, but runtime doubles down)"
         );
 
         let good = env_from_to(Layer::Oversight, Layer::Exec, Some("exec-cell"));

@@ -54,7 +54,11 @@ impl MetaOversightCell {
             .lock()
             .unwrap()
             .push(cell_id.to_string());
-        self.heartbeats.lock().unwrap().entry(cell_id.to_string()).or_default();
+        self.heartbeats
+            .lock()
+            .unwrap()
+            .entry(cell_id.to_string())
+            .or_default();
     }
 
     pub fn set_interceptor_count(&self, n: usize) {

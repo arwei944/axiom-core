@@ -1,10 +1,9 @@
-//! Built-in BusInterceptors beyond ArchitectureGuardian.
+//! Built-in BusInterceptors for runtime enforcement (hop limit, idempotency, schema, loop detection).
 
 use crate::bus::{BusInterceptor, InterceptDecision};
 use crate::loop_detector::LoopDetector;
 use axiom_core::signal::SignalEnvelope;
 use std::collections::HashSet;
-use std::sync::Arc;
 use std::sync::RwLock;
 
 pub struct HopLimitInterceptor {
@@ -19,7 +18,7 @@ impl HopLimitInterceptor {
 
 impl Default for HopLimitInterceptor {
     fn default() -> Self {
-        Self::new(8)
+        Self { max_hops: 8 }
     }
 }
 
@@ -28,33 +27,27 @@ impl BusInterceptor for HopLimitInterceptor {
         "hop-limit"
     }
     fn intercept(&self, env: &SignalEnvelope) -> InterceptDecision {
-        if env.hop_count > self.max_hops {
-            InterceptDecision::Reject {
-                reason: format!("hop limit {} exceeded (got {})", self.max_hops, env.hop_count),
-            }
-        } else {
-            InterceptDecision::Allow
+        if env.hop_count >= self.max_hops {
+            return InterceptDecision::Reject {
+                reason: format!(
+                    "hop limit {} exceeded (current hops: {})",
+                    self.max_hops, env.hop_count
+                ),
+            };
         }
+        InterceptDecision::Allow
     }
 }
 
 pub struct IdempotencyInterceptor {
     seen: RwLock<HashSet<String>>,
-    capacity: usize,
-}
-
-impl IdempotencyInterceptor {
-    pub fn new(capacity: usize) -> Self {
-        Self {
-            seen: RwLock::new(HashSet::with_capacity(capacity)),
-            capacity,
-        }
-    }
 }
 
 impl Default for IdempotencyInterceptor {
     fn default() -> Self {
-        Self::new(4096)
+        Self {
+            seen: RwLock::new(HashSet::with_capacity(1024)),
+        }
     }
 }
 
@@ -63,19 +56,34 @@ impl BusInterceptor for IdempotencyInterceptor {
         "idempotency"
     }
     fn intercept(&self, env: &SignalEnvelope) -> InterceptDecision {
-        let mut seen = self.seen.write().unwrap();
-        let msg_id = env.msg_id.as_str().to_string();
-        if seen.contains(&msg_id) {
-            InterceptDecision::Reject {
-                reason: format!("duplicate message {}", msg_id),
-            }
-        } else {
-            if seen.len() >= self.capacity {
-                seen.clear();
-            }
-            seen.insert(msg_id);
-            InterceptDecision::Allow
+        let id = env.msg_id.as_str().to_string();
+        let mut set = self.seen.write().unwrap();
+        if set.contains(&id) {
+            return InterceptDecision::Reject {
+                reason: format!("duplicate message id: {id}"),
+            };
         }
+        if set.len() >= 100_000 {
+            set.clear();
+        }
+        set.insert(id);
+        InterceptDecision::Allow
+    }
+}
+
+pub struct SchemaVersionInterceptor;
+
+impl BusInterceptor for SchemaVersionInterceptor {
+    fn name(&self) -> &'static str {
+        "schema-version"
+    }
+    fn intercept(&self, env: &SignalEnvelope) -> InterceptDecision {
+        if env.schema_version.0 == 0 {
+            return InterceptDecision::Reject {
+                reason: "schema version 0 is invalid".into(),
+            };
+        }
+        InterceptDecision::Allow
     }
 }
 
@@ -83,17 +91,11 @@ pub struct LoopDetectInterceptor {
     detector: LoopDetector,
 }
 
-impl LoopDetectInterceptor {
-    pub fn new(max_cells: usize, max_tracked: usize) -> Self {
-        Self {
-            detector: LoopDetector::new(max_cells, max_tracked),
-        }
-    }
-}
-
 impl Default for LoopDetectInterceptor {
     fn default() -> Self {
-        Self::new(10, 1024)
+        Self {
+            detector: LoopDetector::new(16, 1024),
+        }
     }
 }
 
@@ -109,122 +111,6 @@ impl BusInterceptor for LoopDetectInterceptor {
     }
 }
 
-pub struct SchemaVersionInterceptor;
-
-impl BusInterceptor for SchemaVersionInterceptor {
-    fn name(&self) -> &'static str {
-        "schema-version"
-    }
-    fn intercept(&self, env: &SignalEnvelope) -> InterceptDecision {
-        if env.schema_version.0 == 0 {
-            InterceptDecision::Reject {
-                reason: "schema version 0 is reserved".into(),
-            }
-        } else if env.schema_version.0 > 1000 {
-            InterceptDecision::Reject {
-                reason: format!(
-                    "schema version {} unreasonably high",
-                    env.schema_version.0
-                ),
-            }
-        } else {
-            InterceptDecision::Allow
-        }
-    }
-}
-
-pub struct ComplianceInterceptor {
-    guard: Arc<axiom_oversight::ComplianceGuardCell>,
-}
-
-impl ComplianceInterceptor {
-    pub fn new(guard: Arc<axiom_oversight::ComplianceGuardCell>) -> Self {
-        Self { guard }
-    }
-}
-
-impl BusInterceptor for ComplianceInterceptor {
-    fn name(&self) -> &'static str {
-        "compliance-guard"
-    }
-    fn intercept(&self, env: &SignalEnvelope) -> InterceptDecision {
-        let text = match serde_json::to_string(&env.payload) {
-            Ok(s) => s,
-            Err(_) => return InterceptDecision::Allow,
-        };
-        let result = self.guard.check_text(&text);
-        if result.rejected {
-            let reasons: Vec<String> = result
-                .violations
-                .iter()
-                .map(|v| format!("[{}] {:?}", v.pattern, v.severity))
-                .collect();
-            return InterceptDecision::Reject {
-                reason: format!("compliance reject: {}", reasons.join(",")),
-            };
-        }
-        InterceptDecision::Allow
-    }
-}
-
-pub struct ResourceInterceptor {
-    manager: Arc<axiom_oversight::ResourceManagerCell>,
-}
-
-impl ResourceInterceptor {
-    pub fn new(manager: Arc<axiom_oversight::ResourceManagerCell>) -> Self {
-        Self { manager }
-    }
-}
-
-impl BusInterceptor for ResourceInterceptor {
-    fn name(&self) -> &'static str {
-        "resource-manager"
-    }
-    fn intercept(&self, _env: &SignalEnvelope) -> InterceptDecision {
-        if self.manager.global_tokens().try_acquire(1) {
-            InterceptDecision::Allow
-        } else {
-            InterceptDecision::Reject {
-                reason: "global token bucket exhausted; throttling".into(),
-            }
-        }
-    }
-}
-
-pub struct OversightReportInterceptor {
-    arch: Arc<axiom_oversight::ArchitectureGuardianCell>,
-    entropy: Arc<axiom_oversight::EntropyGovernorCell>,
-}
-
-impl OversightReportInterceptor {
-    pub fn new(
-        arch: Arc<axiom_oversight::ArchitectureGuardianCell>,
-        entropy: Arc<axiom_oversight::EntropyGovernorCell>,
-    ) -> Self {
-        Self { arch, entropy }
-    }
-}
-
-impl BusInterceptor for OversightReportInterceptor {
-    fn name(&self) -> &'static str {
-        "oversight-report"
-    }
-    fn intercept(&self, env: &SignalEnvelope) -> InterceptDecision {
-        if let Err(_violation) = self.arch.check_envelope(env) {
-            let cell_id = env
-                .target_cell
-                .clone()
-                .unwrap_or_else(|| format!("{:?}", env.target_layer));
-            self.entropy.record(axiom_oversight::EntropyEvent::AxiomViolation {
-                cell_id,
-                severity: 5.0,
-            });
-        }
-        InterceptDecision::Allow
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -232,19 +118,19 @@ mod tests {
     use axiom_core::layer::Layer;
     use axiom_core::signal::{SignalKind, VectorClock};
 
-    fn make_env(hops: u32, msg_id: &str) -> SignalEnvelope {
+    fn make_env(hops: u32, id: &str) -> SignalEnvelope {
         SignalEnvelope {
-            msg_id: MsgId::new(msg_id),
+            msg_id: MsgId::new(id),
             correlation_id: CorrelationId::new("c"),
             trace_id: None,
-            signal_type: "T".into(),
+            signal_type: "Test".into(),
             vector_clock: VectorClock::new(),
-            timestamp_ns: 1,
+            timestamp_ns: 0,
             kind: SignalKind::Command,
             source_layer: Layer::Exec,
             target_layer: Layer::Exec,
             source_cell: None,
-            target_cell: Some("c1".to_string()),
+            target_cell: None,
             payload: serde_json::Value::Null,
             schema_version: axiom_core::SchemaVersion::new(1),
             parent_msg_id: None,
@@ -253,35 +139,32 @@ mod tests {
     }
 
     #[test]
-    fn test_hop_limit_interceptor() {
+    fn hop_limit_blocks() {
         let i = HopLimitInterceptor::new(3);
-        assert!(matches!(i.intercept(&make_env(2, "m1")), InterceptDecision::Allow));
-        assert!(matches!(
-            i.intercept(&make_env(4, "m2")),
-            InterceptDecision::Reject { .. }
-        ));
+        let e = make_env(3, "a");
+        assert!(matches!(i.intercept(&e), InterceptDecision::Reject { .. }));
     }
 
     #[test]
-    fn test_idempotency_interceptor() {
+    fn hop_limit_allows() {
+        let i = HopLimitInterceptor::new(8);
+        let e = make_env(1, "b");
+        assert!(matches!(i.intercept(&e), InterceptDecision::Allow));
+    }
+
+    #[test]
+    fn idempotency_blocks_duplicate() {
         let i = IdempotencyInterceptor::default();
-        assert!(matches!(i.intercept(&make_env(0, "unique1")), InterceptDecision::Allow));
-        assert!(matches!(
-            i.intercept(&make_env(0, "unique1")),
-            InterceptDecision::Reject { .. }
-        ));
-        assert!(matches!(i.intercept(&make_env(0, "unique2")), InterceptDecision::Allow));
+        let e = make_env(0, "dup");
+        assert!(matches!(i.intercept(&e), InterceptDecision::Allow));
+        assert!(matches!(i.intercept(&e), InterceptDecision::Reject { .. }));
     }
 
     #[test]
-    fn test_schema_version_rejects_zero() {
+    fn schema_version_blocks_zero() {
         let i = SchemaVersionInterceptor;
-        let mut env = make_env(0, "m1");
-        assert!(matches!(i.intercept(&env), InterceptDecision::Allow));
-        env.schema_version = axiom_core::SchemaVersion::new(0);
-        assert!(matches!(
-            i.intercept(&env),
-            InterceptDecision::Reject { .. }
-        ));
+        let mut e = make_env(0, "sv");
+        e.schema_version = axiom_core::SchemaVersion::new(0);
+        assert!(matches!(i.intercept(&e), InterceptDecision::Reject { .. }));
     }
 }

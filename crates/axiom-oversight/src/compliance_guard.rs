@@ -181,7 +181,11 @@ mod tests {
         let addr = String::from("f") + "oo@example.com";
         let text = format!("contact me at {} please", addr);
         let r = c.check_text(&text);
-        assert!(r.violations.iter().any(|v| v.pattern == "email"), "email pattern should match; violations {:?}", r.violations);
+        assert!(
+            r.violations.iter().any(|v| v.pattern == "email"),
+            "email pattern should match; violations {:?}",
+            r.violations
+        );
         assert!(r.redacted_text.is_some());
         assert!(!r.rejected);
         assert!(!r.redacted_text.unwrap().contains("oo@"));
@@ -193,7 +197,10 @@ mod tests {
         let fake = "ghp_".to_string() + &"a".repeat(40);
         let r = c.check_text(&format!("token is {}", fake));
         assert!(r.rejected);
-        assert!(r.violations.iter().any(|v| v.severity == Severity::Critical));
+        assert!(r
+            .violations
+            .iter()
+            .any(|v| v.severity == Severity::Critical));
     }
 
     #[test]

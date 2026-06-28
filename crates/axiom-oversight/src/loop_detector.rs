@@ -71,5 +71,9 @@ fn detect_cycle(a: &[String], b: &[String]) -> Option<Vec<String>> {
     let set_a: HashSet<&str> = a.iter().map(|s| s.as_str()).collect();
     let set_b: HashSet<&str> = b.iter().map(|s| s.as_str()).collect();
     let common: Vec<&str> = set_a.intersection(&set_b).copied().collect();
-    if common.len() >= 2 { Some(common.into_iter().map(|s| s.to_string()).collect()) } else { None }
+    if common.len() >= 2 {
+        Some(common.into_iter().map(|s| s.to_string()).collect())
+    } else {
+        None
+    }
 }

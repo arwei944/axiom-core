@@ -1,7 +1,6 @@
 //! Snapshot mechanism for accelerating replay.
 
-use crate::store::StoreError;
-use async_trait::async_trait;
+use crate::store::{BoxFuture, StoreError};
 use axiom_core::signal::VectorClock;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -19,15 +18,17 @@ pub struct Snapshot {
     pub vector_clock: VectorClock,
 }
 
-#[async_trait]
 pub trait SnapshotStore: Send + Sync {
-    async fn save_snapshot(&self, snapshot: Snapshot) -> Result<(), StoreError>;
-    async fn load_latest_snapshot(&self, aggregate_id: &str) -> Result<Option<Snapshot>, StoreError>;
-    async fn load_snapshot_at(
-        &self,
-        aggregate_id: &str,
+    fn save_snapshot<'a>(&'a self, snapshot: Snapshot) -> BoxFuture<'a, Result<(), StoreError>>;
+    fn load_latest_snapshot<'a>(
+        &'a self,
+        aggregate_id: &'a str,
+    ) -> BoxFuture<'a, Result<Option<Snapshot>, StoreError>>;
+    fn load_snapshot_at<'a>(
+        &'a self,
+        aggregate_id: &'a str,
         seq: u64,
-    ) -> Result<Option<Snapshot>, StoreError>;
+    ) -> BoxFuture<'a, Result<Option<Snapshot>, StoreError>>;
 }
 
 #[derive(Debug, Clone)]
@@ -77,42 +78,48 @@ impl Default for MemorySnapshotStore {
     }
 }
 
-#[async_trait]
 impl SnapshotStore for MemorySnapshotStore {
-    async fn save_snapshot(&self, snapshot: Snapshot) -> Result<(), StoreError> {
-        let mut map = self.snapshots.write().await;
-        let list = map
-            .entry(snapshot.aggregate_id.clone())
-            .or_insert_with(Vec::new);
-        list.push(snapshot);
-        list.sort_by_key(|s| s.sequence_number);
+    fn save_snapshot<'a>(&'a self, snapshot: Snapshot) -> BoxFuture<'a, Result<(), StoreError>> {
+        Box::pin(async move {
+            let mut map = self.snapshots.write().await;
+            let list = map
+                .entry(snapshot.aggregate_id.clone())
+                .or_insert_with(Vec::new);
+            list.push(snapshot);
+            list.sort_by_key(|s| s.sequence_number);
 
-        if list.len() > self.policy.max_snapshots_per_aggregate {
-            let excess = list.len() - self.policy.max_snapshots_per_aggregate;
-            list.drain(0..excess);
-        }
-        Ok(())
+            if list.len() > self.policy.max_snapshots_per_aggregate {
+                let excess = list.len() - self.policy.max_snapshots_per_aggregate;
+                list.drain(0..excess);
+            }
+            Ok(())
+        })
     }
 
-    async fn load_latest_snapshot(&self, aggregate_id: &str) -> Result<Option<Snapshot>, StoreError> {
-        let map = self.snapshots.read().await;
-        Ok(map
-            .get(aggregate_id)
-            .and_then(|list| list.last().cloned()))
+    fn load_latest_snapshot<'a>(
+        &'a self,
+        aggregate_id: &'a str,
+    ) -> BoxFuture<'a, Result<Option<Snapshot>, StoreError>> {
+        Box::pin(async move {
+            let map = self.snapshots.read().await;
+            Ok(map.get(aggregate_id).and_then(|list| list.last().cloned()))
+        })
     }
 
-    async fn load_snapshot_at(
-        &self,
-        aggregate_id: &str,
+    fn load_snapshot_at<'a>(
+        &'a self,
+        aggregate_id: &'a str,
         seq: u64,
-    ) -> Result<Option<Snapshot>, StoreError> {
-        let map = self.snapshots.read().await;
-        Ok(map.get(aggregate_id).and_then(|list| {
-            list.iter()
-                .rev()
-                .find(|s| s.sequence_number <= seq)
-                .cloned()
-        }))
+    ) -> BoxFuture<'a, Result<Option<Snapshot>, StoreError>> {
+        Box::pin(async move {
+            let map = self.snapshots.read().await;
+            Ok(map.get(aggregate_id).and_then(|list| {
+                list.iter()
+                    .rev()
+                    .find(|s| s.sequence_number <= seq)
+                    .cloned()
+            }))
+        })
     }
 }
 

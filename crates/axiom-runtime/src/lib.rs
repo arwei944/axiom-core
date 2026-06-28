@@ -1,5 +1,3 @@
-//! Axiom Runtime - Tokio-based runtime with supervision tree and L2 gates.
-
 pub mod bus;
 pub mod dlq;
 pub mod entropy_gov;
@@ -15,8 +13,7 @@ pub use dlq::{DeadLetter, DeadLetterQueue};
 pub use entropy_gov::EntropyGovernor;
 pub use guardian::ArchitectureGuardian;
 pub use interceptors::{
-    ComplianceInterceptor, HopLimitInterceptor, IdempotencyInterceptor, LoopDetectInterceptor,
-    OversightReportInterceptor, ResourceInterceptor, SchemaVersionInterceptor,
+    HopLimitInterceptor, IdempotencyInterceptor, LoopDetectInterceptor, SchemaVersionInterceptor,
 };
 pub use loop_detector::LoopDetector;
 pub use mailbox::Mailbox;

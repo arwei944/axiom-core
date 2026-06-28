@@ -25,7 +25,10 @@ pub struct BehaviorSample {
 
 impl BehaviorSample {
     pub fn record_signal(&mut self, signal_type: &str, target: Option<&str>, is_error: bool) {
-        *self.signal_types.entry(signal_type.to_string()).or_insert(0) += 1;
+        *self
+            .signal_types
+            .entry(signal_type.to_string())
+            .or_insert(0) += 1;
         if let Some(t) = target {
             *self.targets.entry(t.to_string()).or_insert(0) += 1;
         }
@@ -138,8 +141,7 @@ impl IntentAuditorCell {
         let samples = self.samples.lock().unwrap();
         let sample = samples.get(agent_id)?;
 
-        let observed_signals: HashSet<String> =
-            sample.signal_types.keys().cloned().collect();
+        let observed_signals: HashSet<String> = sample.signal_types.keys().cloned().collect();
         let observed_targets: HashSet<String> = sample.targets.keys().cloned().collect();
 
         let j_sig = Self::jaccard(&profile.expected_signal_types, &observed_signals);
@@ -241,7 +243,9 @@ mod tests {
         a.record_behavior("agent1", "DeleteDatabase", None, false);
         let report = a.audit("agent1").unwrap();
         assert!(report.drifted);
-        assert!(report.unexpected_signal_types.contains(&"DeleteDatabase".to_string()));
+        assert!(report
+            .unexpected_signal_types
+            .contains(&"DeleteDatabase".to_string()));
     }
 
     #[test]

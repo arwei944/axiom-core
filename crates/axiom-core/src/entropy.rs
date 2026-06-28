@@ -47,7 +47,8 @@ impl Default for EntropyWeights {
 
 impl EntropyWeights {
     pub fn normalize(&self) -> Self {
-        let total = self.axiom_violation + self.witness_anomaly + self.message_loop + self.intent_drift;
+        let total =
+            self.axiom_violation + self.witness_anomaly + self.message_loop + self.intent_drift;
         if total <= 0.0 {
             return Self::default();
         }
@@ -231,8 +232,16 @@ mod tests {
         for _ in 0..20 {
             score.record_axiom_violation();
         }
-        assert!(score.value > 0.0, "violations should increase entropy, got {}", score.value);
-        assert!(score.is_yellow() || score.is_red(), "after many violations entropy should be at least yellow, got {}", score.value);
+        assert!(
+            score.value > 0.0,
+            "violations should increase entropy, got {}",
+            score.value
+        );
+        assert!(
+            score.is_yellow() || score.is_red(),
+            "after many violations entropy should be at least yellow, got {}",
+            score.value
+        );
     }
 
     #[test]
@@ -244,7 +253,11 @@ mod tests {
             score.record_message_loop();
             score.record_intent_drift(0.3);
         }
-        assert!(score.is_red(), "multiple factors should push to red, got {}", score.value);
+        assert!(
+            score.is_red(),
+            "multiple factors should push to red, got {}",
+            score.value
+        );
     }
 
     #[test]
@@ -263,7 +276,8 @@ mod tests {
             witness_anomaly: 0.8,
             message_loop: 0.2,
             intent_drift: 0.2,
-        }.normalize();
+        }
+        .normalize();
         let total = w.axiom_violation + w.witness_anomaly + w.message_loop + w.intent_drift;
         assert!((total - 1.0).abs() < 0.001);
     }

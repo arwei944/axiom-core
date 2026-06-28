@@ -114,10 +114,7 @@ impl ArchitectureGuardianCell {
     pub fn report_violation(&self, kind: &str, reason: String, signal_type: String) {
         let mut stats = self.stats.lock().unwrap();
         stats.total_rejected += 1;
-        *stats
-            .layer_violations
-            .entry(kind.to_string())
-            .or_insert(0) += 1;
+        *stats.layer_violations.entry(kind.to_string()).or_insert(0) += 1;
         drop(stats);
         let ev = ViolationEvent {
             kind: kind.into(),
@@ -207,7 +204,9 @@ mod tests {
     #[test]
     fn test_illegal_direction_rejected() {
         let c = ArchitectureGuardianCell::new();
-        assert!(c.check_envelope(&env(Layer::Exec, Layer::Agent, 0)).is_err());
+        assert!(c
+            .check_envelope(&env(Layer::Exec, Layer::Agent, 0))
+            .is_err());
         assert!(c
             .check_envelope(&env(Layer::Exec, Layer::Oversight, 0))
             .is_err());

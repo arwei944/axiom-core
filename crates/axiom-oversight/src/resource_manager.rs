@@ -92,12 +92,10 @@ impl TokenBucket {
         let mut cur = self.tokens.load(Ordering::Relaxed);
         loop {
             let new = (cur + add).min(self.capacity);
-            match self.tokens.compare_exchange_weak(
-                cur,
-                new,
-                Ordering::Relaxed,
-                Ordering::Relaxed,
-            ) {
+            match self
+                .tokens
+                .compare_exchange_weak(cur, new, Ordering::Relaxed, Ordering::Relaxed)
+            {
                 Ok(_) => break,
                 Err(v) => cur = v,
             }

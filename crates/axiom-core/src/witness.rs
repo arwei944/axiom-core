@@ -12,7 +12,7 @@
 use crate::context::CellContext;
 use crate::id::{CorrelationId, MsgId, TraceId, WitnessId};
 use crate::signal::VectorClock;
-use crate::version::{SchemaVersion, Versioned, VersionInfo, WitnessSchema};
+use crate::version::{SchemaVersion, VersionInfo, Versioned, WitnessSchema};
 use serde::{Deserialize, Serialize};
 
 const MAX_SUMMARY_LEN: usize = 512;
@@ -75,7 +75,11 @@ pub enum TransitionOutcome {
 }
 
 #[cfg(feature = "sha2-id")]
-fn compute_signal_fingerprint(signal_type: &str, schema_version: SchemaVersion, payload: &serde_json::Value) -> [u8; 32] {
+fn compute_signal_fingerprint(
+    signal_type: &str,
+    schema_version: SchemaVersion,
+    payload: &serde_json::Value,
+) -> [u8; 32] {
     use sha2::{Digest, Sha256};
     let mut hasher = Sha256::new();
     hasher.update(signal_type.as_bytes());
@@ -90,7 +94,11 @@ fn compute_signal_fingerprint(signal_type: &str, schema_version: SchemaVersion, 
 }
 
 #[cfg(not(feature = "sha2-id"))]
-fn compute_signal_fingerprint(_signal_type: &str, _schema_version: SchemaVersion, _payload: &serde_json::Value) -> [u8; 32] {
+fn compute_signal_fingerprint(
+    _signal_type: &str,
+    _schema_version: SchemaVersion,
+    _payload: &serde_json::Value,
+) -> [u8; 32] {
     [0u8; 32]
 }
 
@@ -153,7 +161,9 @@ pub struct WitnessBatch {
 
 impl WitnessBatch {
     pub fn new() -> Self {
-        Self { witnesses: Vec::new() }
+        Self {
+            witnesses: Vec::new(),
+        }
     }
 
     pub fn push(&mut self, witness: Witness) {
@@ -220,7 +230,10 @@ impl WitnessBuilder {
             TransitionOutcome::Failed { reason } => TransitionOutcome::Failed {
                 reason: truncate(&reason, MAX_REASON_LEN),
             },
-            TransitionOutcome::AxiomViolated { axiom_name, message } => TransitionOutcome::AxiomViolated {
+            TransitionOutcome::AxiomViolated {
+                axiom_name,
+                message,
+            } => TransitionOutcome::AxiomViolated {
                 axiom_name,
                 message: truncate(&message, MAX_REASON_LEN),
             },
@@ -284,14 +297,20 @@ impl WitnessBuilder {
         let version_info = VersionInfo::current();
 
         let signal_fingerprint = if let Some(ref msg) = triggering {
-            compute_signal_fingerprint(msg.as_str(), SchemaVersion::new(1), &serde_json::Value::Null)
+            compute_signal_fingerprint(
+                msg.as_str(),
+                SchemaVersion::new(1),
+                &serde_json::Value::Null,
+            )
         } else {
             [0u8; 32]
         };
 
         let prev_hash = None;
 
-        let payload_size = serde_json::to_vec(&self.summary).map(|v| v.len()).unwrap_or(0);
+        let payload_size = serde_json::to_vec(&self.summary)
+            .map(|v| v.len())
+            .unwrap_or(0);
 
         let mut witness = Witness {
             witness_id,
@@ -362,17 +381,39 @@ mod tests {
     }
 
     impl crate::signal::Signal for TestWitnessSignal {
-        fn signal_type(&self) -> &'static str { "test.witness.signal" }
-        fn msg_id(&self) -> &crate::id::MsgId { &self.msg_id }
-        fn correlation_id(&self) -> &CorrelationId { &self.correlation_id }
-        fn vector_clock(&self) -> &VectorClock { &self.vector_clock }
-        fn timestamp_ns(&self) -> u64 { self.timestamp_ns }
-        fn kind(&self) -> crate::signal::SignalKind { crate::signal::SignalKind::Command }
-        fn layer(&self) -> Layer { Layer::Exec }
-        fn as_any(&self) -> &dyn std::any::Any { self }
-        fn clone_signal(&self) -> Box<dyn crate::signal::Signal> { Box::new(self.clone()) }
-        fn validate(&self) -> crate::schema::ValidationResult { crate::schema::ValidationResult::ok() }
-        fn serialize_to_json(&self) -> serde_json::Value { serde_json::json!({"payload": self.payload}) }
+        fn signal_type(&self) -> &'static str {
+            "test.witness.signal"
+        }
+        fn msg_id(&self) -> &crate::id::MsgId {
+            &self.msg_id
+        }
+        fn correlation_id(&self) -> &CorrelationId {
+            &self.correlation_id
+        }
+        fn vector_clock(&self) -> &VectorClock {
+            &self.vector_clock
+        }
+        fn timestamp_ns(&self) -> u64 {
+            self.timestamp_ns
+        }
+        fn kind(&self) -> crate::signal::SignalKind {
+            crate::signal::SignalKind::Command
+        }
+        fn layer(&self) -> Layer {
+            Layer::Exec
+        }
+        fn as_any(&self) -> &dyn std::any::Any {
+            self
+        }
+        fn clone_signal(&self) -> Box<dyn crate::signal::Signal> {
+            Box::new(self.clone())
+        }
+        fn validate(&self) -> crate::schema::ValidationResult {
+            crate::schema::ValidationResult::ok()
+        }
+        fn serialize_to_json(&self) -> serde_json::Value {
+            serde_json::json!({"payload": self.payload})
+        }
     }
 
     #[cfg(feature = "sha2-id")]
@@ -474,7 +515,10 @@ mod tests {
         };
         w2.hash = w2.compute_hash(&None);
 
-        assert_ne!(w1.hash, w2.hash, "different signal fingerprints should produce different hashes");
+        assert_ne!(
+            w1.hash, w2.hash,
+            "different signal fingerprints should produce different hashes"
+        );
     }
 
     #[test]

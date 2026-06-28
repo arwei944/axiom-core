@@ -176,7 +176,9 @@ impl StartupCheck for VersionInfoCheck {
             ));
         }
         if v.signal_schema.0 == 0 {
-            return Err(StartupError::Blocking("signal schema version cannot be 0".into()));
+            return Err(StartupError::Blocking(
+                "signal schema version cannot be 0".into(),
+            ));
         }
         Ok(())
     }
@@ -257,6 +259,10 @@ mod tests {
     fn test_builtin_checks() {
         let v = builtin_startup_verification();
         let r = v.run();
-        assert!(r.all_passed, "builtin checks should pass: {:?}", r.blocking_failures);
+        assert!(
+            r.all_passed,
+            "builtin checks should pass: {:?}",
+            r.blocking_failures
+        );
     }
 }

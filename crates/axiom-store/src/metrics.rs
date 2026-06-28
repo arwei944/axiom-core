@@ -1,8 +1,7 @@
 //! Store health metrics and metered decorator.
 
 use crate::event::Event;
-use crate::store::{EventReceiver, EventStore, StoreError};
-use async_trait::async_trait;
+use crate::store::{BoxFuture, EventReceiver, EventStore, StoreError};
 use serde::{Deserialize, Serialize};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
@@ -126,101 +125,130 @@ impl<S> MeteredStore<S> {
     }
 }
 
-#[async_trait]
 impl<S: EventStore> EventStore for MeteredStore<S> {
-    async fn append(&self, event: Event) -> Result<u64, StoreError> {
-        let start = Instant::now();
-        let res = self.inner.append(event).await;
-        let ms = start.elapsed().as_secs_f64() * 1000.0;
-        if res.is_ok() {
-            self.metrics.record_write(ms);
-        } else {
-            self.metrics.record_error();
-        }
-        res
+    fn append<'a>(&'a self, event: Event) -> BoxFuture<'a, Result<u64, StoreError>> {
+        Box::pin(async move {
+            let start = Instant::now();
+            let res = self.inner.append(event).await;
+            let ms = start.elapsed().as_secs_f64() * 1000.0;
+            if res.is_ok() {
+                self.metrics.record_write(ms);
+            } else {
+                self.metrics.record_error();
+            }
+            res
+        })
     }
 
-    async fn append_batch(&self, events: Vec<Event>) -> Result<Vec<u64>, StoreError> {
-        let start = Instant::now();
-        let res = self.inner.append_batch(events).await;
-        let ms = start.elapsed().as_secs_f64() * 1000.0;
-        if res.is_ok() {
-            self.metrics.record_write(ms);
-        } else {
-            self.metrics.record_error();
-        }
-        res
+    fn append_batch<'a>(
+        &'a self,
+        events: Vec<Event>,
+    ) -> BoxFuture<'a, Result<Vec<u64>, StoreError>> {
+        Box::pin(async move {
+            let start = Instant::now();
+            let res = self.inner.append_batch(events).await;
+            let ms = start.elapsed().as_secs_f64() * 1000.0;
+            if res.is_ok() {
+                self.metrics.record_write(ms);
+            } else {
+                self.metrics.record_error();
+            }
+            res
+        })
     }
 
-    async fn read(&self, aggregate_id: &str) -> Result<Vec<Event>, StoreError> {
-        let start = Instant::now();
-        let res = self.inner.read(aggregate_id).await;
-        let ms = start.elapsed().as_secs_f64() * 1000.0;
-        if res.is_ok() {
-            self.metrics.record_read(ms);
-        } else {
-            self.metrics.record_error();
-        }
-        res
+    fn read<'a>(&'a self, aggregate_id: &'a str) -> BoxFuture<'a, Result<Vec<Event>, StoreError>> {
+        Box::pin(async move {
+            let start = Instant::now();
+            let res = self.inner.read(aggregate_id).await;
+            let ms = start.elapsed().as_secs_f64() * 1000.0;
+            if res.is_ok() {
+                self.metrics.record_read(ms);
+            } else {
+                self.metrics.record_error();
+            }
+            res
+        })
     }
 
-    async fn read_all(&self) -> Result<Vec<Event>, StoreError> {
-        let start = Instant::now();
-        let res = self.inner.read_all().await;
-        self.metrics.record_read(start.elapsed().as_secs_f64() * 1000.0);
-        if res.is_err() {
-            self.metrics.record_error();
-        }
-        res
+    fn read_all<'a>(&'a self) -> BoxFuture<'a, Result<Vec<Event>, StoreError>> {
+        Box::pin(async move {
+            let start = Instant::now();
+            let res = self.inner.read_all().await;
+            self.metrics
+                .record_read(start.elapsed().as_secs_f64() * 1000.0);
+            if res.is_err() {
+                self.metrics.record_error();
+            }
+            res
+        })
     }
 
-    async fn read_after(&self, after_ns: u64) -> Result<Vec<Event>, StoreError> {
-        let start = Instant::now();
-        let res = self.inner.read_after(after_ns).await;
-        self.metrics.record_read(start.elapsed().as_secs_f64() * 1000.0);
-        if res.is_err() {
-            self.metrics.record_error();
-        }
-        res
+    fn read_after<'a>(&'a self, after_ns: u64) -> BoxFuture<'a, Result<Vec<Event>, StoreError>> {
+        Box::pin(async move {
+            let start = Instant::now();
+            let res = self.inner.read_after(after_ns).await;
+            self.metrics
+                .record_read(start.elapsed().as_secs_f64() * 1000.0);
+            if res.is_err() {
+                self.metrics.record_error();
+            }
+            res
+        })
     }
 
-    async fn read_after_sequence(&self, seq: u64) -> Result<Vec<Event>, StoreError> {
-        let start = Instant::now();
-        let res = self.inner.read_after_sequence(seq).await;
-        self.metrics.record_read(start.elapsed().as_secs_f64() * 1000.0);
-        if res.is_err() {
-            self.metrics.record_error();
-        }
-        res
+    fn read_after_sequence<'a>(
+        &'a self,
+        seq: u64,
+    ) -> BoxFuture<'a, Result<Vec<Event>, StoreError>> {
+        Box::pin(async move {
+            let start = Instant::now();
+            let res = self.inner.read_after_sequence(seq).await;
+            self.metrics
+                .record_read(start.elapsed().as_secs_f64() * 1000.0);
+            if res.is_err() {
+                self.metrics.record_error();
+            }
+            res
+        })
     }
 
-    async fn read_range(
-        &self,
-        aggregate_id: &str,
+    fn read_range<'a>(
+        &'a self,
+        aggregate_id: &'a str,
         from_seq: u64,
         to_seq: u64,
-    ) -> Result<Vec<Event>, StoreError> {
-        let start = Instant::now();
-        let res = self.inner.read_range(aggregate_id, from_seq, to_seq).await;
-        self.metrics.record_read(start.elapsed().as_secs_f64() * 1000.0);
-        if res.is_err() {
-            self.metrics.record_error();
-        }
-        res
+    ) -> BoxFuture<'a, Result<Vec<Event>, StoreError>> {
+        Box::pin(async move {
+            let start = Instant::now();
+            let res = self.inner.read_range(aggregate_id, from_seq, to_seq).await;
+            self.metrics
+                .record_read(start.elapsed().as_secs_f64() * 1000.0);
+            if res.is_err() {
+                self.metrics.record_error();
+            }
+            res
+        })
     }
 
-    async fn read_by_correlation(&self, correlation_id: &str) -> Result<Vec<Event>, StoreError> {
-        let start = Instant::now();
-        let res = self.inner.read_by_correlation(correlation_id).await;
-        self.metrics.record_read(start.elapsed().as_secs_f64() * 1000.0);
-        if res.is_err() {
-            self.metrics.record_error();
-        }
-        res
+    fn read_by_correlation<'a>(
+        &'a self,
+        correlation_id: &'a str,
+    ) -> BoxFuture<'a, Result<Vec<Event>, StoreError>> {
+        Box::pin(async move {
+            let start = Instant::now();
+            let res = self.inner.read_by_correlation(correlation_id).await;
+            self.metrics
+                .record_read(start.elapsed().as_secs_f64() * 1000.0);
+            if res.is_err() {
+                self.metrics.record_error();
+            }
+            res
+        })
     }
 
-    async fn latest_sequence(&self) -> Result<u64, StoreError> {
-        self.inner.latest_sequence().await
+    fn latest_sequence<'a>(&'a self) -> BoxFuture<'a, Result<u64, StoreError>> {
+        Box::pin(async move { self.inner.latest_sequence().await })
     }
 
     fn subscribe(&self) -> EventReceiver {
@@ -259,7 +287,11 @@ mod tests {
         }
         let p50 = tracker.percentile(0.5);
         let p99 = tracker.percentile(0.99);
-        assert!((p50 - 50.0).abs() < 2.0, "p50 should be around 50, got {}", p50);
+        assert!(
+            (p50 - 50.0).abs() < 2.0,
+            "p50 should be around 50, got {}",
+            p50
+        );
         assert!(p99 >= 98.0, "p99 should be high, got {}", p99);
     }
 }

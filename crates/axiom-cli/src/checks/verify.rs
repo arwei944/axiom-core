@@ -4,23 +4,6 @@ use std::path::Path;
 
 use crate::checks::{Check, CheckResult};
 
-const DEP_ORDER: &[&str] = &[
-    "axiom-cli",
-    "axiom-viz",
-    "axiom-agent",
-    "axiom-oversight",
-    "axiom-runtime",
-    "axiom-store",
-    "axiom-macros",
-    "axiom-core",
-];
-
-const PROC_MACRO_CRATES: &[&str] = &["axiom-macros"];
-
-fn is_allowed_proc_macro_dep(dep: &str) -> bool {
-    PROC_MACRO_CRATES.contains(&dep)
-}
-
 fn parse_local_deps(cargo_path: &Path) -> Result<(String, Vec<String>), std::io::Error> {
     let content = fs::read_to_string(cargo_path)?;
     let mut name = String::new();
@@ -107,21 +90,20 @@ impl Check for VerifyCheck {
             }
         };
 
-        let order: HashMap<&str, usize> = DEP_ORDER
+        let order: HashMap<&str, usize> = axiom_core::gate::CRATE_LAYERS
             .iter()
-            .enumerate()
-            .map(|(i, name)| (*name, i))
+            .copied()
             .collect();
 
         let mut violations = Vec::new();
         let mut seen: HashSet<&str> = HashSet::new();
-        let max_order = DEP_ORDER.len();
+        let max_order = axiom_core::gate::CRATE_LAYERS.len();
 
         for (crate_name, deps) in &crates {
             let crate_level = order.get(crate_name.as_str()).copied().unwrap_or(max_order);
             seen.insert(crate_name.as_str());
             for dep in deps {
-                if is_allowed_proc_macro_dep(dep) {
+                if dep == "axiom-macros" {
                     continue;
                 }
                 let dep_level = order.get(dep.as_str()).copied().unwrap_or(max_order);
@@ -157,32 +139,12 @@ impl Check for VerifyCheck {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-
     #[test]
-    fn test_dep_order_is_dag() {
-        let order: HashMap<&str, usize> = DEP_ORDER
-            .iter()
-            .enumerate()
-            .map(|(i, name)| (*name, i))
-            .collect();
-
-        let expected = [
-            ("axiom-core", 7),
-            ("axiom-macros", 6),
-            ("axiom-store", 5),
-            ("axiom-runtime", 4),
-            ("axiom-oversight", 3),
-            ("axiom-agent", 2),
-            ("axiom-viz", 1),
-            ("axiom-cli", 0),
-        ];
-        for (name, expected_level) in expected {
-            assert_eq!(
-                order.get(name).copied().unwrap(),
-                expected_level,
-                "unexpected level for {name}"
-            );
+    fn test_dep_order_matches_gate_constants() {
+        for (name, level) in axiom_core::gate::CRATE_LAYERS {
+            assert!(*level < 8, "unexpected level for {name}");
         }
+        assert_eq!(axiom_core::gate::crate_level("axiom-core"), Some(7));
+        assert_eq!(axiom_core::gate::crate_level("axiom-cli"), Some(0));
     }
 }

@@ -216,12 +216,20 @@ pub mod validators {
             || value.starts_with("cell://")
             || value.starts_with("axiom://"))
         {
-            result.add_warning(field, "URL should start with http://, https://, cell://, or axiom://");
+            result.add_warning(
+                field,
+                "URL should start with http://, https://, cell://, or axiom://",
+            );
         }
         result
     }
 
-    pub fn require_none_if<T>(field: &str, value: &Option<T>, condition: bool, msg: &str) -> ValidationResult {
+    pub fn require_none_if<T>(
+        field: &str,
+        value: &Option<T>,
+        condition: bool,
+        msg: &str,
+    ) -> ValidationResult {
         let mut result = ValidationResult::default();
         if condition && value.is_some() {
             result.add_error(field, msg);
@@ -241,10 +249,7 @@ pub mod validators {
         let mut result = ValidationResult::default();
         for c in value.chars() {
             if !allowed.contains(&c) {
-                result.add_error(
-                    field,
-                    format!("contains disallowed character '{}'", c),
-                );
+                result.add_error(field, format!("contains disallowed character '{}'", c));
                 break;
             }
         }

@@ -3,27 +3,6 @@ use std::path::Path;
 
 use super::{Check, CheckResult};
 
-const ALLOWED_DEPS: &[&str] = &[
-    "tokio",
-    "serde",
-    "serde_json",
-    "thiserror",
-    "anyhow",
-    "tracing",
-    "tracing-subscriber",
-    "sha2",
-    "uuid",
-    "futures",
-    "clap",
-    "ratatui",
-    "crossterm",
-    "syn",
-    "quote",
-    "proc-macro2",
-    "linkme",
-    "trybuild",
-];
-
 fn parse_deps_from_cargo(path: &Path) -> Result<Vec<String>, std::io::Error> {
     let content = fs::read_to_string(path)?;
     let mut deps = Vec::new();
@@ -103,16 +82,10 @@ impl Check for DepsAuditCheck {
             match parse_deps_from_cargo(&cargo_path) {
                 Ok(deps) => {
                     for dep in deps {
-                        if dep == "async-trait" {
+                        if let Err(reason) = axiom_core::gate::audit_dependency(&dep) {
                             violations.push(format!(
-                                "{}: forbidden dependency 'async-trait' (R-004)",
-                                cargo_path.display()
-                            ));
-                        } else if !ALLOWED_DEPS.contains(&dep.as_str()) {
-                            violations.push(format!(
-                                "{}: unaudited dependency '{}' (R-022)",
-                                cargo_path.display(),
-                                dep
+                                "{}: {}",
+                                cargo_path.display(), reason
                             ));
                         }
                     }
@@ -145,13 +118,3 @@ impl Check for DepsAuditCheck {
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_allowed_deps_contains_core() {
-        assert!(ALLOWED_DEPS.contains(&"tokio"));
-        assert!(ALLOWED_DEPS.contains(&"serde"));
-    }
-}

@@ -140,11 +140,13 @@ impl DynAxiomChain {
         self.axioms
             .iter()
             .filter_map(|a| {
-                a.check_dyn(current, new, msg).err().map(|e| AxiomViolation {
-                    axiom_name: a.name(),
-                    error: e,
-                    action: a.violation_action(),
-                })
+                a.check_dyn(current, new, msg)
+                    .err()
+                    .map(|e| AxiomViolation {
+                        axiom_name: a.name(),
+                        error: e,
+                        action: a.violation_action(),
+                    })
             })
             .collect()
     }
