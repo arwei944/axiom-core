@@ -11,6 +11,14 @@
 
 ---
 
+## R-000: 强制约束加载（最高优先级）🔴 Critical
+
+**规则**: 每次新会话开始或切换Task时，必须先完成 [preflight.md](../preflight.md) 预检清单全部打勾，才能修改任何代码。
+**检查方式**: 预检清单是代码修改的前置门禁；未完成预检不得执行Edit/Write/Delete/代码修改类RunCommand。
+**违反后果**: 违反R-000产生的代码提交一律回滚。此规则凌驾于所有其他规则之上。
+
+---
+
 ## R-001: 编译零警告 🔴 Critical
 
 **规则**: `cargo build --workspace` 和 `cargo clippy --workspace` 必须零错误零警告。

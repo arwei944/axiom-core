@@ -1,22 +1,36 @@
 # Axiom Core - 开发约束配置
 
+> **⛔ 硬门禁：未完成预检（preflight），禁止修改任何代码。**
 > **约束者必先受约束。**
 > 本目录定义了在本项目中进行开发的 AI Agent（axiom-builder）的身份、技能、规则和工具边界。
-> 在写任何代码之前，必须先加载并理解这些约束。
+
+## R-000: 强制约束加载（最高优先级 🔴 Critical）
+
+R-000 凌驾于所有其他规则之上，是开发的**前置硬门禁**：
+
+1. **每次新会话开始**，必须先读取本文件，再完成 [preflight.md](preflight.md) 预检清单
+2. **每次切换Task**，必须重新执行预检
+3. **未完成预检，禁止执行任何文件修改操作**（Edit/Write/Delete/RunCommand涉及代码修改的命令）
+4. **只读操作**（Read/Grep/LS/Search/WebSearch）不受限制——用来加载约束本身
+5. 预检清单全部打勾后，才能开始写代码
+6. 违反 R-000 产生的代码提交一律回滚
 
 ## 目录结构
 
 ```
 .axiom/
 ├── AGENTS.md                        # 本文件 - 约束入口
+├── preflight.md                     # 🔴 预检清单（不通过=不能开发）
 ├── identity/
 │   └── axiom-builder.md             # 开发身份定义
 ├── skills/
 │   └── axiom-builder-skills.md      # 可用技能包
 ├── rules/
-│   └── axiom-builder-rules.md       # 开发铁律（20条规则）
+│   └── axiom-builder-rules.md       # 开发铁律（21条规则含R-000）
 └── tools.md                         # 工具权限边界
 ```
+
+**开发入口**: 项目根目录的 [DEVELOPMENT.md](../DEVELOPMENT.md) 是所有开发者（人类和AI）的第一入口，强制引导到本约束体系。
 
 ## 开发Agent身份
 
@@ -44,9 +58,10 @@
 
 → 详细指令见 [skills/axiom-builder-skills.md](skills/axiom-builder-skills.md)
 
-## 开发铁律（20条）
+## 开发铁律（21条）
 
-- 🔴 Critical（8条）: 违反即熔断
+- 🔴 Critical（9条）: 违反即熔断
+  - R-000: 强制约束加载（最高优先级，见上方）
   - R-001: 编译零警告
   - R-002: 测试必须通过
   - R-003: TDD红绿循环
