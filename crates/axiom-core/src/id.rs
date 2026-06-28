@@ -39,12 +39,27 @@ macro_rules! define_id {
 }
 
 define_id!(CellId, "Unique identifier for a Cell.");
-define_id!(MsgId, "Unique message identifier for idempotency deduplication.");
-define_id!(CorrelationId, "Correlation ID for distributed tracing across the entire call chain.");
-define_id!(WitnessId, "Unique witness identifier for audit chain records.");
-define_id!(LensId, "Unique lens identifier used for permission boundaries.");
+define_id!(
+    MsgId,
+    "Unique message identifier for idempotency deduplication."
+);
+define_id!(
+    CorrelationId,
+    "Correlation ID for distributed tracing across the entire call chain."
+);
+define_id!(
+    WitnessId,
+    "Unique witness identifier for audit chain records."
+);
+define_id!(
+    LensId,
+    "Unique lens identifier used for permission boundaries."
+);
 define_id!(AxiomId, "Unique axiom identifier for invariant rules.");
-define_id!(TraceId, "Top-level trace identifier grouping an entire workflow.");
+define_id!(
+    TraceId,
+    "Top-level trace identifier grouping an entire workflow."
+);
 
 #[cfg(feature = "uuid")]
 impl CorrelationId {

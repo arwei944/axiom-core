@@ -82,7 +82,9 @@ impl<T, M> AxiomChain<T, M> {
     }
 
     pub fn has_reject_violations(&self, violations: &[AxiomViolation]) -> bool {
-        violations.iter().any(|v| v.action == ViolationAction::Reject)
+        violations
+            .iter()
+            .any(|v| v.action == ViolationAction::Reject)
     }
 }
 
@@ -100,10 +102,14 @@ mod tests {
     impl Axiom for NonEmpty {
         type State = String;
         type Message = String;
-        fn name(&self) -> &'static str { "non-empty" }
+        fn name(&self) -> &'static str {
+            "non-empty"
+        }
         fn check(&self, _current: &String, new: &String, _msg: &String) -> Result<()> {
             if new.is_empty() {
-                Err(AxiomError::InvariantViolated { message: "state is empty".into() })
+                Err(AxiomError::InvariantViolated {
+                    message: "state is empty".into(),
+                })
             } else {
                 Ok(())
             }
@@ -114,20 +120,28 @@ mod tests {
     impl Axiom for MaxLength {
         type State = String;
         type Message = String;
-        fn name(&self) -> &'static str { "max-length" }
+        fn name(&self) -> &'static str {
+            "max-length"
+        }
         fn check(&self, _current: &String, new: &String, _msg: &String) -> Result<()> {
             if new.len() > self.0 {
-                Err(AxiomError::InvariantViolated { message: format!("too long: {}", new.len()) })
+                Err(AxiomError::InvariantViolated {
+                    message: format!("too long: {}", new.len()),
+                })
             } else {
                 Ok(())
             }
         }
-        fn violation_action(&self) -> ViolationAction { ViolationAction::Warn }
+        fn violation_action(&self) -> ViolationAction {
+            ViolationAction::Warn
+        }
     }
 
     #[test]
     fn test_axiom_chain_rejects() {
-        let chain = AxiomChain::<String, String>::new().push(NonEmpty).push(MaxLength(10));
+        let chain = AxiomChain::<String, String>::new()
+            .push(NonEmpty)
+            .push(MaxLength(10));
         let violations = chain.check_all(&"hello".into(), &"".into(), &"set".into());
         assert!(!violations.is_empty());
         assert!(chain.has_reject_violations(&violations));
@@ -135,7 +149,9 @@ mod tests {
 
     #[test]
     fn test_axiom_chain_passes() {
-        let chain = AxiomChain::<String, String>::new().push(NonEmpty).push(MaxLength(10));
+        let chain = AxiomChain::<String, String>::new()
+            .push(NonEmpty)
+            .push(MaxLength(10));
         let violations = chain.check_all(&"".into(), &"ok".into(), &"set".into());
         assert!(violations.is_empty());
     }

@@ -64,15 +64,22 @@ impl ValidationResult {
     }
 
     pub fn is_valid(&self) -> bool {
-        !self.errors.iter().any(|e| e.severity == ValidationSeverity::Error)
+        !self
+            .errors
+            .iter()
+            .any(|e| e.severity == ValidationSeverity::Error)
     }
 
     pub fn has_errors(&self) -> bool {
-        self.errors.iter().any(|e| e.severity == ValidationSeverity::Error)
+        self.errors
+            .iter()
+            .any(|e| e.severity == ValidationSeverity::Error)
     }
 
     pub fn has_warnings(&self) -> bool {
-        self.errors.iter().any(|e| e.severity == ValidationSeverity::Warning)
+        self.errors
+            .iter()
+            .any(|e| e.severity == ValidationSeverity::Warning)
     }
 
     pub fn add_error(&mut self, field: impl Into<String>, message: impl Into<String>) {
@@ -140,11 +147,18 @@ pub mod validators {
         result
     }
 
-    pub fn require_max_size<T: Serialize>(field: &str, value: &T, max_bytes: usize) -> ValidationResult {
+    pub fn require_max_size<T: Serialize>(
+        field: &str,
+        value: &T,
+        max_bytes: usize,
+    ) -> ValidationResult {
         let mut result = ValidationResult::default();
         if let Ok(json) = serde_json::to_vec(value) {
             if json.len() > max_bytes {
-                result.add_error(field, format!("serialized size {} exceeds max {}", json.len(), max_bytes));
+                result.add_error(
+                    field,
+                    format!("serialized size {} exceeds max {}", json.len(), max_bytes),
+                );
             }
         }
         result
@@ -158,7 +172,10 @@ pub mod validators {
     ) -> ValidationResult {
         let mut result = ValidationResult::default();
         if value < min || value > max {
-            result.add_error(field, format!("value {} outside range [{}, {}]", value, min, max));
+            result.add_error(
+                field,
+                format!("value {} outside range [{}, {}]", value, min, max),
+            );
         }
         result
     }

@@ -22,10 +22,15 @@ pub mod state {
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 pub enum SupervisionStrategy {
-    Restart { max_retries: u32 },
+    Restart {
+        max_retries: u32,
+    },
     Stop,
     Escalate,
-    CircuitBreak { failure_threshold: u32, reset_after_ms: u64 },
+    CircuitBreak {
+        failure_threshold: u32,
+        reset_after_ms: u64,
+    },
 }
 
 impl Default for SupervisionStrategy {
@@ -45,15 +50,31 @@ pub enum CellHealth {
 pub trait Cell: Send + 'static {
     type Message: Signal;
     fn id(&self) -> &CellId;
-    fn layer() -> Layer where Self: Sized;
-    fn supervision_strategy(&self) -> SupervisionStrategy { SupervisionStrategy::default() }
-    fn heartbeat_interval_ms(&self) -> Option<u64> { None }
+    fn layer() -> Layer
+    where
+        Self: Sized;
+    fn supervision_strategy(&self) -> SupervisionStrategy {
+        SupervisionStrategy::default()
+    }
+    fn heartbeat_interval_ms(&self) -> Option<u64> {
+        None
+    }
 
-    async fn on_start(&mut self, _ctx: &mut CellContext<'_>) -> crate::Result<()> { Ok(()) }
-    async fn handle(&mut self, signal: Self::Message, ctx: &mut CellContext<'_>) -> crate::Result<()>;
-    async fn on_stop(&mut self, _ctx: &mut CellContext<'_>) -> crate::Result<()> { Ok(()) }
+    async fn on_start(&mut self, _ctx: &mut CellContext<'_>) -> crate::Result<()> {
+        Ok(())
+    }
+    async fn handle(
+        &mut self,
+        signal: Self::Message,
+        ctx: &mut CellContext<'_>,
+    ) -> crate::Result<()>;
+    async fn on_stop(&mut self, _ctx: &mut CellContext<'_>) -> crate::Result<()> {
+        Ok(())
+    }
 
-    fn state_hash(&self) -> Option<[u8; 32]> { None }
+    fn state_hash(&self) -> Option<[u8; 32]> {
+        None
+    }
 }
 
 /// Marker traits for compile-time layer enforcement.
@@ -75,8 +96,8 @@ mod tests {
     use super::*;
     use crate::context::CellContext;
     use crate::id::{CorrelationId, MsgId};
-    use crate::signal::{VectorClock, now_ns};
     use crate::schema::ValidationResult;
+    use crate::signal::{now_ns, VectorClock};
 
     #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
     struct ExecCmd {
@@ -87,17 +108,33 @@ mod tests {
     }
 
     impl Signal for ExecCmd {
-        fn signal_type(&self) -> &'static str { "ExecCmd" }
-        fn msg_id(&self) -> &MsgId { &self.msg_id }
-        fn correlation_id(&self) -> &CorrelationId { &self.correlation_id }
-        fn vector_clock(&self) -> &VectorClock { &self.vector_clock }
-        fn timestamp_ns(&self) -> u64 { now_ns() }
-        fn kind(&self) -> crate::signal::SignalKind { crate::signal::SignalKind::Command }
-        fn layer(&self) -> Layer { Layer::Exec }
+        fn signal_type(&self) -> &'static str {
+            "ExecCmd"
+        }
+        fn msg_id(&self) -> &MsgId {
+            &self.msg_id
+        }
+        fn correlation_id(&self) -> &CorrelationId {
+            &self.correlation_id
+        }
+        fn vector_clock(&self) -> &VectorClock {
+            &self.vector_clock
+        }
+        fn timestamp_ns(&self) -> u64 {
+            now_ns()
+        }
+        fn kind(&self) -> crate::signal::SignalKind {
+            crate::signal::SignalKind::Command
+        }
+        fn layer(&self) -> Layer {
+            Layer::Exec
+        }
     }
 
     impl crate::schema::Schema for ExecCmd {
-        fn validate(&self) -> ValidationResult { ValidationResult::ok() }
+        fn validate(&self) -> ValidationResult {
+            ValidationResult::ok()
+        }
     }
 
     struct TestExecCell {
@@ -107,16 +144,27 @@ mod tests {
 
     impl TestExecCell {
         fn new() -> Self {
-            Self { id: CellId::new("test-exec"), received: Vec::new() }
+            Self {
+                id: CellId::new("test-exec"),
+                received: Vec::new(),
+            }
         }
     }
 
     impl Cell for TestExecCell {
         type Message = ExecCmd;
-        fn id(&self) -> &CellId { &self.id }
-        fn layer() -> Layer { Layer::Exec }
+        fn id(&self) -> &CellId {
+            &self.id
+        }
+        fn layer() -> Layer {
+            Layer::Exec
+        }
 
-        async fn handle(&mut self, signal: ExecCmd, _ctx: &mut CellContext<'_>) -> crate::Result<()> {
+        async fn handle(
+            &mut self,
+            signal: ExecCmd,
+            _ctx: &mut CellContext<'_>,
+        ) -> crate::Result<()> {
             self.received.push(signal.data);
             Ok(())
         }

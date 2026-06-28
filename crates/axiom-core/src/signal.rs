@@ -216,14 +216,30 @@ impl<T: Signal + Clone + serde::Serialize> SignalClone for T {
 }
 
 impl<T: Signal + Clone + serde::Serialize> SignalDyn for T {
-    fn signal_type_dyn(&self) -> &'static str { self.signal_type() }
-    fn msg_id_dyn(&self) -> &MsgId { self.msg_id() }
-    fn correlation_id_dyn(&self) -> &CorrelationId { self.correlation_id() }
-    fn vector_clock_dyn(&self) -> &VectorClock { self.vector_clock() }
-    fn timestamp_ns_dyn(&self) -> u64 { self.timestamp_ns() }
-    fn kind_dyn(&self) -> SignalKind { self.kind() }
-    fn layer_dyn(&self) -> Layer { self.layer() }
-    fn validate_dyn(&self) -> ValidationResult { <Self as Schema>::validate(self) }
+    fn signal_type_dyn(&self) -> &'static str {
+        self.signal_type()
+    }
+    fn msg_id_dyn(&self) -> &MsgId {
+        self.msg_id()
+    }
+    fn correlation_id_dyn(&self) -> &CorrelationId {
+        self.correlation_id()
+    }
+    fn vector_clock_dyn(&self) -> &VectorClock {
+        self.vector_clock()
+    }
+    fn timestamp_ns_dyn(&self) -> u64 {
+        self.timestamp_ns()
+    }
+    fn kind_dyn(&self) -> SignalKind {
+        self.kind()
+    }
+    fn layer_dyn(&self) -> Layer {
+        self.layer()
+    }
+    fn validate_dyn(&self) -> ValidationResult {
+        <Self as Schema>::validate(self)
+    }
 }
 
 impl Clone for Box<dyn SignalDyn> {
@@ -311,13 +327,27 @@ mod tests {
     }
 
     impl Signal for TestCommand {
-        fn signal_type(&self) -> &'static str { "TestCommand" }
-        fn msg_id(&self) -> &MsgId { &self.msg_id }
-        fn correlation_id(&self) -> &CorrelationId { &self.correlation_id }
-        fn vector_clock(&self) -> &VectorClock { &self.vector_clock }
-        fn timestamp_ns(&self) -> u64 { now_ns() }
-        fn kind(&self) -> SignalKind { SignalKind::Command }
-        fn layer(&self) -> Layer { Layer::Exec }
+        fn signal_type(&self) -> &'static str {
+            "TestCommand"
+        }
+        fn msg_id(&self) -> &MsgId {
+            &self.msg_id
+        }
+        fn correlation_id(&self) -> &CorrelationId {
+            &self.correlation_id
+        }
+        fn vector_clock(&self) -> &VectorClock {
+            &self.vector_clock
+        }
+        fn timestamp_ns(&self) -> u64 {
+            now_ns()
+        }
+        fn kind(&self) -> SignalKind {
+            SignalKind::Command
+        }
+        fn layer(&self) -> Layer {
+            Layer::Exec
+        }
     }
 
     impl Schema for TestCommand {

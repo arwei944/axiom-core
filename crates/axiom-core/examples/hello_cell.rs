@@ -5,7 +5,7 @@ use axiom_core::context::CellContext;
 use axiom_core::id::{CellId, CorrelationId, MsgId};
 use axiom_core::layer::Layer;
 use axiom_core::schema::{Schema, ValidationResult};
-use axiom_core::signal::{Signal, SignalKind, VectorClock, now_ns};
+use axiom_core::signal::{now_ns, Signal, SignalKind, VectorClock};
 use axiom_core::witness::TransitionOutcome;
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
@@ -17,17 +17,33 @@ struct HelloSignal {
 }
 
 impl Signal for HelloSignal {
-    fn signal_type(&self) -> &'static str { "HelloSignal" }
-    fn msg_id(&self) -> &MsgId { &self.msg_id }
-    fn correlation_id(&self) -> &CorrelationId { &self.correlation_id }
-    fn vector_clock(&self) -> &VectorClock { &self.vector_clock }
-    fn timestamp_ns(&self) -> u64 { now_ns() }
-    fn kind(&self) -> SignalKind { SignalKind::Command }
-    fn layer(&self) -> Layer { Layer::Exec }
+    fn signal_type(&self) -> &'static str {
+        "HelloSignal"
+    }
+    fn msg_id(&self) -> &MsgId {
+        &self.msg_id
+    }
+    fn correlation_id(&self) -> &CorrelationId {
+        &self.correlation_id
+    }
+    fn vector_clock(&self) -> &VectorClock {
+        &self.vector_clock
+    }
+    fn timestamp_ns(&self) -> u64 {
+        now_ns()
+    }
+    fn kind(&self) -> SignalKind {
+        SignalKind::Command
+    }
+    fn layer(&self) -> Layer {
+        Layer::Exec
+    }
 }
 
 impl Schema for HelloSignal {
-    fn validate(&self) -> ValidationResult { ValidationResult::ok() }
+    fn validate(&self) -> ValidationResult {
+        ValidationResult::ok()
+    }
 }
 
 struct HelloCell {
@@ -47,10 +63,18 @@ impl HelloCell {
 impl Cell for HelloCell {
     type Message = HelloSignal;
 
-    fn id(&self) -> &CellId { &self.id }
-    fn layer() -> Layer { Layer::Exec }
+    fn id(&self) -> &CellId {
+        &self.id
+    }
+    fn layer() -> Layer {
+        Layer::Exec
+    }
 
-    async fn handle(&mut self, signal: HelloSignal, ctx: &mut CellContext<'_>) -> axiom_core::Result<()> {
+    async fn handle(
+        &mut self,
+        signal: HelloSignal,
+        ctx: &mut CellContext<'_>,
+    ) -> axiom_core::Result<()> {
         println!("Received: {}", signal.message);
         self.greetings.push(signal.message.clone());
         ctx.witness()

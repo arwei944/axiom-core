@@ -1,7 +1,7 @@
 //! Witness timeline data for time-travel debugging.
 
-use serde::Serialize;
 use axiom_core::layer::Layer;
+use serde::Serialize;
 
 #[derive(Debug, Serialize)]
 pub struct TimelineEntry {

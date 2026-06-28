@@ -1,0 +1,26 @@
+[package]
+name = "axiom-cli"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Axiom CLI - development tools and automation gates for axiom-core"
+
+[[bin]]
+name = "axm"
+path = "src/bin/axm.rs"
+
+[[bin]]
+name = "cargo-axiom"
+path = "src/bin/cargo-axiom.rs"
+
+[dependencies]
+clap = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+sha2 = { workspace = true }
+thiserror = { workspace = true }
+anyhow = { workspace = true }
+tokio = { workspace = true }
+
+axiom-core = { workspace = true }

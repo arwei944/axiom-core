@@ -29,12 +29,12 @@ pub mod signal;
 pub mod version;
 pub mod witness;
 
-pub use error::{AxiomError, Result};
-pub use layer::Layer;
 pub use entropy::EntropyScore;
-pub use version::{
-    Version, CrateVersion, SchemaVersion, ProtocolVersion, IdentityVersion,
-    Versioned, Compatibility, VersionInfo, Migration, MigrationRegistry,
-};
+pub use error::{AxiomError, Result};
+pub use id::{AxiomId, CellId, CorrelationId, LensId, MsgId, TraceId, WitnessId};
+pub use layer::Layer;
 pub use schema::Schema;
-pub use id::{CellId, MsgId, CorrelationId, WitnessId, TraceId, LensId, AxiomId};
+pub use version::{
+    Compatibility, CrateVersion, IdentityVersion, Migration, MigrationRegistry, ProtocolVersion,
+    SchemaVersion, Version, VersionInfo, Versioned,
+};

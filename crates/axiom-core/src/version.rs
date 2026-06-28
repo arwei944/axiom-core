@@ -31,7 +31,11 @@ pub struct Version {
 
 impl Version {
     pub const fn new(major: u16, minor: u16, patch: u16) -> Self {
-        Self { major, minor, patch }
+        Self {
+            major,
+            minor,
+            patch,
+        }
     }
 
     pub const CURRENT: Self = Self::new(0, 1, 0);
@@ -265,19 +269,25 @@ impl MigrationRegistry {
                 crate::AxiomError::MigrationPathNotFound {
                     found: current,
                     current: to.0,
-                }
+                },
             )?;
-            data = migration.migrate(data).map_err(|e| crate::AxiomError::MigrationFailed {
-                from: current,
-                to: next,
-                reason: e.to_string(),
-            })?;
+            data = migration
+                .migrate(data)
+                .map_err(|e| crate::AxiomError::MigrationFailed {
+                    from: current,
+                    to: next,
+                    reason: e.to_string(),
+                })?;
             current = next;
         }
         Ok(data)
     }
 
-    pub fn check_readable(&self, found: SchemaVersion, current: SchemaVersion) -> crate::Result<()> {
+    pub fn check_readable(
+        &self,
+        found: SchemaVersion,
+        current: SchemaVersion,
+    ) -> crate::Result<()> {
         if found.0 > current.0 {
             return Err(crate::AxiomError::SchemaVersionTooNew {
                 found: found.0,
@@ -423,8 +433,12 @@ mod tests {
     fn test_migration_chain_single_step() {
         struct M1to2;
         impl Migration for M1to2 {
-            fn source_version(&self) -> SchemaVersion { SchemaVersion(1) }
-            fn target_version(&self) -> SchemaVersion { SchemaVersion(2) }
+            fn source_version(&self) -> SchemaVersion {
+                SchemaVersion(1)
+            }
+            fn target_version(&self) -> SchemaVersion {
+                SchemaVersion(2)
+            }
             fn migrate(&self, mut input: serde_json::Value) -> crate::Result<serde_json::Value> {
                 input["migrated"] = serde_json::json!(true);
                 Ok(input)
@@ -436,7 +450,9 @@ mod tests {
         assert!(reg.migrations.contains_key(&(1, 2)));
 
         let input = serde_json::json!({"data": "hello"});
-        let result = reg.migrate(input, SchemaVersion(1), SchemaVersion(2)).unwrap();
+        let result = reg
+            .migrate(input, SchemaVersion(1), SchemaVersion(2))
+            .unwrap();
         assert_eq!(result["migrated"], serde_json::json!(true));
     }
 
@@ -444,8 +460,12 @@ mod tests {
     fn test_migration_chain_multiple_steps() {
         struct M1to2;
         impl Migration for M1to2 {
-            fn source_version(&self) -> SchemaVersion { SchemaVersion(1) }
-            fn target_version(&self) -> SchemaVersion { SchemaVersion(2) }
+            fn source_version(&self) -> SchemaVersion {
+                SchemaVersion(1)
+            }
+            fn target_version(&self) -> SchemaVersion {
+                SchemaVersion(2)
+            }
             fn migrate(&self, mut v: serde_json::Value) -> crate::Result<serde_json::Value> {
                 v["step"] = serde_json::json!(2);
                 Ok(v)
@@ -453,8 +473,12 @@ mod tests {
         }
         struct M2to3;
         impl Migration for M2to3 {
-            fn source_version(&self) -> SchemaVersion { SchemaVersion(2) }
-            fn target_version(&self) -> SchemaVersion { SchemaVersion(3) }
+            fn source_version(&self) -> SchemaVersion {
+                SchemaVersion(2)
+            }
+            fn target_version(&self) -> SchemaVersion {
+                SchemaVersion(3)
+            }
             fn migrate(&self, mut v: serde_json::Value) -> crate::Result<serde_json::Value> {
                 v["step"] = serde_json::json!(3);
                 Ok(v)
@@ -466,7 +490,9 @@ mod tests {
         reg.register(M2to3);
 
         let input = serde_json::json!({"start": true});
-        let result = reg.migrate(input, SchemaVersion(1), SchemaVersion(3)).unwrap();
+        let result = reg
+            .migrate(input, SchemaVersion(1), SchemaVersion(3))
+            .unwrap();
         assert_eq!(result["step"], serde_json::json!(3));
     }
 
@@ -474,8 +500,12 @@ mod tests {
     fn test_migration_gap_detected() {
         struct M1to3;
         impl Migration for M1to3 {
-            fn source_version(&self) -> SchemaVersion { SchemaVersion(1) }
-            fn target_version(&self) -> SchemaVersion { SchemaVersion(3) }
+            fn source_version(&self) -> SchemaVersion {
+                SchemaVersion(1)
+            }
+            fn target_version(&self) -> SchemaVersion {
+                SchemaVersion(3)
+            }
             fn migrate(&self, v: serde_json::Value) -> crate::Result<serde_json::Value> {
                 Ok(v)
             }
@@ -484,7 +514,10 @@ mod tests {
         let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
             reg.register(M1to3);
         }));
-        assert!(result.is_err(), "Migration that skips versions should panic at registration");
+        assert!(
+            result.is_err(),
+            "Migration that skips versions should panic at registration"
+        );
     }
 
     #[test]
@@ -493,7 +526,10 @@ mod tests {
         let result = reg.check_readable(SchemaVersion(5), SchemaVersion(3));
         assert!(result.is_err());
         match result.unwrap_err() {
-            crate::AxiomError::SchemaVersionTooNew { found, max_supported } => {
+            crate::AxiomError::SchemaVersionTooNew {
+                found,
+                max_supported,
+            } => {
                 assert_eq!(found, 5);
                 assert_eq!(max_supported, 3);
             }

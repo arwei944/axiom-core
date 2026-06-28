@@ -7,8 +7,8 @@
 //! - Vector clock for causal ordering
 //! - Correlation/trace IDs for full-trace reconstruction
 
-use crate::id::{CorrelationId, MsgId, TraceId, WitnessId};
 use crate::context::CellContext;
+use crate::id::{CorrelationId, MsgId, TraceId, WitnessId};
 use crate::signal::VectorClock;
 use crate::version::{SchemaVersion, Versioned, WitnessSchema};
 use serde::{Deserialize, Serialize};
@@ -133,7 +133,9 @@ impl WitnessBuilder {
     }
 
     pub fn failed(self, reason: impl Into<String>) -> Self {
-        self.outcome(TransitionOutcome::Failed { reason: reason.into() })
+        self.outcome(TransitionOutcome::Failed {
+            reason: reason.into(),
+        })
     }
 
     pub fn axiom_violated(self, name: impl Into<String>, msg: impl Into<String>) -> Self {
@@ -164,10 +166,18 @@ impl WitnessBuilder {
         #[cfg(not(feature = "uuid"))]
         let witness_id = WitnessId::new({
             use std::time::{SystemTime, UNIX_EPOCH};
-            format!("wit-{}", SystemTime::now().duration_since(UNIX_EPOCH).unwrap_or_default().as_nanos())
+            format!(
+                "wit-{}",
+                SystemTime::now()
+                    .duration_since(UNIX_EPOCH)
+                    .unwrap_or_default()
+                    .as_nanos()
+            )
         });
 
-        let correlation = ctx.current_correlation.clone()
+        let correlation = ctx
+            .current_correlation
+            .clone()
             .unwrap_or_else(|| CorrelationId::new("none"));
         let trace = ctx.current_trace.clone();
         let triggering = ctx.current_msg_id.clone();

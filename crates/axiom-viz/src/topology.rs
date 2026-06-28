@@ -1,7 +1,7 @@
 //! System topology data for architecture diagrams.
 
-use serde::Serialize;
 use axiom_core::layer::Layer;
+use serde::Serialize;
 
 #[derive(Debug, Serialize)]
 pub struct CellNode {

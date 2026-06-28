@@ -1,0 +1,179 @@
+use std::collections::{HashMap, HashSet};
+use std::fs;
+use std::path::Path;
+
+use crate::checks::{Check, CheckResult};
+
+const DEP_ORDER: &[&str] = &[
+    "axiom-cli",
+    "axiom-viz",
+    "axiom-agent",
+    "axiom-oversight",
+    "axiom-runtime",
+    "axiom-store",
+    "axiom-macros",
+    "axiom-core",
+];
+
+fn parse_local_deps(cargo_path: &Path) -> Result<(String, Vec<String>), std::io::Error> {
+    let content = fs::read_to_string(cargo_path)?;
+    let mut name = String::new();
+    let mut deps = Vec::new();
+    let mut section = "";
+
+    for line in content.lines() {
+        let trimmed = line.trim();
+        if trimmed.starts_with('[') && trimmed.ends_with(']') {
+            section = trimmed.trim_start_matches('[').trim_end_matches(']').trim();
+            continue;
+        }
+        if section == "package" && trimmed.starts_with("name") {
+            if let Some(val) = trimmed.split('=').nth(1) {
+                name = val.trim().trim_matches('"').trim_matches('\'').to_string();
+            }
+        }
+        if (section == "dependencies" || section == "build-dependencies")
+            && !trimmed.is_empty()
+            && !trimmed.starts_with('#')
+        {
+            if let Some(dep_name) = trimmed
+                .split(|c: char| c.is_whitespace() || c == '=')
+                .next()
+            {
+                if dep_name.starts_with("axiom-") {
+                    deps.push(dep_name.to_string());
+                }
+            }
+        }
+    }
+    if name.is_empty() {
+        name = cargo_path
+            .parent()
+            .and_then(|p| p.file_name())
+            .and_then(|n| n.to_str())
+            .unwrap_or("")
+            .to_string();
+    }
+    Ok((name, deps))
+}
+
+fn collect_crates() -> Result<HashMap<String, Vec<String>>, std::io::Error> {
+    let crates_dir = Path::new("crates");
+    let mut result = HashMap::new();
+    if !crates_dir.exists() {
+        return Ok(result);
+    }
+    for entry in fs::read_dir(crates_dir)? {
+        let entry = entry?;
+        let path = entry.path();
+        if path.is_dir() {
+            let cargo_path = path.join("Cargo.toml");
+            if cargo_path.exists() {
+                let (name, deps) = parse_local_deps(&cargo_path)?;
+                result.insert(name, deps);
+            }
+        }
+    }
+    Ok(result)
+}
+
+pub struct VerifyCheck;
+
+impl Check for VerifyCheck {
+    fn name(&self) -> &'static str {
+        "architecture dependency verification"
+    }
+
+    fn blocking(&self) -> bool {
+        true
+    }
+
+    fn run(&self) -> CheckResult {
+        let crates = match collect_crates() {
+            Ok(c) => c,
+            Err(e) => {
+                return CheckResult {
+                    name: self.name(),
+                    passed: false,
+                    blocking: true,
+                    message: format!("cannot scan crates: {e}"),
+                }
+            }
+        };
+
+        let order: HashMap<&str, usize> = DEP_ORDER
+            .iter()
+            .enumerate()
+            .map(|(i, name)| (*name, i))
+            .collect();
+
+        let mut violations = Vec::new();
+        let mut seen: HashSet<&str> = HashSet::new();
+        let max_order = DEP_ORDER.len();
+
+        for (crate_name, deps) in &crates {
+            let crate_level = order.get(crate_name.as_str()).copied().unwrap_or(max_order);
+            seen.insert(crate_name.as_str());
+            for dep in deps {
+                let dep_level = order.get(dep.as_str()).copied().unwrap_or(max_order);
+                if dep_level < crate_level {
+                    violations.push(format!(
+                        "{crate_name} (level {crate_level}) depends on {dep} (level {dep_level}) - REVERSE DEPENDENCY"
+                    ));
+                }
+            }
+        }
+
+        if violations.is_empty() {
+            CheckResult {
+                name: self.name(),
+                passed: true,
+                blocking: true,
+                message: format!("dependency direction verified ({} crates)", crates.len()),
+            }
+        } else {
+            CheckResult {
+                name: self.name(),
+                passed: false,
+                blocking: true,
+                message: format!(
+                    "{} dependency violation(s):\n    {}",
+                    violations.len(),
+                    violations.join("\n    ")
+                ),
+            }
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_dep_order_is_dag() {
+        let order: HashMap<&str, usize> = DEP_ORDER
+            .iter()
+            .enumerate()
+            .map(|(i, name)| (*name, i))
+            .collect();
+
+        let expected = [
+            ("axiom-core", 7),
+            ("axiom-macros", 6),
+            ("axiom-store", 5),
+            ("axiom-runtime", 4),
+            ("axiom-oversight", 3),
+            ("axiom-agent", 2),
+            ("axiom-viz", 1),
+            ("axiom-cli", 0),
+        ];
+        for (name, expected_level) in expected {
+            assert_eq!(
+                order.get(name).copied().unwrap(),
+                expected_level,
+                "unexpected level for {name}"
+            );
+        }
+    }
+}

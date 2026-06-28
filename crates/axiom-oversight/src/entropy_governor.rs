@@ -23,7 +23,10 @@ impl EntropyGovernor {
         let value = self.system_entropy.compute();
 
         if self.system_entropy.is_red() {
-            tracing::error!(entropy = value, "SYSTEM ENTROPY RED - triggering de-entropy");
+            tracing::error!(
+                entropy = value,
+                "SYSTEM ENTROPY RED - triggering de-entropy"
+            );
         } else if self.system_entropy.is_yellow() {
             tracing::warn!(entropy = value, "System entropy elevated (yellow)");
         }

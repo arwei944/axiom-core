@@ -7,6 +7,6 @@
 //! This crate provides JSON-serializable data structures;
 //! actual rendering (TUI, Web UI, etc.) is handled by consumers.
 
-pub mod topology;
-pub mod timeline;
 pub mod entropy;
+pub mod timeline;
+pub mod topology;

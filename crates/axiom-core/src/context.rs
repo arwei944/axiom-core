@@ -89,11 +89,18 @@ impl<'a> CellContext<'a> {
         (out, wit)
     }
 
-    fn emit_internal<S: Signal>(&mut self, signal: S, target_cell: Option<&str>, target_layer: Layer) {
+    fn emit_internal<S: Signal>(
+        &mut self,
+        signal: S,
+        target_cell: Option<&str>,
+        target_layer: Layer,
+    ) {
         if !self.layer.can_send_to(target_layer) {
             tracing::error!(
                 "Layer violation: {} cannot send to {} (signal: {})",
-                self.layer, target_layer, signal.signal_type()
+                self.layer,
+                target_layer,
+                signal.signal_type()
             );
             return;
         }
@@ -155,8 +162,12 @@ impl<'a> CellContext<'a> {
 pub struct ExecCellContext<'a>(pub(crate) &'a mut CellContext<'a>);
 
 impl<'a> ExecCellContext<'a> {
-    pub fn cell_id(&self) -> &CellId { self.0.cell_id() }
-    pub fn vector_clock(&self) -> &VectorClock { self.0.vector_clock() }
+    pub fn cell_id(&self) -> &CellId {
+        self.0.cell_id()
+    }
+    pub fn vector_clock(&self) -> &VectorClock {
+        self.0.vector_clock()
+    }
 
     pub fn send_to_exec<S: Signal>(&mut self, signal: S, target_cell: &str) {
         self.0.emit_internal(signal, Some(target_cell), Layer::Exec);
@@ -174,11 +185,16 @@ impl<'a> ExecCellContext<'a> {
 pub struct ValidateCellContext<'a>(pub(crate) &'a mut CellContext<'a>);
 
 impl<'a> ValidateCellContext<'a> {
-    pub fn cell_id(&self) -> &CellId { self.0.cell_id() }
-    pub fn vector_clock(&self) -> &VectorClock { self.0.vector_clock() }
+    pub fn cell_id(&self) -> &CellId {
+        self.0.cell_id()
+    }
+    pub fn vector_clock(&self) -> &VectorClock {
+        self.0.vector_clock()
+    }
 
     pub fn send_to_validate<S: Signal>(&mut self, signal: S, target_cell: &str) {
-        self.0.emit_internal(signal, Some(target_cell), Layer::Validate);
+        self.0
+            .emit_internal(signal, Some(target_cell), Layer::Validate);
     }
 
     pub fn send_to_exec<S: Signal>(&mut self, signal: S, target_cell: &str) {
@@ -201,15 +217,21 @@ impl<'a> ValidateCellContext<'a> {
 pub struct AgentCellContext<'a>(pub(crate) &'a mut CellContext<'a>);
 
 impl<'a> AgentCellContext<'a> {
-    pub fn cell_id(&self) -> &CellId { self.0.cell_id() }
-    pub fn vector_clock(&self) -> &VectorClock { self.0.vector_clock() }
+    pub fn cell_id(&self) -> &CellId {
+        self.0.cell_id()
+    }
+    pub fn vector_clock(&self) -> &VectorClock {
+        self.0.vector_clock()
+    }
 
     pub fn send_to_agent<S: Signal>(&mut self, signal: S, target_cell: &str) {
-        self.0.emit_internal(signal, Some(target_cell), Layer::Agent);
+        self.0
+            .emit_internal(signal, Some(target_cell), Layer::Agent);
     }
 
     pub fn send_to_validate<S: Signal>(&mut self, signal: S, target_cell: &str) {
-        self.0.emit_internal(signal, Some(target_cell), Layer::Validate);
+        self.0
+            .emit_internal(signal, Some(target_cell), Layer::Validate);
     }
 
     pub fn emit_agent_event<S: Signal>(&mut self, signal: S) {
@@ -228,8 +250,12 @@ impl<'a> AgentCellContext<'a> {
 pub struct OversightCellContext<'a>(pub(crate) &'a mut CellContext<'a>);
 
 impl<'a> OversightCellContext<'a> {
-    pub fn cell_id(&self) -> &CellId { self.0.cell_id() }
-    pub fn vector_clock(&self) -> &VectorClock { self.0.vector_clock() }
+    pub fn cell_id(&self) -> &CellId {
+        self.0.cell_id()
+    }
+    pub fn vector_clock(&self) -> &VectorClock {
+        self.0.vector_clock()
+    }
 
     pub fn send_any<S: Signal>(&mut self, signal: S, target_cell: &str, target_layer: Layer) {
         self.0.send_any(signal, target_cell, target_layer);

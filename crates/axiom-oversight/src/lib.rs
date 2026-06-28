@@ -14,5 +14,5 @@
 //! - **ComplianceGuard**: PII detection, dangerous operation approval
 //! - **OversightOversight**: meta-oversight - supervises the overseers
 
-pub mod entropy_governor;
 pub mod architecture_guardian;
+pub mod entropy_governor;
