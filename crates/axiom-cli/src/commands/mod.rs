@@ -1,10 +1,12 @@
 use std::process::ExitCode;
 
+use anyhow::Context;
 use clap::{Args, Parser, Subcommand};
 
 use crate::checks;
 
 mod init;
+use init::install_hooks;
 
 #[derive(Parser)]
 #[command(
@@ -21,6 +23,8 @@ pub struct Cli {
 pub enum Commands {
     /// Initialize an axiom project (install hooks, generate constraints lock)
     Init,
+    /// Install git hooks (configures core.hooksPath to hooks/)
+    InstallHooks,
     /// Run preflight checks before starting a coding session
     Preflight(PreflightArgs),
     /// Run all quality gates (build/test/clippy/fmt/verify)
@@ -43,6 +47,7 @@ pub struct PreflightArgs {
 pub fn run(cli: &Cli) -> Result<ExitCode, anyhow::Error> {
     match &cli.command {
         Commands::Init => init::run_init(),
+        Commands::InstallHooks => install_hooks_only(),
         Commands::Preflight(args) => run_preflight(args),
         Commands::Check => run_check(),
         Commands::Verify => run_verify(),
@@ -132,5 +137,13 @@ fn run_update_constraints() -> Result<ExitCode, anyhow::Error> {
     println!("Updating .axiom/.constraints.lock ...");
     checks::constraints_hash::ConstraintsHashCheck::update_lock()?;
     println!("  ✓ constraints lock updated.");
+    Ok(ExitCode::SUCCESS)
+}
+
+fn install_hooks_only() -> Result<ExitCode, anyhow::Error> {
+    println!("=== axiom install-hooks ===\n");
+    let cwd = std::env::current_dir().context("Failed to get current directory")?;
+    install_hooks(&cwd)?;
+    println!("\nHooks installed successfully.");
     Ok(ExitCode::SUCCESS)
 }
