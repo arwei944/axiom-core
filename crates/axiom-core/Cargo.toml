@@ -3,18 +3,23 @@ name = "axiom-core"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
-description = "Core primitives: Cell, Signal, Lens, Axiom, Witness"
+rust-version.workspace = true
+description = "Core primitives: Cell, Signal, Lens, Axiom, Witness + Version management"
+
+[features]
+default = ["sha2-id", "uuid"]
+sha2-id = ["dep:sha2"]
+uuid = ["dep:uuid"]
 
 [dependencies]
 serde = { workspace = true }
 serde_json = { workspace = true }
 thiserror = { workspace = true }
 tracing = { workspace = true }
-async-trait = { workspace = true }
+sha2 = { workspace = true, optional = true }
+uuid = { workspace = true, optional = true }
 futures = { workspace = true }
-pin-project-lite = { workspace = true }
 
 [dev-dependencies]
 tokio = { workspace = true, features = ["rt-multi-thread", "macros"] }
 tracing-subscriber = { workspace = true }
-async-trait = { workspace = true }

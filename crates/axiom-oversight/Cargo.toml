@@ -3,6 +3,7 @@ name = "axiom-oversight"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
+rust-version.workspace = true
 description = "Layer 0 Oversight - meta-governance: entropy, architecture compliance, intent auditing"
 
 [dependencies]
@@ -11,4 +12,3 @@ tokio = { workspace = true }
 serde = { workspace = true }
 thiserror = { workspace = true }
 tracing = { workspace = true }
-async-trait = { workspace = true }

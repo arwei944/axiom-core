@@ -1,26 +1,33 @@
-//! Hello Cell example - minimal working example.
+//! Hello Cell example - minimal working example demonstrating Cell, Signal, Witness.
 
-use axiom_core::cell::{Cell, CellId};
-use axiom_core::signal::{Signal, SignalKind, VectorClock};
-use axiom_core::Result;
-use std::time::{SystemTime, UNIX_EPOCH};
+use axiom_core::cell::{Cell, ExecCell};
+use axiom_core::context::CellContext;
+use axiom_core::id::{CellId, CorrelationId, MsgId};
+use axiom_core::layer::Layer;
+use axiom_core::schema::{Schema, ValidationResult};
+use axiom_core::signal::{Signal, SignalKind, VectorClock, now_ns};
+use axiom_core::witness::TransitionOutcome;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 struct HelloSignal {
-    msg_id: String,
-    correlation_id: String,
+    msg_id: MsgId,
+    correlation_id: CorrelationId,
     vector_clock: VectorClock,
-    timestamp_ns: u64,
     message: String,
 }
 
 impl Signal for HelloSignal {
     fn signal_type(&self) -> &'static str { "HelloSignal" }
-    fn msg_id(&self) -> &str { &self.msg_id }
-    fn correlation_id(&self) -> &str { &self.correlation_id }
+    fn msg_id(&self) -> &MsgId { &self.msg_id }
+    fn correlation_id(&self) -> &CorrelationId { &self.correlation_id }
     fn vector_clock(&self) -> &VectorClock { &self.vector_clock }
-    fn timestamp_ns(&self) -> u64 { self.timestamp_ns }
+    fn timestamp_ns(&self) -> u64 { now_ns() }
     fn kind(&self) -> SignalKind { SignalKind::Command }
+    fn layer(&self) -> Layer { Layer::Exec }
+}
+
+impl Schema for HelloSignal {
+    fn validate(&self) -> ValidationResult { ValidationResult::ok() }
 }
 
 struct HelloCell {
@@ -31,24 +38,30 @@ struct HelloCell {
 impl HelloCell {
     fn new() -> Self {
         Self {
-            id: CellId("hello-cell".to_string()),
+            id: CellId::new("hello-cell"),
             greetings: Vec::new(),
         }
     }
 }
 
-#[async_trait::async_trait]
 impl Cell for HelloCell {
     type Message = HelloSignal;
 
     fn id(&self) -> &CellId { &self.id }
+    fn layer() -> Layer { Layer::Exec }
 
-    async fn handle(&mut self, signal: HelloSignal) -> Result<()> {
+    async fn handle(&mut self, signal: HelloSignal, ctx: &mut CellContext<'_>) -> axiom_core::Result<()> {
         println!("Received: {}", signal.message);
-        self.greetings.push(signal.message);
+        self.greetings.push(signal.message.clone());
+        ctx.witness()
+            .summary(format!("processed greeting: {}", signal.message))
+            .outcome(TransitionOutcome::Success)
+            .emit(ctx);
         Ok(())
     }
 }
+
+impl ExecCell for HelloCell {}
 
 #[tokio::main]
 async fn main() {
@@ -56,19 +69,22 @@ async fn main() {
     tracing::info!("Axiom Core - Hello Cell example");
 
     let mut cell = HelloCell::new();
-    let now = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .unwrap()
-        .as_nanos() as u64;
+    let cell_id = CellId::new("hello-cell");
+    let mut ctx = CellContext::new(&cell_id, Layer::Exec);
 
     let signal = HelloSignal {
-        msg_id: "msg-001".to_string(),
-        correlation_id: "corr-001".to_string(),
+        msg_id: MsgId::new("msg-001"),
+        correlation_id: CorrelationId::new("corr-001"),
         vector_clock: VectorClock::new(),
-        timestamp_ns: now,
         message: "Hello, Axiom!".to_string(),
     };
 
-    cell.handle(signal).await.unwrap();
+    cell.handle(signal, &mut ctx).await.unwrap();
     println!("Greetings received: {:?}", cell.greetings);
+
+    let witnesses = ctx.take_witnesses();
+    println!("Witnesses produced: {}", witnesses.len());
+    for w in &witnesses {
+        println!("  - {} [{:?}]", w.0.summary, w.0.outcome);
+    }
 }

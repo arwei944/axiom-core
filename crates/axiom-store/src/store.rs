@@ -1,7 +1,6 @@
 //! EventStore trait - abstraction for event storage.
 
 use crate::event::Event;
-use async_trait::async_trait;
 
 #[derive(Debug, thiserror::Error)]
 pub enum StoreError {
@@ -11,11 +10,13 @@ pub enum StoreError {
     Serialization(String),
     #[error("Event not found: {0}")]
     NotFound(String),
+    #[error("Version conflict: expected {expected}, got {actual}")]
+    VersionConflict { expected: u64, actual: u64 },
 }
 
-#[async_trait]
 pub trait EventStore: Send + Sync {
     async fn append(&self, event: Event) -> Result<(), StoreError>;
     async fn read(&self, aggregate_id: &str) -> Result<Vec<Event>, StoreError>;
     async fn read_all(&self) -> Result<Vec<Event>, StoreError>;
+    async fn read_after(&self, after_ns: u64) -> Result<Vec<Event>, StoreError>;
 }

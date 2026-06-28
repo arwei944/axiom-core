@@ -33,3 +33,9 @@ impl EntropyGovernor {
         self.system_entropy.value
     }
 }
+
+impl Default for EntropyGovernor {
+    fn default() -> Self {
+        Self::new()
+    }
+}

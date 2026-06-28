@@ -1,8 +1,7 @@
-//! In-memory event store implementation (for testing).
+//! In-memory event store implementation (for testing and development).
 
 use crate::event::Event;
 use crate::store::{EventStore, StoreError};
-use async_trait::async_trait;
 use std::sync::RwLock;
 
 pub struct MemoryStore {
@@ -17,7 +16,12 @@ impl MemoryStore {
     }
 }
 
-#[async_trait]
+impl Default for MemoryStore {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl EventStore for MemoryStore {
     async fn append(&self, event: Event) -> Result<(), StoreError> {
         self.events.write().unwrap().push(event);
@@ -35,5 +39,14 @@ impl EventStore for MemoryStore {
 
     async fn read_all(&self) -> Result<Vec<Event>, StoreError> {
         Ok(self.events.read().unwrap().clone())
+    }
+
+    async fn read_after(&self, after_ns: u64) -> Result<Vec<Event>, StoreError> {
+        let events = self.events.read().unwrap();
+        Ok(events
+            .iter()
+            .filter(|e| e.timestamp_ns > after_ns)
+            .cloned()
+            .collect())
     }
 }

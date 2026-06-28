@@ -132,6 +132,34 @@
 **检查方式**: 每个Step的checkbox确认后才进入下一个Step。
 **违反后果**: 回退到未完成的Step。
 
+## R-021: 约束文件自修改防护 🔴 Critical
+
+**规则**: 禁止修改 `.axiom/` 目录下的任何文件（AGENTS.md、rules/、identity/、skills/、tools.md、preflight.md），除非用户明确授权修改约束。
+**检查方式**: `git diff --name-only` 不应包含 `.axiom/` 路径下的文件，除非用户明确同意。
+**违反后果**: 立即回滚对.axiom/的修改，这等同于Axiom违反——约束者不能削弱自己的约束。
+
+## R-022: 第三方依赖安全审计 🟠 Strict
+
+**规则**: 引入新第三方依赖前必须通过以下检查清单：
+1. 维护状态：最近6个月有提交、有响应issue/PR
+2. 下载量：crates.io周下载量>10k或被广泛使用的知名crate
+3. 许可证：MIT/Apache-2.0/BSD等宽松许可证，禁止GPL/AGPL
+4. 漏洞审计：检查RustSec安全公告库无未修复的CVE
+5. 依赖数量：新增依赖的传递依赖树不超过10个crate
+6. 替代方案：优先用标准库实现，检查现有workspace依赖是否已覆盖
+**检查方式**: `cargo tree` 检查依赖树，`cargo audit` 检查漏洞。
+**违反后果**: 不报告用户不得添加新依赖。
+
+## R-023: Schema版本兼容性 🔴 Critical
+
+**规则**: 任何序列化数据结构（Signal/Event/Witness）的schema变更必须：
+1. 递增schema_version号
+2. 提供从旧版本到新版本的MigrateFrom实现
+3. 或明确标注为Breaking Change并提供迁移工具
+4. 旧版本数据在新版本中必须能被检测到（不能静默失败）
+**检查方式**: Versioned trait的schema_version必须与MigrationRegistry注册的迁移一致。
+**违反后果**: 版本不兼容的数据必须被拒绝并返回明确错误，不能静默解析错误数据。
+
 ---
 
 ## 规则执行机制

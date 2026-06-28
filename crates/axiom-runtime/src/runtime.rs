@@ -13,3 +13,9 @@ impl AxiomRuntime {
         tracing::info!("AxiomRuntime starting...");
     }
 }
+
+impl Default for AxiomRuntime {
+    fn default() -> Self {
+        Self::new()
+    }
+}

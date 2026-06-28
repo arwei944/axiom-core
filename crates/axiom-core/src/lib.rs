@@ -10,16 +10,31 @@
 //! # Architecture
 //! - **Layer**: Four-layer architecture (Oversight/Agent/Validate/Exec) with enforced call direction
 //! - **Entropy**: First-class entropy metrics for system disorder quantification
+//! - **Version**: Semantic versioning, schema versioning, and witness chain compatibility
+//! - **Schema**: Compile-time message validation
+//! - **Context**: CellContext with correlation ID propagation
 
-pub mod cell;
-pub mod signal;
-pub mod lens;
+#![allow(async_fn_in_trait)]
+
 pub mod axiom;
-pub mod witness;
-pub mod layer;
+pub mod cell;
+pub mod context;
 pub mod entropy;
 pub mod error;
+pub mod id;
+pub mod layer;
+pub mod lens;
+pub mod schema;
+pub mod signal;
+pub mod version;
+pub mod witness;
 
 pub use error::{AxiomError, Result};
 pub use layer::Layer;
 pub use entropy::EntropyScore;
+pub use version::{
+    Version, CrateVersion, SchemaVersion, ProtocolVersion, IdentityVersion,
+    Versioned, Compatibility, VersionInfo, Migration, MigrationRegistry,
+};
+pub use schema::Schema;
+pub use id::{CellId, MsgId, CorrelationId, WitnessId, TraceId, LensId, AxiomId};
