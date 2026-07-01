@@ -99,10 +99,8 @@ impl BusInterceptor for OversightReportInterceptor {
                 .target_cell
                 .clone()
                 .unwrap_or_else(|| format!("{:?}", env.target_layer));
-            self.entropy.record(EntropyEvent::AxiomViolation {
-                cell_id,
-                severity: 5.0,
-            });
+            self.entropy
+                .record(EntropyEvent::AxiomViolation { cell_id });
         }
         InterceptDecision::Allow
     }

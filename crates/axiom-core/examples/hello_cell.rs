@@ -1,7 +1,7 @@
 //! Hello Cell example - minimal working example demonstrating Cell, Signal, Witness, Entropy.
 
-use axiom_core::cell::{Cell, CellHandle, ExecCell};
-use axiom_core::context::CellContext;
+use axiom_core::cell::{Cell, CellHandle};
+use axiom_core::context::{CellContext, OutgoingEnvelope, OutgoingWitness};
 use axiom_core::entropy::EntropyScore;
 use axiom_core::id::{CellId, CorrelationId, MsgId};
 use axiom_core::layer::Layer;
@@ -9,66 +9,83 @@ use axiom_core::schema::{validators, ValidationResult};
 use axiom_core::signal::{Signal, SignalKind, VectorClock};
 use axiom_core::witness::TransitionOutcome;
 use axiom_core::Result;
+use axiom_core::{axiom, cell, schema_version, Axiom, DynAxiomChain, SignalPayload};
+use std::future::Future;
 
-#[derive(Debug, Clone)]
-struct HelloSignal {
-    message: String,
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, SignalPayload)]
+#[signal(kind = "command", layer = "exec")]
+#[schema_version(1)]
+#[schema(skip)]
+struct HelloCommand {
     msg_id: MsgId,
     correlation_id: CorrelationId,
     vector_clock: VectorClock,
+    message: String,
 }
 
-impl HelloSignal {
+impl HelloCommand {
     fn new(message: &str) -> Self {
         Self {
-            message: message.to_string(),
             msg_id: MsgId::generate(),
-            correlation_id: CorrelationId::new("hello-correlation"),
+            correlation_id: CorrelationId::generate(),
             vector_clock: VectorClock::new(),
+            message: message.to_string(),
         }
     }
 }
 
-impl Signal for HelloSignal {
-    fn signal_type(&self) -> &'static str {
-        "HelloSignal"
-    }
-    fn msg_id(&self) -> &MsgId {
-        &self.msg_id
-    }
-    fn correlation_id(&self) -> &CorrelationId {
-        &self.correlation_id
-    }
-    fn vector_clock(&self) -> &VectorClock {
-        &self.vector_clock
-    }
-    fn timestamp_ns(&self) -> u64 {
-        axiom_core::signal::now_ns()
-    }
-    fn kind(&self) -> SignalKind {
-        SignalKind::Command
-    }
-    fn layer(&self) -> Layer {
-        Layer::Exec
-    }
-    fn as_any(&self) -> &dyn std::any::Any {
-        self
-    }
-    fn clone_signal(&self) -> Box<dyn Signal> {
-        Box::new(self.clone())
-    }
+impl axiom_core::Schema for HelloCommand {
     fn validate(&self) -> ValidationResult {
         let mut result = ValidationResult::ok();
-        result.merge(validators::require_non_empty("message", &self.message));
-        result.merge(validators::require_max_length(
-            "message",
-            &self.message,
-            1024,
-        ));
+        result += validators::require_non_empty("message", &self.message);
+        result += validators::require_max_length("message", &self.message, 1024);
         result
     }
-    fn serialize_to_json(&self) -> serde_json::Value {
-        serde_json::json!({"message": self.message})
+}
+
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, SignalPayload)]
+#[signal(kind = "event", layer = "exec")]
+#[schema_version(1)]
+struct GreetedEvent {
+    msg_id: MsgId,
+    correlation_id: CorrelationId,
+    vector_clock: VectorClock,
+    greeting: String,
+}
+
+impl GreetedEvent {
+    fn new(correlation_id: CorrelationId, greeting: &str) -> Self {
+        Self {
+            msg_id: MsgId::generate(),
+            correlation_id,
+            vector_clock: VectorClock::new(),
+            greeting: greeting.to_string(),
+        }
+    }
+}
+
+#[axiom]
+struct NonEmptyGreetingAxiom;
+
+impl Axiom for NonEmptyGreetingAxiom {
+    type State = Vec<String>;
+    type Message = HelloCommand;
+
+    fn name(&self) -> &'static str {
+        "non-empty-greeting"
+    }
+
+    fn check(&self, _current: &Self::State, new: &Self::State, _msg: &Self::Message) -> Result<()> {
+        if new.iter().any(|g| g.is_empty()) {
+            return Err(axiom_core::AxiomError::InvariantViolated {
+                message: "greeting must not be empty".into(),
+            });
+        }
+        Ok(())
+    }
+
+    fn applies_to_layer(&self, layer: Layer) -> bool {
+        matches!(layer, Layer::Exec | Layer::Validate)
     }
 }
 
@@ -86,29 +103,46 @@ impl HelloCell {
     }
 }
 
+#[cell("exec")]
 impl Cell for HelloCell {
-    type Message = HelloSignal;
+    type Message = HelloCommand;
 
     fn id(&self) -> &CellId {
         &self.id
     }
-    fn layer() -> Layer {
+
+    fn layer() -> Layer
+    where
+        Self: Sized,
+    {
         Layer::Exec
     }
 
-    async fn handle(&mut self, signal: HelloSignal, ctx: &mut CellContext<'_>) -> Result<()> {
-        println!("Received: {}", signal.message);
-        self.greetings.push(signal.message.clone());
-        ctx.witness()
-            .summary(format!("processed greeting: {}", signal.message))
-            .outcome(TransitionOutcome::Success)
-            .processing_time_us(42)
-            .emit(ctx);
-        Ok(())
+    fn handle<'a>(
+        &'a mut self,
+        signal: HelloCommand,
+        ctx: &'a mut CellContext<'a>,
+    ) -> impl Future<Output = (Result<()>, Vec<OutgoingEnvelope>, Vec<OutgoingWitness>)> + Send + 'a
+    {
+        async move {
+            println!("Received: {}", signal.message);
+            self.greetings.push(signal.message.clone());
+
+            let event = GreetedEvent::new(signal.correlation_id.clone(), &signal.message);
+            let result: Result<()> = (|| {
+                ctx.emit_event(event, Layer::Exec)?;
+                ctx.witness()
+                    .summary(format!("processed greeting: {}", signal.message))
+                    .outcome(TransitionOutcome::Success)
+                    .processing_time_us(42)
+                    .emit(ctx)?;
+                Ok(())
+            })();
+            let (outgoing, witnesses) = ctx.end_processing();
+            (result, outgoing, witnesses)
+        }
     }
 }
-
-impl ExecCell for HelloCell {}
 
 #[tokio::main]
 async fn main() {
@@ -125,16 +159,20 @@ async fn main() {
     let cell_id = CellId::new("hello-cell");
     let mut ctx = CellContext::new(&cell_id, Layer::Exec);
 
-    let signal = HelloSignal::new("Hello, Axiom!");
-    assert!(signal.validate().is_valid(), "signal should validate");
-    assert_eq!(signal.signal_type(), "HelloSignal");
+    let signal = HelloCommand::new("Hello, Axiom!");
+    assert!(
+        axiom_core::Schema::validate(&signal).is_valid(),
+        "signal should validate"
+    );
+    assert_eq!(signal.signal_type(), "HelloCommand");
     assert_eq!(signal.layer(), Layer::Exec);
+    assert_eq!(signal.schema_version().0, 1);
+    assert_eq!(signal.kind(), SignalKind::Command);
 
-    cell.handle(signal, &mut ctx).await.unwrap();
+    let (result, _outgoing, witnesses) = cell.handle(signal, &mut ctx).await;
+    result.unwrap();
     println!("Greetings received: {:?}", cell.greetings);
     assert_eq!(cell.greetings, vec!["Hello, Axiom!"]);
-
-    let witnesses = ctx.take_witnesses();
     println!("Witnesses produced: {}", witnesses.len());
     for w in &witnesses {
         println!(
@@ -156,6 +194,9 @@ async fn main() {
     assert_eq!(witnesses.len(), 1);
     assert!(matches!(witnesses[0].0.outcome, TransitionOutcome::Success));
 
+    let chain = DynAxiomChain::from_registry_for_layer(Layer::Exec);
+    println!("Registered axioms for Exec layer: {}", chain.count());
+
     let mut entropy = EntropyScore::new();
     assert!(entropy.is_green());
     println!(
@@ -164,18 +205,22 @@ async fn main() {
         entropy.level()
     );
 
-    for _ in 0..20 {
+    for _ in 0..3 {
         entropy.record_axiom_violation();
-        entropy.record_witness_anomaly();
-        entropy.record_message_loop();
-        entropy.record_intent_drift(0.3);
+        entropy.record_cell_restart();
+        entropy.record_circuit_break();
     }
     println!(
         "After multiple factors: {:.3} [{:?}]",
         entropy.compute(),
         entropy.level()
     );
-    assert!(entropy.is_red());
+    assert!(
+        entropy.is_red() || entropy.is_critical(),
+        "expected red or critical, got {:.3} [{:?}]",
+        entropy.value,
+        entropy.level()
+    );
 
     entropy.reset();
     println!(

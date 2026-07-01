@@ -10,7 +10,7 @@ pub mod supervisor;
 
 pub use bus::{BusInterceptor, InterceptDecision, MessageBus};
 pub use dlq::{DeadLetter, DeadLetterQueue};
-pub use entropy_gov::EntropyGovernor;
+pub use entropy_gov::{EntropyGovernor, EntropySnapshot};
 pub use guardian::ArchitectureGuardian;
 pub use interceptors::{
     HopLimitInterceptor, IdempotencyInterceptor, LoopDetectInterceptor, SchemaVersionInterceptor,

@@ -9,8 +9,10 @@
 //! Schema validation runs at Layer 2 (Validate) before signals reach
 //! Layer 1 (Exec) or Layer 3 (Agent).
 
+use crate::error::AxiomError;
+use crate::Result;
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+use std::ops::AddAssign;
 
 /// Validation severity level.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -63,11 +65,19 @@ impl ValidationResult {
         Self { errors: Vec::new() }
     }
 
+    pub fn from_errors(errors: Vec<ValidationError>) -> Self {
+        Self { errors }
+    }
+
     pub fn is_valid(&self) -> bool {
         !self
             .errors
             .iter()
             .any(|e| e.severity == ValidationSeverity::Error)
+    }
+
+    pub fn is_ok(&self) -> bool {
+        self.is_valid()
     }
 
     pub fn has_errors(&self) -> bool {
@@ -92,6 +102,22 @@ impl ValidationResult {
 
     pub fn merge(&mut self, other: ValidationResult) {
         self.errors.extend(other.errors);
+    }
+
+    pub fn into_result(self) -> Result<()> {
+        if self.has_errors() {
+            Err(AxiomError::SignalValidation {
+                message: self.to_string(),
+            })
+        } else {
+            Ok(())
+        }
+    }
+}
+
+impl AddAssign for ValidationResult {
+    fn add_assign(&mut self, other: Self) {
+        self.merge(other);
     }
 }
 
@@ -254,41 +280,5 @@ pub mod validators {
             }
         }
         result
-    }
-}
-
-/// Schema for HashMap-based dynamic signals.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct DynamicSchema {
-    pub required_fields: Vec<String>,
-    pub field_types: HashMap<String, String>,
-    pub max_size_bytes: usize,
-}
-
-impl DynamicSchema {
-    pub fn new() -> Self {
-        Self {
-            required_fields: Vec::new(),
-            field_types: HashMap::new(),
-            max_size_bytes: 1024 * 1024,
-        }
-    }
-
-    pub fn require(mut self, field: impl Into<String>, ty: impl Into<String>) -> Self {
-        let f = field.into();
-        self.required_fields.push(f.clone());
-        self.field_types.insert(f, ty.into());
-        self
-    }
-
-    pub fn max_size(mut self, bytes: usize) -> Self {
-        self.max_size_bytes = bytes;
-        self
-    }
-}
-
-impl Default for DynamicSchema {
-    fn default() -> Self {
-        Self::new()
     }
 }

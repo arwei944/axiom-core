@@ -4,7 +4,7 @@ impl axiom_core::cell::Cell for BogusCell {
     type Message = BogusSignal;
     fn id(&self) -> &axiom_core::id::CellId { loop {} }
     fn layer() -> axiom_core::layer::Layer { axiom_core::layer::Layer::Exec }
-    async fn handle(&mut self, _: BogusSignal, _: &mut axiom_core::context::CellContext<'_>) -> axiom_core::Result<()> { Ok(()) }
+    fn handle<'a>(&'a mut self, _: BogusSignal, _: &'a mut axiom_core::context::CellContext<'a>) -> impl std::future::Future<Output = axiom_core::Result<()>> + Send + 'a { async { Ok(()) } }
 }
 
 #[derive(Clone, serde::Serialize, serde::Deserialize)]
@@ -24,7 +24,7 @@ impl axiom_core::signal::Signal for BogusSignal {
     fn as_any(&self) -> &dyn std::any::Any { self }
     fn clone_signal(&self) -> Box<dyn axiom_core::signal::Signal> { Box::new(self.clone()) }
     fn validate(&self) -> axiom_core::schema::ValidationResult { axiom_core::schema::ValidationResult::ok() }
-    fn serialize_to_json(&self) -> serde_json::Value { serde_json::to_value(self).unwrap_or(serde_json::Value::Null) }
+    fn serialize_to_json(&self) -> ::axiom_core::Result<serde_json::Value> { serde_json::to_value(self).map_err(|e| ::axiom_core::AxiomError::SignalSerialization(e.to_string())) }
 }
 struct BogusCell;
 

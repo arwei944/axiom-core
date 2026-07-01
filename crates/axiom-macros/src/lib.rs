@@ -89,6 +89,8 @@ fn has_sender_field(input: &DeriveInput) -> bool {
 ///
 /// # Attributes
 /// - `#[signal(kind = "command", layer = "exec")]`: required on the struct
+/// - `#[schema(skip)]`: skip auto-generating a default `impl Schema` (use when you
+///   provide your own `impl Schema for MySignal`)
 ///
 /// # Required fields
 /// - `msg_id: MsgId`
@@ -102,7 +104,12 @@ fn has_sender_field(input: &DeriveInput) -> bool {
 ///
 /// # Companion attributes
 /// - `#[schema_version(N)]` on the struct sets schema_version() to return SchemaVersion::new(N)
-#[proc_macro_derive(SignalPayload, attributes(signal))]
+///
+/// # Schema validation
+/// The macro generates `fn validate(&self) -> ValidationResult` that calls
+/// `<Self as Schema>::validate(self)`. By default, a no-op `impl Schema` is
+/// generated. Add `#[schema(skip)]` to suppress the default and provide your own.
+#[proc_macro_derive(SignalPayload, attributes(signal, schema))]
 pub fn derive_signal_payload(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
     let name = &input.ident;
@@ -131,6 +138,22 @@ pub fn derive_signal_payload(input: TokenStream) -> TokenStream {
     let has_trace = has_trace_id_field(&input);
     let has_sender = has_sender_field(&input);
 
+    // Parse #[schema(skip)] to suppress default impl Schema
+    let skip_schema = input.attrs.iter().any(|attr| {
+        if attr.path().is_ident("schema") {
+            let mut skip = false;
+            let _ = attr.parse_nested_meta(|meta| {
+                if meta.path.is_ident("skip") {
+                    skip = true;
+                }
+                Ok(())
+            });
+            skip
+        } else {
+            false
+        }
+    });
+
     let trace_id_impl = if has_trace {
         quote! { fn trace_id(&self) -> Option<&::axiom_core::TraceId> { Some(&self.trace_id) } }
     } else {
@@ -147,6 +170,18 @@ pub fn derive_signal_payload(input: TokenStream) -> TokenStream {
         quote! {
             fn schema_version(&self) -> ::axiom_core::SchemaVersion {
                 ::axiom_core::SchemaVersion::new(#ver)
+            }
+        }
+    } else {
+        quote! {}
+    };
+
+    let default_schema_impl = if !skip_schema {
+        quote! {
+            impl #impl_generics ::axiom_core::Schema for #name #ty_generics #where_clause {
+                fn validate(&self) -> ::axiom_core::ValidationResult {
+                    ::axiom_core::ValidationResult::ok()
+                }
             }
         }
     } else {
@@ -186,12 +221,15 @@ pub fn derive_signal_payload(input: TokenStream) -> TokenStream {
                 Box::new(Clone::clone(self))
             }
             fn validate(&self) -> ::axiom_core::ValidationResult {
-                ::axiom_core::ValidationResult::ok()
+                <Self as ::axiom_core::Schema>::validate(self)
             }
-            fn serialize_to_json(&self) -> serde_json::Value {
-                serde_json::to_value(self).unwrap_or(serde_json::Value::Null)
+            fn serialize_to_json(&self) -> ::axiom_core::Result<serde_json::Value> {
+                serde_json::to_value(self)
+                    .map_err(|e| ::axiom_core::AxiomError::SignalSerialization(e.to_string()))
             }
         }
+
+        #default_schema_impl
     };
 
     TokenStream::from(expanded)
@@ -297,17 +335,20 @@ pub fn axiom(_attr: TokenStream, item: TokenStream) -> TokenStream {
                 msg: &dyn std::any::Any,
             ) -> ::axiom_core::Result<()> {
                 let current = current.downcast_ref::<<Self as ::axiom_core::axiom::Axiom>::State>()
-                    .ok_or_else(|| ::axiom_core::AxiomError::Internal(
-                        format!("DynAxiom type mismatch for state in {}", #name_str)
-                    ))?;
+                    .ok_or_else(|| ::axiom_core::AxiomError::TypeMismatch {
+                        expected: std::any::type_name::<<Self as ::axiom_core::axiom::Axiom>::State>(),
+                        actual: #name_str,
+                    })?;
                 let new = new.downcast_ref::<<Self as ::axiom_core::axiom::Axiom>::State>()
-                    .ok_or_else(|| ::axiom_core::AxiomError::Internal(
-                        format!("DynAxiom type mismatch for state in {}", #name_str)
-                    ))?;
+                    .ok_or_else(|| ::axiom_core::AxiomError::TypeMismatch {
+                        expected: std::any::type_name::<<Self as ::axiom_core::axiom::Axiom>::State>(),
+                        actual: #name_str,
+                    })?;
                 let msg = msg.downcast_ref::<<Self as ::axiom_core::axiom::Axiom>::Message>()
-                    .ok_or_else(|| ::axiom_core::AxiomError::Internal(
-                        format!("DynAxiom type mismatch for message in {}", #name_str)
-                    ))?;
+                    .ok_or_else(|| ::axiom_core::AxiomError::TypeMismatch {
+                        expected: std::any::type_name::<<Self as ::axiom_core::axiom::Axiom>::Message>(),
+                        actual: #name_str,
+                    })?;
                 <Self as ::axiom_core::axiom::Axiom>::check(self, current, new, msg)
             }
         }

@@ -6,11 +6,13 @@
 //! Each layer-specific CellContext only exposes the send methods that are legal
 //! for that layer, preventing illegal cross-layer calls at compile time.
 
-use crate::context::CellContext;
+use crate::context::{CellContext, OutgoingEnvelope, OutgoingWitness};
 use crate::id::CellId;
 use crate::layer::Layer;
-use crate::signal::Signal;
+use crate::signal::{Signal, SignalEnvelope};
 use serde::{Deserialize, Serialize};
+use std::future::Future;
+use std::pin::Pin;
 
 pub mod state {
     pub struct Created;
@@ -67,16 +69,35 @@ pub trait Cell: Send + 'static {
         None
     }
 
-    async fn on_start(&mut self, _ctx: &mut CellContext<'_>) -> crate::Result<()> {
-        Ok(())
+    fn on_start<'a>(
+        &'a mut self,
+        _ctx: &'a mut CellContext<'a>,
+    ) -> impl Future<Output = crate::Result<()>> + Send + 'a {
+        async { Ok(()) }
     }
-    async fn handle(
-        &mut self,
+    /// Handle a signal and return outgoing envelopes + witnesses drained from `ctx`.
+    ///
+    /// Implementations MUST call `ctx.end_processing()` before returning, because
+    /// the framework does NOT access `ctx` after this future resolves. This design
+    /// avoids borrow-checker conflicts with the opaque `impl Future + 'a` return
+    /// type, which ties the `&mut ctx` borrow to the entire function scope.
+    fn handle<'a>(
+        &'a mut self,
         signal: Self::Message,
-        ctx: &mut CellContext<'_>,
-    ) -> crate::Result<()>;
-    async fn on_stop(&mut self, _ctx: &mut CellContext<'_>) -> crate::Result<()> {
-        Ok(())
+        ctx: &'a mut CellContext<'a>,
+    ) -> impl Future<
+        Output = (
+            crate::Result<()>,
+            Vec<OutgoingEnvelope>,
+            Vec<OutgoingWitness>,
+        ),
+    > + Send
+           + 'a;
+    fn on_stop<'a>(
+        &'a mut self,
+        _ctx: &'a mut CellContext<'a>,
+    ) -> impl Future<Output = crate::Result<()>> + Send + 'a {
+        async { Ok(()) }
     }
 
     fn state_hash(&self) -> Option<[u8; 32]> {
@@ -122,12 +143,70 @@ impl<C: Cell> DynCell for C {
     }
 }
 
+/// Type-erased cell capable of dispatching `SignalEnvelope` payloads to `Cell::handle`.
+///
+/// Requires `Cell::Message: for<'de> Deserialize<'de>` so that the type-erased
+/// JSON payload inside a `SignalEnvelope` can be deserialized back into the
+/// strongly-typed `Self::Message` before invoking `Cell::handle`.
+///
+/// `handle_dyn` also calls `CellContext::end_processing()` internally and returns
+/// the outgoing envelopes, so callers do not need to touch `ctx` after the call.
+/// This avoids borrow-checker conflicts with boxed futures capturing `&mut ctx`.
+pub trait DynHandleCell: DynCell {
+    fn handle_dyn<'a>(
+        &'a mut self,
+        env: SignalEnvelope,
+        ctx: &'a mut CellContext<'a>,
+    ) -> Pin<Box<dyn Future<Output = (crate::Result<()>, Vec<OutgoingEnvelope>)> + Send + 'a>>;
+}
+
+impl<C> DynHandleCell for C
+where
+    C: Cell,
+    C::Message: for<'de> serde::Deserialize<'de>,
+{
+    fn handle_dyn<'a>(
+        &'a mut self,
+        env: SignalEnvelope,
+        ctx: &'a mut CellContext<'a>,
+    ) -> Pin<Box<dyn Future<Output = (crate::Result<()>, Vec<OutgoingEnvelope>)> + Send + 'a>> {
+        Box::pin(async move {
+            let msg: C::Message = match serde_json::from_value(env.payload) {
+                Ok(m) => m,
+                Err(e) => {
+                    // ctx is not yet borrowed by handle(), so we can drain here.
+                    let outgoing = ctx.take_outgoing();
+                    return (
+                        Err(crate::AxiomError::SignalSerialization(format!(
+                            "dispatch deserialize {}: {e}",
+                            env.signal_type
+                        ))),
+                        outgoing,
+                    );
+                }
+            };
+            // handle() returns (Result, Vec<OutgoingEnvelope>, Vec<OutgoingWitness>)
+            // and drains ctx internally via end_processing(). We do NOT access ctx
+            // after this point — the opaque `impl Future + 'a` ties the `&mut ctx`
+            // borrow to `'a`, so any subsequent `&mut ctx` would be a second
+            // mutable borrow (E0499). We drop witnesses (runtime doesn't need them
+            // yet; witness recording will be wired separately).
+            let (result, outgoing, _witnesses) = self.handle(msg, ctx).await;
+            (result, outgoing)
+        })
+    }
+}
+
 pub struct CellHandle {
-    inner: Box<dyn DynCell>,
+    inner: Box<dyn DynHandleCell>,
 }
 
 impl CellHandle {
-    pub fn new<C: Cell + 'static>(cell: C) -> Self {
+    pub fn new<C>(cell: C) -> Self
+    where
+        C: Cell,
+        C::Message: for<'de> serde::Deserialize<'de>,
+    {
         Self {
             inner: Box::new(cell),
         }
@@ -140,10 +219,22 @@ impl CellHandle {
     pub fn downcast_mut<C: Cell + 'static>(&mut self) -> Option<&mut C> {
         self.inner.as_any_mut().downcast_mut::<C>()
     }
+
+    /// Dispatch a type-erased `SignalEnvelope` to the wrapped cell's `handle` method.
+    ///
+    /// Returns the handle result plus outgoing envelopes collected via
+    /// `CellContext::end_processing()`.
+    pub fn handle_dyn<'a>(
+        &'a mut self,
+        env: SignalEnvelope,
+        ctx: &'a mut CellContext<'a>,
+    ) -> Pin<Box<dyn Future<Output = (crate::Result<()>, Vec<OutgoingEnvelope>)> + Send + 'a>> {
+        self.inner.handle_dyn(env, ctx)
+    }
 }
 
 impl std::ops::Deref for CellHandle {
-    type Target = dyn DynCell;
+    type Target = dyn DynHandleCell;
     fn deref(&self) -> &Self::Target {
         &*self.inner
     }
@@ -205,8 +296,9 @@ mod tests {
         fn validate(&self) -> ValidationResult {
             ValidationResult::ok()
         }
-        fn serialize_to_json(&self) -> serde_json::Value {
-            serde_json::to_value(self).unwrap_or(serde_json::Value::Null)
+        fn serialize_to_json(&self) -> crate::Result<serde_json::Value> {
+            serde_json::to_value(self)
+                .map_err(|e| crate::AxiomError::SignalSerialization(e.to_string()))
         }
     }
 
@@ -233,13 +325,23 @@ mod tests {
             Layer::Exec
         }
 
-        async fn handle(
-            &mut self,
+        fn handle<'a>(
+            &'a mut self,
             signal: ExecCmd,
-            _ctx: &mut CellContext<'_>,
-        ) -> crate::Result<()> {
-            self.received.push(signal.data);
-            Ok(())
+            ctx: &'a mut CellContext<'a>,
+        ) -> impl Future<
+            Output = (
+                crate::Result<()>,
+                Vec<OutgoingEnvelope>,
+                Vec<OutgoingWitness>,
+            ),
+        > + Send
+               + 'a {
+            async move {
+                self.received.push(signal.data);
+                let (outgoing, witnesses) = ctx.end_processing();
+                (Ok(()), outgoing, witnesses)
+            }
         }
     }
 
@@ -256,7 +358,8 @@ mod tests {
         };
         let cell_id = CellId::new("test-exec");
         let mut ctx = CellContext::new(&cell_id, Layer::Exec);
-        cell.handle(cmd, &mut ctx).await.unwrap();
+        let (result, _outgoing, _witnesses) = cell.handle(cmd, &mut ctx).await;
+        result.unwrap();
         assert_eq!(cell.received, vec!["hello"]);
     }
 

@@ -57,58 +57,6 @@ pub struct AxiomViolation {
     pub action: ViolationAction,
 }
 
-/// Typed axiom chain for compile-time checked validation of specific state/message types.
-pub struct AxiomChain<T, M> {
-    axioms: Vec<Box<dyn Axiom<State = T, Message = M>>>,
-}
-
-impl<T: 'static, M: 'static> AxiomChain<T, M> {
-    pub fn new() -> Self {
-        Self { axioms: Vec::new() }
-    }
-
-    pub fn push<A: Axiom<State = T, Message = M> + 'static>(mut self, axiom: A) -> Self {
-        self.axioms.push(Box::new(axiom));
-        self
-    }
-
-    pub fn check_all(&self, current: &T, new: &T, msg: &M) -> Vec<AxiomViolation> {
-        self.check_for_layer(current, new, msg, None)
-    }
-
-    pub fn check_for_layer(
-        &self,
-        current: &T,
-        new: &T,
-        msg: &M,
-        layer: Option<Layer>,
-    ) -> Vec<AxiomViolation> {
-        self.axioms
-            .iter()
-            .filter(|a| layer.is_none() || layer.is_some_and(|l| a.applies_to_layer(l)))
-            .filter_map(|a| {
-                a.check(current, new, msg).err().map(|e| AxiomViolation {
-                    axiom_name: a.name(),
-                    error: e,
-                    action: a.violation_action(),
-                })
-            })
-            .collect()
-    }
-
-    pub fn has_reject_violations(&self, violations: &[AxiomViolation]) -> bool {
-        violations
-            .iter()
-            .any(|v| v.action == ViolationAction::Reject)
-    }
-}
-
-impl<T: 'static, M: 'static> Default for AxiomChain<T, M> {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
 /// Dynamic axiom chain built from the distributed registry at runtime.
 /// Used by ArchitectureGuardian to check all registered axioms for a given layer.
 pub struct DynAxiomChain {
@@ -139,14 +87,14 @@ impl DynAxiomChain {
     ) -> Vec<AxiomViolation> {
         self.axioms
             .iter()
-            .filter_map(|a| {
-                a.check_dyn(current, new, msg)
-                    .err()
-                    .map(|e| AxiomViolation {
-                        axiom_name: a.name(),
-                        error: e,
-                        action: a.violation_action(),
-                    })
+            .filter_map(|a| match a.check_dyn(current, new, msg) {
+                Ok(()) => None,
+                Err(crate::AxiomError::TypeMismatch { .. }) => None,
+                Err(e) => Some(AxiomViolation {
+                    axiom_name: a.name(),
+                    error: e,
+                    action: a.violation_action(),
+                }),
             })
             .collect()
     }
@@ -201,29 +149,47 @@ mod tests {
 
     #[test]
     fn test_axiom_chain_rejects() {
-        let chain = AxiomChain::<String, String>::new()
-            .push(NonEmpty)
-            .push(MaxLength(10));
-        let violations = chain.check_all(&"hello".into(), &"".into(), &"set".into());
-        assert!(!violations.is_empty());
-        assert!(chain.has_reject_violations(&violations));
+        // Test individual axioms directly (no typed chain needed)
+        let non_empty = NonEmpty;
+        let max_len = MaxLength(10);
+
+        // NonEmpty rejects empty input
+        assert!(non_empty
+            .check(&"hello".into(), &"".into(), &"set".into())
+            .is_err());
+        assert_eq!(non_empty.violation_action(), ViolationAction::Reject);
+
+        // MaxLength rejects input that's too long
+        assert!(max_len
+            .check(&"".into(), &"this is way too long".into(), &"set".into())
+            .is_err());
+        assert_eq!(max_len.violation_action(), ViolationAction::Warn);
     }
 
     #[test]
     fn test_axiom_chain_passes() {
-        let chain = AxiomChain::<String, String>::new()
-            .push(NonEmpty)
-            .push(MaxLength(10));
-        let violations = chain.check_all(&"".into(), &"ok".into(), &"set".into());
-        assert!(violations.is_empty());
+        let non_empty = NonEmpty;
+        let max_len = MaxLength(10);
+
+        assert!(non_empty
+            .check(&"".into(), &"ok".into(), &"set".into())
+            .is_ok());
+        assert!(max_len
+            .check(&"".into(), &"ok".into(), &"set".into())
+            .is_ok());
     }
 
     #[test]
     fn test_warn_only_no_reject() {
-        let chain = AxiomChain::<String, String>::new().push(MaxLength(5));
-        let violations = chain.check_all(&"".into(), &"this is way too long".into(), &"set".into());
-        assert_eq!(violations.len(), 1);
-        assert!(!chain.has_reject_violations(&violations));
+        let max_len = MaxLength(5);
+        let result = max_len.check(
+            &"".into(),
+            &"this is way too long".into(),
+            &"set".into(),
+        );
+        assert!(result.is_err());
+        // Warn actions should not reject (just warn)
+        assert_eq!(max_len.violation_action(), ViolationAction::Warn);
     }
 
     #[test]

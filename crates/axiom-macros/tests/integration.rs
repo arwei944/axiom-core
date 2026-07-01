@@ -1,5 +1,5 @@
 use axiom_core::cell::{Cell, ExecCell, LayerOf};
-use axiom_core::context::CellContext;
+use axiom_core::context::{CellContext, OutgoingEnvelope, OutgoingWitness};
 use axiom_core::id::{CellId, CorrelationId, MsgId};
 use axiom_core::layer::Layer;
 use axiom_core::schema::ValidationResult;
@@ -8,6 +8,7 @@ use axiom_core::version::{Migration, SchemaVersion, Versioned};
 use axiom_core::{axiom::Axiom, AxiomError, Result};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
+use std::future::Future;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct GreetCmd {
@@ -48,8 +49,9 @@ impl Signal for GreetCmd {
     fn validate(&self) -> ValidationResult {
         ValidationResult::ok()
     }
-    fn serialize_to_json(&self) -> serde_json::Value {
-        serde_json::to_value(self).unwrap_or(serde_json::Value::Null)
+    fn serialize_to_json(&self) -> ::axiom_core::Result<serde_json::Value> {
+        serde_json::to_value(self)
+            .map_err(|e| ::axiom_core::AxiomError::SignalSerialization(e.to_string()))
     }
 }
 
@@ -79,13 +81,23 @@ impl Cell for GreeterCell {
         Layer::Exec
     }
 
-    async fn handle(
-        &mut self,
+    fn handle<'a>(
+        &'a mut self,
         signal: GreetCmd,
-        _ctx: &mut CellContext<'_>,
-    ) -> axiom_core::Result<()> {
-        self.greeted.push(signal.name);
-        Ok(())
+        ctx: &'a mut CellContext<'a>,
+    ) -> impl Future<
+        Output = (
+            axiom_core::Result<()>,
+            Vec<OutgoingEnvelope>,
+            Vec<OutgoingWitness>,
+        ),
+    > + Send
+           + 'a {
+        async move {
+            self.greeted.push(signal.name);
+            let (outgoing, witnesses) = ctx.end_processing();
+            (Ok(()), outgoing, witnesses)
+        }
     }
 }
 
@@ -129,8 +141,9 @@ impl Signal for V2Signal {
     fn validate(&self) -> ValidationResult {
         ValidationResult::ok()
     }
-    fn serialize_to_json(&self) -> serde_json::Value {
-        serde_json::to_value(self).unwrap_or(serde_json::Value::Null)
+    fn serialize_to_json(&self) -> ::axiom_core::Result<serde_json::Value> {
+        serde_json::to_value(self)
+            .map_err(|e| ::axiom_core::AxiomError::SignalSerialization(e.to_string()))
     }
 }
 
@@ -178,7 +191,8 @@ async fn test_cell_macro_adds_exec_marker() {
         vector_clock: VectorClock::new(),
         name: "world".to_string(),
     };
-    cell.handle(cmd, &mut ctx).await.unwrap();
+    let (result, _outgoing, _witnesses) = cell.handle(cmd, &mut ctx).await;
+    result.unwrap();
     assert_eq!(cell.greeted, vec!["world"]);
 }
 

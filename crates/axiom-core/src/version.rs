@@ -14,7 +14,6 @@
 //! - Version mismatches produce explicit errors, never silent failures
 
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
 use std::fmt;
 
 // ============================================================
@@ -163,10 +162,6 @@ impl Compatibility {
     pub fn is_safe(&self) -> bool {
         matches!(self, Compatibility::Exact | Compatibility::Patch)
     }
-
-    pub fn can_read_witness(&self) -> bool {
-        !matches!(self, Compatibility::Breaking)
-    }
 }
 
 // ============================================================
@@ -186,14 +181,14 @@ pub trait Versioned {
 }
 
 // ============================================================
-// Migration trait + MigrationRegistry
+// Migration trait
 // ============================================================
 
 /// Data migration from one schema version to the next.
 ///
-/// Migrations form a chain: v1→v2→v3... The registry ensures no gaps.
-/// Each migration is a deterministic pure function (no IO, no randomness)
-/// that transforms a JSON value from schema FROM to schema TO.
+/// Migrations form a chain: v1→v2→v3... Each migration is a deterministic
+/// pure function (no IO, no randomness) that transforms a JSON value from
+/// schema FROM to schema TO.
 pub trait Migration: Send + Sync {
     fn source_version(&self) -> SchemaVersion;
     fn target_version(&self) -> SchemaVersion;
@@ -205,55 +200,92 @@ pub trait Migration: Send + Sync {
     }
 }
 
-pub struct MigrationRegistry {
-    migrations: HashMap<(u16, u16), Box<dyn Migration>>,
-    max_version: HashMap<&'static str, u16>,
+/// Schema migration manager built from the distributed migration registry.
+///
+/// Groups migrations by signal type and provides convenience methods for
+/// migrating JSON payloads to the latest version or a specific version.
+pub struct SchemaMigrator {
+    migrations: std::collections::HashMap<&'static str, Vec<Box<dyn Migration>>>,
+    max_versions: std::collections::HashMap<&'static str, SchemaVersion>,
 }
 
-impl MigrationRegistry {
-    pub fn new() -> Self {
-        Self {
-            migrations: HashMap::new(),
-            max_version: HashMap::new(),
-        }
-    }
+impl SchemaMigrator {
+    /// Build a SchemaMigrator from the linkme distributed migration registry.
+    ///
+    /// Populates `max_versions` from registry metadata. Actual `Migration` trait
+    /// objects must be added via `register()` since the distributed registry only
+    /// stores version metadata, not trait objects.
+    pub fn from_registry() -> Self {
+        let migrations: std::collections::HashMap<&'static str, Vec<Box<dyn Migration>>> =
+            std::collections::HashMap::new();
+        let mut max_versions: std::collections::HashMap<&'static str, SchemaVersion> =
+            std::collections::HashMap::new();
 
-    pub fn register<M: Migration + 'static>(&mut self, m: M) {
-        let from = m.source_version().0;
-        let to = m.target_version().0;
-        if to != from + 1 {
-            panic!(
-                "Migration {}→{} must increment by exactly 1 (no skipping versions)",
-                from, to
-            );
-        }
-        self.migrations.insert((from, to), Box::new(m));
-    }
-
-    pub fn register_target<T: Versioned + 'static>(&mut self) {
-        let type_name = std::any::type_name::<T>();
-        self.max_version.insert(type_name, T::schema_version().0);
-    }
-
-    pub fn verify_complete<T: Versioned + 'static>(&self) -> crate::Result<()> {
-        let min = T::min_supported_version().0;
-        let current = T::schema_version().0;
-        for v in min..current {
-            if !self.migrations.contains_key(&(v, v + 1)) {
-                return Err(crate::AxiomError::MigrationChainGap { from: v, to: v + 1 });
+        let chains = crate::registry::registered_migration_chains();
+        for (_from, to, for_type, _name) in &chains {
+            if !for_type.is_empty() {
+                let entry = max_versions
+                    .entry(for_type)
+                    .or_insert_with(|| SchemaVersion::new(0));
+                if *to > entry.0 {
+                    *entry = SchemaVersion::new(*to);
+                }
             }
         }
-        Ok(())
+
+        Self {
+            migrations,
+            max_versions,
+        }
     }
 
-    pub fn migrate(
+    /// Register a migration for a specific signal type.
+    pub fn register<M: Migration + 'static>(&mut self, signal_type: &'static str, m: M) {
+        let entry = self.migrations.entry(signal_type).or_default();
+        let target = m.target_version();
+        entry.push(Box::new(m));
+        entry.sort_by_key(|m| m.source_version().0);
+        let current_max = self
+            .max_versions
+            .entry(signal_type)
+            .or_insert_with(|| SchemaVersion::new(1));
+        if target > *current_max {
+            *current_max = target;
+        }
+    }
+
+    /// Get the latest known schema version for a signal type.
+    pub fn latest_version(&self, signal_type: &str) -> Option<SchemaVersion> {
+        self.max_versions.get(signal_type).copied()
+    }
+
+    /// Migrate a JSON payload from its current version to the latest known version.
+    pub fn migrate_to_latest(
         &self,
-        mut data: serde_json::Value,
+        signal_type: &str,
+        from_version: SchemaVersion,
+        json: serde_json::Value,
+    ) -> crate::Result<(serde_json::Value, SchemaVersion)> {
+        let latest =
+            self.latest_version(signal_type)
+                .ok_or(crate::AxiomError::MigrationPathNotFound {
+                    found: from_version.0,
+                    current: 0,
+                })?;
+        let result = self.migrate_to(signal_type, from_version, latest, json)?;
+        Ok((result, latest))
+    }
+
+    /// Migrate a JSON payload from one version to another.
+    pub fn migrate_to(
+        &self,
+        signal_type: &str,
         from: SchemaVersion,
         to: SchemaVersion,
+        mut json: serde_json::Value,
     ) -> crate::Result<serde_json::Value> {
         if from == to {
-            return Ok(data);
+            return Ok(json);
         }
         if from.0 > to.0 {
             return Err(crate::AxiomError::MigrationFailed {
@@ -262,17 +294,25 @@ impl MigrationRegistry {
                 reason: "Cannot migrate backwards".into(),
             });
         }
+        let chain =
+            self.migrations
+                .get(signal_type)
+                .ok_or(crate::AxiomError::MigrationPathNotFound {
+                    found: from.0,
+                    current: to.0,
+                })?;
         let mut current = from.0;
         while current < to.0 {
             let next = current + 1;
-            let migration = self.migrations.get(&(current, next)).ok_or(
-                crate::AxiomError::MigrationPathNotFound {
-                    found: current,
-                    current: to.0,
-                },
-            )?;
-            data = migration
-                .migrate(data)
+            let migration = chain
+                .iter()
+                .find(|m| m.source_version().0 == current && m.target_version().0 == next)
+                .ok_or(crate::AxiomError::MigrationChainGap {
+                    from: current,
+                    to: next,
+                })?;
+            json = migration
+                .migrate(json)
                 .map_err(|e| crate::AxiomError::MigrationFailed {
                     from: current,
                     to: next,
@@ -280,37 +320,38 @@ impl MigrationRegistry {
                 })?;
             current = next;
         }
-        Ok(data)
+        Ok(json)
     }
 
-    pub fn check_readable(
-        &self,
-        found: SchemaVersion,
-        current: SchemaVersion,
-    ) -> crate::Result<()> {
-        if found.0 > current.0 {
-            return Err(crate::AxiomError::SchemaVersionTooNew {
-                found: found.0,
-                max_supported: current.0,
-            });
-        }
-        if found.0 < current.0 {
-            for v in found.0..current.0 {
-                if !self.migrations.contains_key(&(v, v + 1)) {
-                    return Err(crate::AxiomError::MigrationPathNotFound {
-                        found: found.0,
-                        current: current.0,
-                    });
-                }
+    /// Verify that the migration chain is complete for a signal type (no gaps).
+    pub fn verify_chain(&self, signal_type: &str, up_to: SchemaVersion) -> crate::Result<()> {
+        let chain =
+            self.migrations
+                .get(signal_type)
+                .ok_or(crate::AxiomError::MigrationPathNotFound {
+                    found: 0,
+                    current: 0,
+                })?;
+        for v in 1..up_to.0 {
+            let found = chain
+                .iter()
+                .any(|m| m.source_version().0 == v && m.target_version().0 == v + 1);
+            if !found {
+                return Err(crate::AxiomError::MigrationChainGap { from: v, to: v + 1 });
             }
         }
         Ok(())
     }
+
+    /// List all registered signal types and their latest versions.
+    pub fn registered_types(&self) -> Vec<(&str, SchemaVersion)> {
+        self.max_versions.iter().map(|(k, v)| (*k, *v)).collect()
+    }
 }
 
-impl Default for MigrationRegistry {
+impl Default for SchemaMigrator {
     fn default() -> Self {
-        Self::new()
+        Self::from_registry()
     }
 }
 
@@ -339,11 +380,6 @@ impl VersionInfo {
             protocol_version: ProtocolVersion::CURRENT,
             identity_version: None,
         }
-    }
-
-    pub fn with_identity(mut self, v: IdentityVersion) -> Self {
-        self.identity_version = Some(v);
-        self
     }
 }
 
@@ -430,7 +466,42 @@ mod tests {
     }
 
     #[test]
-    fn test_migration_chain_single_step() {
+    fn test_schema_too_new_error() {
+        // SchemaMigrator::migrate_to rejects backwards migration (from > to)
+        let mig = SchemaMigrator::from_registry();
+        let result = mig.migrate_to(
+            "TestSignal",
+            SchemaVersion(5),
+            SchemaVersion(3),
+            serde_json::json!({}),
+        );
+        assert!(result.is_err());
+        match result.unwrap_err() {
+            crate::AxiomError::MigrationFailed { from, to, .. } => {
+                assert_eq!(from, 5);
+                assert_eq!(to, 3);
+            }
+            e => panic!("Expected MigrationFailed, got {:?}", e),
+        }
+    }
+
+    #[test]
+    fn test_version_info_current() {
+        let info = VersionInfo::current();
+        assert_eq!(info.crate_version, Version::CURRENT);
+        assert_eq!(info.witness_schema, WitnessSchema::schema_version());
+        assert!(info.identity_version.is_none());
+    }
+
+    #[test]
+    fn test_identity_version_increment() {
+        let mut v = IdentityVersion::new(1);
+        v.increment();
+        assert_eq!(v, IdentityVersion(2));
+    }
+
+    #[test]
+    fn test_schema_migrator_single_step() {
         struct M1to2;
         impl Migration for M1to2 {
             fn source_version(&self) -> SchemaVersion {
@@ -440,24 +511,23 @@ mod tests {
                 SchemaVersion(2)
             }
             fn migrate(&self, mut input: serde_json::Value) -> crate::Result<serde_json::Value> {
-                input["migrated"] = serde_json::json!(true);
+                input["v2"] = serde_json::json!(true);
                 Ok(input)
             }
         }
 
-        let mut reg = MigrationRegistry::new();
-        reg.register(M1to2);
-        assert!(reg.migrations.contains_key(&(1, 2)));
+        let mut mig = SchemaMigrator::from_registry();
+        mig.register("TestSignal", M1to2);
 
         let input = serde_json::json!({"data": "hello"});
-        let result = reg
-            .migrate(input, SchemaVersion(1), SchemaVersion(2))
+        let result = mig
+            .migrate_to("TestSignal", SchemaVersion(1), SchemaVersion(2), input)
             .unwrap();
-        assert_eq!(result["migrated"], serde_json::json!(true));
+        assert_eq!(result["v2"], serde_json::json!(true));
     }
 
     #[test]
-    fn test_migration_chain_multiple_steps() {
+    fn test_schema_migrator_multiple_steps() {
         struct M1to2;
         impl Migration for M1to2 {
             fn source_version(&self) -> SchemaVersion {
@@ -485,23 +555,70 @@ mod tests {
             }
         }
 
-        let mut reg = MigrationRegistry::new();
-        reg.register(M1to2);
-        reg.register(M2to3);
+        let mut mig = SchemaMigrator::from_registry();
+        mig.register("TestSignal", M1to2);
+        mig.register("TestSignal", M2to3);
 
         let input = serde_json::json!({"start": true});
-        let result = reg
-            .migrate(input, SchemaVersion(1), SchemaVersion(3))
+        let (result, latest) = mig
+            .migrate_to_latest("TestSignal", SchemaVersion(1), input)
             .unwrap();
         assert_eq!(result["step"], serde_json::json!(3));
+        assert_eq!(latest, SchemaVersion(3));
     }
 
     #[test]
-    fn test_migration_gap_detected() {
-        struct M1to3;
-        impl Migration for M1to3 {
+    fn test_schema_migrator_gap_detection() {
+        struct M1to2;
+        impl Migration for M1to2 {
             fn source_version(&self) -> SchemaVersion {
                 SchemaVersion(1)
+            }
+            fn target_version(&self) -> SchemaVersion {
+                SchemaVersion(2)
+            }
+            fn migrate(&self, v: serde_json::Value) -> crate::Result<serde_json::Value> {
+                Ok(v)
+            }
+        }
+
+        let mut mig = SchemaMigrator::from_registry();
+        mig.register("TestSignal", M1to2);
+
+        let result = mig.migrate_to(
+            "TestSignal",
+            SchemaVersion(1),
+            SchemaVersion(3),
+            serde_json::json!({}),
+        );
+        assert!(result.is_err());
+        match result.unwrap_err() {
+            crate::AxiomError::MigrationChainGap { from, to } => {
+                assert_eq!(from, 2);
+                assert_eq!(to, 3);
+            }
+            e => panic!("Expected MigrationChainGap, got {:?}", e),
+        }
+    }
+
+    #[test]
+    fn test_schema_migrator_verify_chain() {
+        struct M1to2;
+        impl Migration for M1to2 {
+            fn source_version(&self) -> SchemaVersion {
+                SchemaVersion(1)
+            }
+            fn target_version(&self) -> SchemaVersion {
+                SchemaVersion(2)
+            }
+            fn migrate(&self, v: serde_json::Value) -> crate::Result<serde_json::Value> {
+                Ok(v)
+            }
+        }
+        struct M2to3;
+        impl Migration for M2to3 {
+            fn source_version(&self) -> SchemaVersion {
+                SchemaVersion(2)
             }
             fn target_version(&self) -> SchemaVersion {
                 SchemaVersion(3)
@@ -510,45 +627,17 @@ mod tests {
                 Ok(v)
             }
         }
-        let mut reg = MigrationRegistry::new();
-        let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-            reg.register(M1to3);
-        }));
-        assert!(
-            result.is_err(),
-            "Migration that skips versions should panic at registration"
-        );
+
+        let mut mig = SchemaMigrator::from_registry();
+        mig.register("TestSignal", M1to2);
+        mig.register("TestSignal", M2to3);
+
+        assert!(mig.verify_chain("TestSignal", SchemaVersion(3)).is_ok());
     }
 
     #[test]
-    fn test_schema_too_new_error() {
-        let reg = MigrationRegistry::new();
-        let result = reg.check_readable(SchemaVersion(5), SchemaVersion(3));
-        assert!(result.is_err());
-        match result.unwrap_err() {
-            crate::AxiomError::SchemaVersionTooNew {
-                found,
-                max_supported,
-            } => {
-                assert_eq!(found, 5);
-                assert_eq!(max_supported, 3);
-            }
-            e => panic!("Expected SchemaVersionTooNew, got {:?}", e),
-        }
-    }
-
-    #[test]
-    fn test_version_info_current() {
-        let info = VersionInfo::current();
-        assert_eq!(info.crate_version, Version::CURRENT);
-        assert_eq!(info.witness_schema, WitnessSchema::schema_version());
-        assert!(info.identity_version.is_none());
-    }
-
-    #[test]
-    fn test_identity_version_increment() {
-        let mut v = IdentityVersion::new(1);
-        v.increment();
-        assert_eq!(v, IdentityVersion(2));
+    fn test_schema_migrator_from_registry() {
+        let mig = SchemaMigrator::from_registry();
+        let _types = mig.registered_types();
     }
 }

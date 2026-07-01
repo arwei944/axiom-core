@@ -24,7 +24,6 @@ pub mod error;
 pub mod gate;
 pub mod id;
 pub mod layer;
-pub mod lens;
 pub mod registry;
 pub mod schema;
 pub mod sealed;
@@ -32,12 +31,17 @@ pub mod signal;
 pub mod version;
 pub mod witness;
 
-pub use entropy::{EntropyLevel, EntropyScore, EntropySnapshot, EntropyWeights};
+pub use axiom::{Axiom, DynAxiom, DynAxiomChain, ViolationAction};
+pub use entropy::{
+    CellEntropy, EntropyLevel, EntropyScore, EntropySnapshot, EntropyWeights, CRITICAL_THRESHOLD,
+    GREEN_THRESHOLD, RED_THRESHOLD, YELLOW_THRESHOLD,
+};
 pub use error::{AxiomError, Result};
 pub use id::{AxiomId, CellId, CorrelationId, LensId, MsgId, TraceId, WitnessId};
 pub use layer::Layer;
 pub use registry::{
-    count_registered_axioms, registered_migration_chains, verify_migration_chain_completeness,
+    count_registered_axioms, registered_axioms, registered_migration_chains,
+    verify_migration_chain_completeness,
 };
 pub use schema::{Schema, ValidationResult};
 pub use sealed::{
@@ -46,8 +50,8 @@ pub use sealed::{
 };
 pub use signal::{Signal, SignalEnvelope, SignalKind, VectorClock};
 pub use version::{
-    Compatibility, CrateVersion, IdentityVersion, Migration, MigrationRegistry, ProtocolVersion,
-    SchemaVersion, Version, VersionInfo, Versioned,
+    Compatibility, IdentityVersion, Migration, ProtocolVersion,
+    SchemaMigrator, SchemaVersion, Version, VersionInfo, Versioned,
 };
 pub use witness::{
     TransitionOutcome, Witness, WitnessBatch, WitnessBuilder, WitnessHash, WitnessMetrics,

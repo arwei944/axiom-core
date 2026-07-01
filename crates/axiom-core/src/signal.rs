@@ -86,7 +86,7 @@ pub trait Signal: Send + Sync + 'static {
     fn as_any(&self) -> &dyn std::any::Any;
     fn clone_signal(&self) -> Box<dyn Signal>;
     fn validate(&self) -> ValidationResult;
-    fn serialize_to_json(&self) -> serde_json::Value;
+    fn serialize_to_json(&self) -> crate::Result<serde_json::Value>;
 }
 
 impl Clone for Box<dyn Signal> {
@@ -115,8 +115,8 @@ pub struct SignalEnvelope {
 }
 
 impl SignalEnvelope {
-    pub fn new<S: Signal>(signal: &S, target_layer: Layer) -> Self {
-        Self {
+    pub fn new<S: Signal>(signal: &S, target_layer: Layer) -> crate::Result<Self> {
+        Ok(Self {
             msg_id: signal.msg_id().clone(),
             correlation_id: signal.correlation_id().clone(),
             trace_id: signal.trace_id().cloned(),
@@ -128,27 +128,35 @@ impl SignalEnvelope {
             target_layer,
             source_cell: signal.sender().map(|s| s.to_string()),
             target_cell: None,
-            payload: signal.serialize_to_json(),
+            payload: signal.serialize_to_json()?,
             schema_version: signal.schema_version(),
             parent_msg_id: None,
             hop_count: 0,
-        }
+        })
     }
 
-    pub fn to_cell<S: Signal>(signal: &S, target_cell: &str, target_layer: Layer) -> Self {
-        let mut env = Self::new(signal, target_layer);
+    pub fn to_cell<S: Signal>(
+        signal: &S,
+        target_cell: &str,
+        target_layer: Layer,
+    ) -> crate::Result<Self> {
+        let mut env = Self::new(signal, target_layer)?;
         env.target_cell = Some(target_cell.to_string());
-        env
+        Ok(env)
     }
 
-    pub fn reply_to<S: Signal>(signal: &S, original: &SignalEnvelope, target_layer: Layer) -> Self {
-        let mut env = Self::new(signal, target_layer);
+    pub fn reply_to<S: Signal>(
+        signal: &S,
+        original: &SignalEnvelope,
+        target_layer: Layer,
+    ) -> crate::Result<Self> {
+        let mut env = Self::new(signal, target_layer)?;
         env.correlation_id = original.correlation_id.clone();
         env.trace_id = original.trace_id.clone();
         env.parent_msg_id = Some(original.msg_id.clone());
         env.hop_count = original.hop_count + 1;
         env.target_cell = original.source_cell.clone();
-        env
+        Ok(env)
     }
 
     pub fn validate_layer_transition(&self) -> crate::Result<()> {
@@ -240,14 +248,14 @@ mod tests {
     #[test]
     fn test_layer_validation() {
         let cmd = TestCommand::new("test");
-        let env = SignalEnvelope::new(&cmd, Layer::Exec);
+        let env = SignalEnvelope::new(&cmd, Layer::Exec).unwrap();
         assert!(env.validate_layer_transition().is_ok());
 
-        let mut env2 = SignalEnvelope::new(&cmd, Layer::Exec);
+        let mut env2 = SignalEnvelope::new(&cmd, Layer::Exec).unwrap();
         env2.target_layer = Layer::Validate;
         assert!(env2.validate_layer_transition().is_err());
 
-        let mut bad_env = SignalEnvelope::new(&cmd, Layer::Exec);
+        let mut bad_env = SignalEnvelope::new(&cmd, Layer::Exec).unwrap();
         bad_env.source_layer = Layer::Exec;
         bad_env.target_layer = Layer::Agent;
         assert!(bad_env.validate_layer_transition().is_err());
@@ -256,7 +264,7 @@ mod tests {
     #[test]
     fn test_hop_limit() {
         let cmd = TestCommand::new("test");
-        let mut env = SignalEnvelope::new(&cmd, Layer::Exec);
+        let mut env = SignalEnvelope::new(&cmd, Layer::Exec).unwrap();
         for _ in 0..8 {
             env.increment_hop().unwrap();
         }
@@ -266,7 +274,7 @@ mod tests {
     #[test]
     fn test_signal_envelope_payload_serialization() {
         let cmd = TestCommand::new("hello");
-        let env = SignalEnvelope::new(&cmd, Layer::Exec);
+        let env = SignalEnvelope::new(&cmd, Layer::Exec).unwrap();
         assert_eq!(env.signal_type, "TestCommand");
         assert_eq!(env.payload["payload"], serde_json::json!("hello"));
         assert_eq!(env.schema_version, SchemaVersion::new(1));
@@ -284,9 +292,9 @@ mod tests {
     #[test]
     fn test_signal_reply_to_sets_correlation() {
         let cmd = TestCommand::new("original");
-        let original_env = SignalEnvelope::new(&cmd, Layer::Exec);
+        let original_env = SignalEnvelope::new(&cmd, Layer::Exec).unwrap();
         let reply = TestCommand::new("reply");
-        let reply_env = SignalEnvelope::reply_to(&reply, &original_env, Layer::Exec);
+        let reply_env = SignalEnvelope::reply_to(&reply, &original_env, Layer::Exec).unwrap();
         assert_eq!(reply_env.correlation_id.as_str(), "test-corr");
         assert_eq!(reply_env.parent_msg_id.unwrap().as_str(), "test-msg");
         assert_eq!(reply_env.hop_count, 1);
@@ -342,8 +350,9 @@ mod tests {
         fn validate(&self) -> ValidationResult {
             ValidationResult::ok()
         }
-        fn serialize_to_json(&self) -> serde_json::Value {
-            serde_json::to_value(self).unwrap_or(serde_json::Value::Null)
+        fn serialize_to_json(&self) -> crate::Result<serde_json::Value> {
+            serde_json::to_value(self)
+                .map_err(|e| crate::AxiomError::SignalSerialization(e.to_string()))
         }
     }
 }

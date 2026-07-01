@@ -9,7 +9,7 @@
 //! - VersionInfo for replay compatibility
 //! - Signal fingerprint for fast deduplication
 
-use crate::context::CellContext;
+use crate::context::{CellContext, OutgoingWitness};
 use crate::id::{CorrelationId, MsgId, TraceId, WitnessId};
 use crate::signal::VectorClock;
 use crate::version::{SchemaVersion, VersionInfo, Versioned, WitnessSchema};
@@ -79,18 +79,18 @@ fn compute_signal_fingerprint(
     signal_type: &str,
     schema_version: SchemaVersion,
     payload: &serde_json::Value,
-) -> [u8; 32] {
+) -> crate::Result<[u8; 32]> {
     use sha2::{Digest, Sha256};
     let mut hasher = Sha256::new();
     hasher.update(signal_type.as_bytes());
     hasher.update(schema_version.0.to_le_bytes());
-    if let Ok(bytes) = serde_json::to_vec(payload) {
-        hasher.update(&bytes);
-    }
+    let bytes = serde_json::to_vec(payload)
+        .map_err(|e| crate::AxiomError::WitnessSerialization(format!("signal fingerprint payload: {e}")))?;
+    hasher.update(&bytes);
     let result = hasher.finalize();
     let mut fp = [0u8; 32];
     fp.copy_from_slice(&result);
-    fp
+    Ok(fp)
 }
 
 #[cfg(not(feature = "sha2-id"))]
@@ -98,8 +98,8 @@ fn compute_signal_fingerprint(
     _signal_type: &str,
     _schema_version: SchemaVersion,
     _payload: &serde_json::Value,
-) -> [u8; 32] {
-    [0u8; 32]
+) -> crate::Result<[u8; 32]> {
+    Ok([0u8; 32])
 }
 
 fn truncate(s: &str, max: usize) -> String {
@@ -114,7 +114,7 @@ fn truncate(s: &str, max: usize) -> String {
 
 impl Witness {
     #[cfg(feature = "sha2-id")]
-    pub fn compute_hash(&self, prev_hash: &Option<WitnessHash>) -> WitnessHash {
+    pub fn compute_hash(&self, prev_hash: &Option<WitnessHash>) -> crate::Result<WitnessHash> {
         use sha2::{Digest, Sha256};
         let mut hasher = Sha256::new();
         hasher.update(self.witness_id.as_str().as_bytes());
@@ -133,13 +133,13 @@ impl Witness {
         hasher.update(self.summary.as_bytes());
         hasher.update(self.signal_fingerprint);
         hasher.update(self.payload_size_bytes.to_le_bytes());
-        if let Ok(vi_bytes) = serde_json::to_vec(&self.version_info) {
-            hasher.update(&vi_bytes);
-        }
+        let vi_bytes = serde_json::to_vec(&self.version_info)
+            .map_err(|e| crate::AxiomError::WitnessSerialization(format!("version_info: {e}")))?;
+        hasher.update(&vi_bytes);
         let result = hasher.finalize();
         let mut hash = [0u8; 32];
         hash.copy_from_slice(&result);
-        WitnessHash(hash)
+        Ok(WitnessHash(hash))
     }
 
     pub fn verify_chain_integrity(witnesses: &[Witness]) -> bool {
@@ -270,7 +270,7 @@ impl WitnessBuilder {
         self
     }
 
-    pub fn emit(self, ctx: &mut CellContext<'_>) {
+    pub fn emit(self, ctx: &mut CellContext<'_>) -> crate::Result<()> {
         #[cfg(feature = "uuid")]
         let witness_id = WitnessId::generate();
         #[cfg(not(feature = "uuid"))]
@@ -296,21 +296,24 @@ impl WitnessBuilder {
         let cell_id = ctx.cell_id.as_str().to_string();
         let version_info = VersionInfo::current();
 
-        let signal_fingerprint = if let Some(ref msg) = triggering {
-            compute_signal_fingerprint(
-                msg.as_str(),
-                SchemaVersion::new(1),
-                &serde_json::Value::Null,
-            )
-        } else {
-            [0u8; 32]
+        // Use real signal data from CellContext for fingerprint
+        let signal_fingerprint = match (
+            &ctx.current_signal_type,
+            ctx.current_schema_version,
+            &ctx.current_payload,
+        ) {
+            (Some(st), Some(sv), Some(pl)) => compute_signal_fingerprint(st, sv, pl)?,
+            _ => [0u8; 32],
         };
 
-        let prev_hash = None;
+        // Chain from last witness hash in CellContext
+        let prev_hash = ctx.last_witness_hash.clone();
 
         let payload_size = serde_json::to_vec(&self.summary)
-            .map(|v| v.len())
-            .unwrap_or(0);
+            .map_err(|e| {
+                crate::AxiomError::WitnessSerialization(format!("summary payload_size: {e}"))
+            })?
+            .len();
 
         let mut witness = Witness {
             witness_id,
@@ -321,7 +324,7 @@ impl WitnessBuilder {
             triggering_msg_id: triggering,
             vector_clock: vc,
             timestamp_ns: timestamp,
-            prev_hash,
+            prev_hash: prev_hash.clone(),
             state_before_hash: self.state_before,
             state_after_hash: self.state_after,
             hash: WitnessHash::zero(),
@@ -339,10 +342,14 @@ impl WitnessBuilder {
 
         #[cfg(feature = "sha2-id")]
         {
-            witness.hash = witness.compute_hash(&witness.prev_hash);
+            witness.hash = witness.compute_hash(&witness.prev_hash)?;
         }
 
-        ctx.add_witness(witness);
+        // Update last_witness_hash for chaining
+        ctx.last_witness_hash = Some(witness.hash.clone());
+
+        ctx.witnesses.push(OutgoingWitness(witness));
+        Ok(())
     }
 }
 
@@ -411,8 +418,8 @@ mod tests {
         fn validate(&self) -> crate::schema::ValidationResult {
             crate::schema::ValidationResult::ok()
         }
-        fn serialize_to_json(&self) -> serde_json::Value {
-            serde_json::json!({"payload": self.payload})
+        fn serialize_to_json(&self) -> crate::Result<serde_json::Value> {
+            Ok(serde_json::json!({"payload": self.payload}))
         }
     }
 
@@ -440,7 +447,7 @@ mod tests {
             payload_size_bytes: 0,
         };
         let mut w1 = w1;
-        w1.hash = w1.compute_hash(&None);
+        w1.hash = w1.compute_hash(&None).unwrap();
 
         let mut w2 = Witness {
             witness_id: WitnessId::new("w2"),
@@ -462,7 +469,7 @@ mod tests {
             signal_fingerprint: [0u8; 32],
             payload_size_bytes: 0,
         };
-        w2.hash = w2.compute_hash(&w2.prev_hash);
+        w2.hash = w2.compute_hash(&w2.prev_hash).unwrap();
 
         assert!(Witness::verify_chain_integrity(&[w1, w2]));
     }
@@ -491,7 +498,7 @@ mod tests {
             payload_size_bytes: 0,
         };
         let mut w1 = w1;
-        w1.hash = w1.compute_hash(&None);
+        w1.hash = w1.compute_hash(&None).unwrap();
 
         let mut w2 = Witness {
             witness_id: WitnessId::new("w2"),
@@ -513,7 +520,7 @@ mod tests {
             signal_fingerprint: [1u8; 32],
             payload_size_bytes: 0,
         };
-        w2.hash = w2.compute_hash(&None);
+        w2.hash = w2.compute_hash(&None).unwrap();
 
         assert_ne!(
             w1.hash, w2.hash,
@@ -543,12 +550,13 @@ mod tests {
         ctx.begin_processing(&crate::signal::SignalEnvelope::new(
             &TestWitnessSignal::new("test"),
             Layer::Exec,
-        ));
+        ).unwrap());
 
         WitnessBuilder::new()
             .summary("test witness")
             .outcome(TransitionOutcome::Success)
-            .emit(&mut ctx);
+            .emit(&mut ctx)
+            .expect("emit should succeed");
 
         let witnesses = ctx.take_witnesses();
         assert_eq!(witnesses.len(), 1);

@@ -42,34 +42,3 @@ pub fn verify_migration_chain_completeness(up_to: u16) -> Result<(), Vec<String>
         Err(gaps)
     }
 }
-
-/// Verify migration chains for a specific signal type by name.
-pub fn verify_migration_chain_for_type(
-    signal_type: &str,
-    current_version: u16,
-) -> Result<(), Vec<String>> {
-    let chains = registered_migration_chains();
-    let relevant: Vec<_> = chains
-        .iter()
-        .filter(|(_, _, for_type, _)| for_type == &signal_type)
-        .collect();
-    let mut gaps = Vec::new();
-    for v in 1..current_version {
-        let found = relevant
-            .iter()
-            .any(|(from, to, _, _)| *from == v && *to == v + 1);
-        if !found {
-            gaps.push(format!(
-                "missing migration {}→{} for type {}",
-                v,
-                v + 1,
-                signal_type
-            ));
-        }
-    }
-    if gaps.is_empty() {
-        Ok(())
-    } else {
-        Err(gaps)
-    }
-}

@@ -14,6 +14,7 @@ use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 use tokio::sync::{oneshot, RwLock};
 use tokio::task::JoinHandle;
 
+use axiom_core::context::CellContext;
 use axiom_core::error::AxiomError;
 use axiom_core::id::{CellId, CorrelationId};
 use axiom_core::layer::Layer;
@@ -23,13 +24,35 @@ use crate::bus::MessageBus;
 use crate::entropy_gov::EntropyGovernor;
 use crate::guardian::ArchitectureGuardian;
 use crate::mailbox::Mailbox;
-use crate::supervisor::Supervisor;
+use crate::supervisor::{SupervisionDecision, Supervisor};
 
 pub struct CellRegistration {
     pub id: CellId,
     pub layer: Layer,
     pub version: axiom_core::version::Version,
     pub supervision_strategy: axiom_core::cell::SupervisionStrategy,
+    /// Optional cell handle for actual message dispatch.
+    /// When `None`, messages are drained from the mailbox but not processed.
+    pub cell: Option<axiom_core::cell::CellHandle>,
+}
+
+impl CellRegistration {
+    /// Create a registration without a cell handle (mailbox-only mode).
+    pub fn new(id: CellId, layer: Layer) -> Self {
+        Self {
+            id,
+            layer,
+            version: axiom_core::version::Version::new(0, 1, 0),
+            supervision_strategy: axiom_core::cell::SupervisionStrategy::default(),
+            cell: None,
+        }
+    }
+
+    /// Attach a cell handle so the dispatch loop will invoke `Cell::handle`.
+    pub fn with_cell(mut self, cell: axiom_core::cell::CellHandle) -> Self {
+        self.cell = Some(cell);
+        self
+    }
 }
 
 pub struct RuntimeConfig {
@@ -53,10 +76,10 @@ impl Default for RuntimeConfig {
 struct RegisteredCell {
     id: CellId,
     mailbox: Arc<Mailbox>,
-    #[allow(dead_code)]
     layer: Layer,
     #[allow(dead_code)]
     version: axiom_core::version::Version,
+    cell: Option<Arc<tokio::sync::Mutex<axiom_core::cell::CellHandle>>>,
 }
 
 #[derive(Debug, Clone, Default)]
@@ -197,11 +220,13 @@ impl AxiomRuntime {
             .register_cell(reg.id.as_str(), reg.supervision_strategy)
             .await;
 
+        let cell = reg.cell.map(|c| Arc::new(tokio::sync::Mutex::new(c)));
         self.cells.write().await.push(RegisteredCell {
             id: reg.id.clone(),
             mailbox: mailbox.clone(),
             layer: reg.layer,
             version: reg.version,
+            cell,
         });
         Ok(mailbox)
     }
@@ -280,7 +305,7 @@ impl AxiomRuntime {
             h.cells_running = cells_count as u64;
         }
 
-        let _bus = self.bus.clone();
+        let bus = self.bus.clone();
         let supervisor = self.supervisor.clone();
         let governor = self.governor.clone();
         let poll_interval = self.config.dispatch_poll_interval_ms;
@@ -291,9 +316,11 @@ impl AxiomRuntime {
             .read()
             .await
             .iter()
-            .map(|r| (r.mailbox.clone(), r.id.clone()))
+            .map(|r| (r.mailbox.clone(), r.id.clone(), r.layer, r.cell.clone()))
             .collect();
         let cells_len = cells_data.len();
+        // Collect cell IDs separately for the health-check task (cells_data is moved into dispatch task)
+        let cell_ids: Vec<CellId> = cells_data.iter().map(|(_, cid, _, _)| cid.clone()).collect();
 
         let handle = tokio::spawn(async move {
             let mut rx = rx;
@@ -305,18 +332,72 @@ impl AxiomRuntime {
                         break;
                     }
                     _ = interval.tick() => {
-                        for (mb, cid) in &cells_data {
+                        for (mb, cid, layer, cell) in &cells_data {
                             if !supervisor.before_handle(cid.as_str()).await {
+                                // Circuit breaker open → record entropy
+                                governor.record_circuit_break();
                                 continue;
                             }
-                            while mb.pop().await.is_some() {
-                                supervisor.record_success(cid.as_str()).await;
+                            while let Some(env) = mb.pop().await {
+                                if let Some(cell_lock) = cell {
+                                    // Cell registered → actually invoke Cell::handle.
+                                    // handle_dyn calls end_processing() internally
+                                    // and returns (Result, outgoing envelopes) to
+                                    // avoid borrow-checker conflicts with boxed
+                                    // futures capturing &mut ctx.
+                                    let mut cell_guard = cell_lock.lock().await;
+                                    let mut ctx = CellContext::new(cid, *layer);
+                                    ctx.begin_processing(&env);
+                                    let (handle_result, outgoing) =
+                                        cell_guard.handle_dyn(env, &mut ctx).await;
+                                    match handle_result {
+                                        Ok(()) => {
+                                            // Push outgoing envelopes back to the bus
+                                            for out in outgoing {
+                                                if let Err(e) = bus.publish(out.0).await {
+                                                    tracing::warn!(
+                                                        error = %e,
+                                                        "failed to publish outgoing signal"
+                                                    );
+                                                    governor.record_dropped_message();
+                                                }
+                                            }
+                                            supervisor.record_success(cid.as_str()).await;
+                                        }
+                                        Err(e) => {
+                                            tracing::warn!(
+                                                cell_id = cid.as_str(),
+                                                error = %e,
+                                                "cell handle failed"
+                                            );
+                                            let decision = supervisor
+                                                .record_panic(cid.as_str())
+                                                .await;
+                                            governor.record_axiom_violation();
+                                            match decision {
+                                                SupervisionDecision::Restart { .. } => {
+                                                    governor.record_cell_restart();
+                                                }
+                                                SupervisionDecision::CircuitBreak { .. } => {
+                                                    governor.record_circuit_break();
+                                                }
+                                                SupervisionDecision::Stop
+                                                | SupervisionDecision::Escalate => {}
+                                            }
+                                        }
+                                    }
+                                } else {
+                                    // No cell registered → drain mailbox (backward compat)
+                                    supervisor.record_success(cid.as_str()).await;
+                                }
                             }
                         }
 
                         if governor.should_reduce(entropy_cooldown) {
+                            let snap = governor.snapshot();
                             tracing::warn!(
-                                score = governor.snapshot().score,
+                                score = snap.score,
+                                level = ?snap.level,
                                 "entropy threshold exceeded; auto-reduction triggered"
                             );
                             governor.reset();
@@ -330,6 +411,7 @@ impl AxiomRuntime {
 
         let bus_h = self.bus.clone();
         let gov_h = self.governor.clone();
+        let sup_h = self.supervisor.clone();
         let health = self.health.clone();
         tokio::spawn(async move {
             let start = Instant::now();
@@ -341,7 +423,12 @@ impl AxiomRuntime {
                 h.messages_delivered = bus_h.delivered_count();
                 h.messages_rejected = bus_h.rejected_count();
                 h.entropy_score = gov_h.snapshot().score;
-                h.total_restarts = 0;
+                // Aggregate real restart counts from the supervisor
+                let mut total = 0u64;
+                for cid in &cell_ids {
+                    total += sup_h.restart_count(cid.as_str()).await;
+                }
+                h.total_restarts = total;
                 h.cells_running = cells_len as u64;
             }
         });
@@ -441,6 +528,7 @@ mod tests {
                 supervision_strategy: axiom_core::cell::SupervisionStrategy::Restart {
                     max_retries: 2,
                 },
+                cell: None,
             })
             .await
             .unwrap();
@@ -468,6 +556,7 @@ mod tests {
                 layer: Layer::Exec,
                 version: axiom_core::version::Version::new(0, 1, 0),
                 supervision_strategy: axiom_core::cell::SupervisionStrategy::default(),
+                cell: None,
             })
             .await
             .unwrap();
@@ -484,7 +573,7 @@ mod tests {
     async fn test_entropy_governor_triggers() {
         let gov = Arc::new(EntropyGovernor::new(1.0));
         for _ in 0..5 {
-            gov.record_restart();
+            gov.record_cell_restart();
         }
         let snap = gov.snapshot();
         assert!(snap.score > 1.0, "score should exceed threshold");
@@ -499,6 +588,7 @@ mod tests {
                 layer: Layer::Exec,
                 version: axiom_core::version::Version::new(1, 0, 0),
                 supervision_strategy: axiom_core::cell::SupervisionStrategy::default(),
+                cell: None,
             })
             .await
             .unwrap();

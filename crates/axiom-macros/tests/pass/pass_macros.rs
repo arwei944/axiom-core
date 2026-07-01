@@ -1,5 +1,5 @@
 use axiom_core::cell::Cell;
-use axiom_core::context::CellContext;
+use axiom_core::context::{CellContext, OutgoingEnvelope, OutgoingWitness};
 use axiom_core::id::{CellId, CorrelationId, MsgId};
 use axiom_core::layer::Layer;
 use axiom_core::schema::ValidationResult;
@@ -8,6 +8,7 @@ use axiom_core::version::{Migration, SchemaVersion, Versioned};
 use axiom_core::{axiom::Axiom, AxiomError, Result};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
+use std::future::Future;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct PassCmd {
@@ -27,7 +28,7 @@ impl Signal for PassCmd {
     fn as_any(&self) -> &dyn std::any::Any { self }
     fn clone_signal(&self) -> Box<dyn Signal> { Box::new(self.clone()) }
     fn validate(&self) -> ValidationResult { ValidationResult::ok() }
-    fn serialize_to_json(&self) -> serde_json::Value { serde_json::to_value(self).unwrap_or(serde_json::Value::Null) }
+    fn serialize_to_json(&self) -> ::axiom_core::Result<serde_json::Value> { serde_json::to_value(self).map_err(|e| ::axiom_core::AxiomError::SignalSerialization(e.to_string())) }
 }
 
 struct PassCell {
@@ -39,7 +40,7 @@ impl Cell for PassCell {
     type Message = PassCmd;
     fn id(&self) -> &CellId { &self.id }
     fn layer() -> Layer { Layer::Validate }
-    async fn handle(&mut self, _: PassCmd, _: &mut CellContext<'_>) -> axiom_core::Result<()> { Ok(()) }
+    fn handle<'a>(&'a mut self, _: PassCmd, ctx: &'a mut CellContext<'a>) -> impl Future<Output = (axiom_core::Result<()>, Vec<OutgoingEnvelope>, Vec<OutgoingWitness>)> + Send + 'a { async move { let (outgoing, witnesses) = ctx.end_processing(); (Ok(()), outgoing, witnesses) } }
 }
 
 fn _assert_validate_cell() {
@@ -66,7 +67,7 @@ impl Signal for V3Signal {
     fn as_any(&self) -> &dyn std::any::Any { self }
     fn clone_signal(&self) -> Box<dyn Signal> { Box::new(self.clone()) }
     fn validate(&self) -> ValidationResult { ValidationResult::ok() }
-    fn serialize_to_json(&self) -> serde_json::Value { serde_json::to_value(self).unwrap_or(serde_json::Value::Null) }
+    fn serialize_to_json(&self) -> ::axiom_core::Result<serde_json::Value> { serde_json::to_value(self).map_err(|e| ::axiom_core::AxiomError::SignalSerialization(e.to_string())) }
 }
 
 #[derive(Debug)]

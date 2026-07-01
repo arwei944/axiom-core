@@ -96,6 +96,18 @@ pub enum AxiomError {
     #[error("Serialization error: {0}")]
     Serde(#[from] serde_json::Error),
 
+    #[error("Type mismatch: expected {expected}, got {actual}")]
+    TypeMismatch {
+        expected: &'static str,
+        actual: &'static str,
+    },
+
+    #[error("Witness serialization failed: {0}")]
+    WitnessSerialization(String),
+
+    #[error("Signal serialization failed: {0}")]
+    SignalSerialization(String),
+
     #[error("Internal error: {0}")]
     Internal(String),
 }

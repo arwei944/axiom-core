@@ -1,6 +1,8 @@
 //! EntropyGovernorCell - quantifies disorder and prescribes governance actions.
 
-use axiom_core::entropy::EntropyScore;
+use axiom_core::entropy::{
+    EntropyScore, CRITICAL_THRESHOLD, GREEN_THRESHOLD, RED_THRESHOLD, YELLOW_THRESHOLD,
+};
 use axiom_core::id::CellId;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -41,13 +43,14 @@ pub struct EntropySnapshot {
 
 #[derive(Debug, Clone)]
 pub enum EntropyEvent {
-    AxiomViolation { cell_id: String, severity: f64 },
-    WitnessAnomaly { cell_id: String },
-    MessageLoop { correlation_id: String },
-    IntentDrift { agent_id: String, amount: f64 },
-    ResourceExhausted { resource: String },
-    CellCrashed { cell_id: String },
-    CircuitBreakerOpened { cell_id: String },
+    AxiomViolation { cell_id: String },
+    DroppedMessage { cell_id: String },
+    RejectedByGuardian { cell_id: String },
+    CellRestart { cell_id: String },
+    CircuitBreak { cell_id: String },
+    Timeout { cell_id: String },
+    DuplicateMessage { cell_id: String },
+    StaleStateViolation { cell_id: String },
     Custom { cell_id: String, weight: f64 },
 }
 
@@ -58,21 +61,19 @@ pub struct EntropyGovernorCell {
     last_action_ns: Arc<Mutex<u64>>,
     last_action: Arc<Mutex<Option<GovernanceAction>>>,
     cooldown_ns: u64,
-    critical_threshold: f64,
 }
 
 impl EntropyGovernorCell {
-    pub fn new(green: f64, yellow: f64, critical: f64) -> Self {
+    pub fn new(green: f64, yellow: f64, red: f64, critical: f64) -> Self {
         Self {
             id: CellId::new("oversight:entropy-governor"),
             global: Arc::new(Mutex::new(
-                EntropyScore::new().with_thresholds(green, yellow),
+                EntropyScore::new().with_thresholds(green, yellow, red, critical),
             )),
             per_cell: Arc::new(Mutex::new(HashMap::new())),
             last_action_ns: Arc::new(Mutex::new(0)),
             last_action: Arc::new(Mutex::new(None)),
             cooldown_ns: 30_000_000_000,
-            critical_threshold: critical,
         }
     }
 
@@ -83,34 +84,52 @@ impl EntropyGovernorCell {
     pub fn record(&self, ev: EntropyEvent) {
         let now = now_ns();
         let cell_id = match &ev {
-            EntropyEvent::AxiomViolation { cell_id, .. } => cell_id.clone(),
-            EntropyEvent::WitnessAnomaly { cell_id } => cell_id.clone(),
-            EntropyEvent::MessageLoop { .. } => String::new(),
-            EntropyEvent::IntentDrift { agent_id, .. } => agent_id.clone(),
-            EntropyEvent::ResourceExhausted { .. } => String::new(),
-            EntropyEvent::CellCrashed { cell_id } => cell_id.clone(),
-            EntropyEvent::CircuitBreakerOpened { cell_id } => cell_id.clone(),
+            EntropyEvent::AxiomViolation { cell_id } => cell_id.clone(),
+            EntropyEvent::DroppedMessage { cell_id } => cell_id.clone(),
+            EntropyEvent::RejectedByGuardian { cell_id } => cell_id.clone(),
+            EntropyEvent::CellRestart { cell_id } => cell_id.clone(),
+            EntropyEvent::CircuitBreak { cell_id } => cell_id.clone(),
+            EntropyEvent::Timeout { cell_id } => cell_id.clone(),
+            EntropyEvent::DuplicateMessage { cell_id } => cell_id.clone(),
+            EntropyEvent::StaleStateViolation { cell_id } => cell_id.clone(),
             EntropyEvent::Custom { cell_id, .. } => cell_id.clone(),
         };
 
         let mut global = self.global.lock().unwrap();
-        global.record_axiom_violation();
-        global.record_witness_anomaly();
-        if matches!(ev, EntropyEvent::MessageLoop { .. }) {
-            global.record_message_loop();
-        }
-        if let EntropyEvent::IntentDrift { amount, .. } = &ev {
-            global.record_intent_drift(*amount);
+        match &ev {
+            EntropyEvent::AxiomViolation { .. } => global.record_axiom_violation(),
+            EntropyEvent::DroppedMessage { .. } => global.record_dropped_message(),
+            EntropyEvent::RejectedByGuardian { .. } => global.record_rejected_by_guardian(),
+            EntropyEvent::CellRestart { .. } => global.record_cell_restart(),
+            EntropyEvent::CircuitBreak { .. } => global.record_circuit_break(),
+            EntropyEvent::Timeout { .. } => global.record_timeout(),
+            EntropyEvent::DuplicateMessage { .. } => global.record_duplicate_message(),
+            EntropyEvent::StaleStateViolation { .. } => global.record_stale_state_violation(),
+            EntropyEvent::Custom { weight, .. } => global.record_custom(*weight),
         }
         global.last_updated_ns = now;
+        let gt = global.green_threshold;
+        let yt = global.yellow_threshold;
+        let rt = global.red_threshold;
+        let ct = global.critical_threshold;
         drop(global);
 
         if !cell_id.is_empty() {
             let mut per_cell = self.per_cell.lock().unwrap();
             let entry = per_cell
                 .entry(cell_id)
-                .or_insert_with(|| EntropyScore::new().with_thresholds(0.3, 0.6));
-            entry.record_axiom_violation();
+                .or_insert_with(|| EntropyScore::new().with_thresholds(gt, yt, rt, ct));
+            match &ev {
+                EntropyEvent::AxiomViolation { .. } => entry.record_axiom_violation(),
+                EntropyEvent::DroppedMessage { .. } => entry.record_dropped_message(),
+                EntropyEvent::RejectedByGuardian { .. } => entry.record_rejected_by_guardian(),
+                EntropyEvent::CellRestart { .. } => entry.record_cell_restart(),
+                EntropyEvent::CircuitBreak { .. } => entry.record_circuit_break(),
+                EntropyEvent::Timeout { .. } => entry.record_timeout(),
+                EntropyEvent::DuplicateMessage { .. } => entry.record_duplicate_message(),
+                EntropyEvent::StaleStateViolation { .. } => entry.record_stale_state_violation(),
+                EntropyEvent::Custom { weight, .. } => entry.record_custom(*weight),
+            }
             entry.last_updated_ns = now;
         }
     }
@@ -129,14 +148,11 @@ impl EntropyGovernorCell {
     pub fn snapshot(&self) -> EntropySnapshot {
         let now = now_ns();
         let g = *self.global.lock().unwrap();
-        let level = if g.value >= self.critical_threshold {
-            EntropyLevel::Critical
-        } else if g.value >= g.yellow_threshold {
-            EntropyLevel::Red
-        } else if g.value >= g.green_threshold {
-            EntropyLevel::Yellow
-        } else {
-            EntropyLevel::Green
+        let level = match g.level() {
+            axiom_core::entropy::EntropyLevel::Green => EntropyLevel::Green,
+            axiom_core::entropy::EntropyLevel::Yellow => EntropyLevel::Yellow,
+            axiom_core::entropy::EntropyLevel::Red => EntropyLevel::Red,
+            axiom_core::entropy::EntropyLevel::Critical => EntropyLevel::Critical,
         };
         let per_cell = self
             .per_cell
@@ -195,13 +211,14 @@ impl EntropyGovernorCell {
 
     pub fn reset(&self) {
         let now = now_ns();
-        let g = self.global.lock().unwrap();
+        let mut g = self.global.lock().unwrap();
         let gt = g.green_threshold;
         let yt = g.yellow_threshold;
-        drop(g);
-        let mut g = self.global.lock().unwrap();
-        *g = EntropyScore::new().with_thresholds(gt, yt);
+        let rt = g.red_threshold;
+        let ct = g.critical_threshold;
+        *g = EntropyScore::new().with_thresholds(gt, yt, rt, ct);
         g.last_updated_ns = now;
+        drop(g);
         self.per_cell.lock().unwrap().clear();
     }
 }
@@ -209,9 +226,10 @@ impl EntropyGovernorCell {
 impl Default for EntropyGovernorCell {
     fn default() -> Self {
         Self::new(
-            axiom_core::entropy::DEFAULT_GREEN_THRESHOLD,
-            axiom_core::entropy::DEFAULT_YELLOW_THRESHOLD,
-            0.95,
+            GREEN_THRESHOLD,
+            YELLOW_THRESHOLD,
+            RED_THRESHOLD,
+            CRITICAL_THRESHOLD,
         )
     }
 }
@@ -238,21 +256,16 @@ mod tests {
 
     #[test]
     fn test_red_after_multiple_events() {
-        let g = EntropyGovernorCell::new(0.1, 0.3, 0.5);
-        for _ in 0..20 {
+        let g = EntropyGovernorCell::new(1.0, 5.0, 10.0, 20.0);
+        for _ in 0..10 {
             g.record(EntropyEvent::AxiomViolation {
                 cell_id: "c1".into(),
-                severity: 1.0,
             });
-            g.record(EntropyEvent::WitnessAnomaly {
+            g.record(EntropyEvent::CellRestart {
                 cell_id: "c1".into(),
             });
-            g.record(EntropyEvent::MessageLoop {
-                correlation_id: "x".into(),
-            });
-            g.record(EntropyEvent::IntentDrift {
-                agent_id: "a1".into(),
-                amount: 1.0,
+            g.record(EntropyEvent::CircuitBreak {
+                cell_id: "c1".into(),
             });
         }
         let s = g.snapshot();
@@ -269,11 +282,10 @@ mod tests {
 
     #[test]
     fn test_cooldown_prevents_spam() {
-        let g = EntropyGovernorCell::new(0.0, 0.0, 0.0);
+        let g = EntropyGovernorCell::new(0.0, 0.0, 0.0, 0.0);
         for _ in 0..50 {
             g.record(EntropyEvent::AxiomViolation {
                 cell_id: "c1".into(),
-                severity: 2.0,
             });
         }
         let a1 = g.take_action();
@@ -288,7 +300,6 @@ mod tests {
         for _ in 0..20 {
             g.record(EntropyEvent::AxiomViolation {
                 cell_id: "c1".into(),
-                severity: 1.0,
             });
         }
         g.reset();
@@ -301,14 +312,43 @@ mod tests {
         for _ in 0..5 {
             g.record(EntropyEvent::AxiomViolation {
                 cell_id: "hot".into(),
-                severity: 1.0,
             });
         }
         g.record(EntropyEvent::AxiomViolation {
             cell_id: "cold".into(),
-            severity: 1.0,
         });
         let s = g.snapshot();
         assert!(s.per_cell.get("hot").unwrap() > s.per_cell.get("cold").unwrap());
+    }
+
+    #[test]
+    fn test_all_entropy_event_types() {
+        let g = EntropyGovernorCell::default();
+        g.record(EntropyEvent::AxiomViolation {
+            cell_id: "c".into(),
+        });
+        g.record(EntropyEvent::DroppedMessage {
+            cell_id: "c".into(),
+        });
+        g.record(EntropyEvent::RejectedByGuardian {
+            cell_id: "c".into(),
+        });
+        g.record(EntropyEvent::CellRestart {
+            cell_id: "c".into(),
+        });
+        g.record(EntropyEvent::CircuitBreak {
+            cell_id: "c".into(),
+        });
+        g.record(EntropyEvent::Timeout {
+            cell_id: "c".into(),
+        });
+        g.record(EntropyEvent::DuplicateMessage {
+            cell_id: "c".into(),
+        });
+        g.record(EntropyEvent::StaleStateViolation {
+            cell_id: "c".into(),
+        });
+        let s = g.snapshot();
+        assert!(s.global.value > 0.0);
     }
 }

@@ -19,7 +19,7 @@ impl OversightSupervisor {
         Arc::new(Self {
             _id: CellId::new("oversight:supervisor"),
             architecture_guardian: Arc::new(super::ArchitectureGuardianCell::new()),
-            entropy_governor: Arc::new(super::EntropyGovernorCell::new(30.0, 70.0, 100.0)),
+            entropy_governor: Arc::new(super::EntropyGovernorCell::new(30.0, 70.0, 150.0, 300.0)),
             resource_manager: Arc::new(super::ResourceManagerCell::new(1000, 100.0, 64)),
             intent_auditor: Arc::new(super::IntentAuditorCell::new()),
             compliance_guard: Arc::new(super::ComplianceGuardCell::new()),
