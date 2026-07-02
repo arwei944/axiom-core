@@ -50,6 +50,7 @@ impl CanSendTo<ValidateLayer> for AgentLayer {}
 
 impl CanSendTo<ValidateLayer> for ValidateLayer {}
 impl CanSendTo<ExecLayer> for ValidateLayer {}
+impl CanSendTo<AgentLayer> for ValidateLayer {}
 
 impl CanSendTo<ExecLayer> for ExecLayer {}
 
@@ -73,6 +74,7 @@ mod tests {
         assert_send::<AgentLayer, ValidateLayer>();
         assert_send::<ValidateLayer, ValidateLayer>();
         assert_send::<ValidateLayer, ExecLayer>();
+        assert_send::<ValidateLayer, AgentLayer>();
         assert_send::<ExecLayer, ExecLayer>();
     }
 

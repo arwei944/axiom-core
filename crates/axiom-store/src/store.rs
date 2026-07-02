@@ -60,6 +60,17 @@ pub trait EventStore: Send + Sync {
         correlation_id: &'a str,
     ) -> BoxFuture<'a, Result<Vec<Event>, StoreError>>;
 
+    fn read_by_cell_id<'a>(
+        &'a self,
+        cell_id: &'a str,
+    ) -> BoxFuture<'a, Result<Vec<Event>, StoreError>>;
+
+    fn read_by_time_range<'a>(
+        &'a self,
+        start_ns: u64,
+        end_ns: u64,
+    ) -> BoxFuture<'a, Result<Vec<Event>, StoreError>>;
+
     fn latest_sequence<'a>(&'a self) -> BoxFuture<'a, Result<u64, StoreError>>;
 
     fn subscribe(&self) -> EventReceiver;

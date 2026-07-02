@@ -1,9 +1,10 @@
 //! MetaOversight - supervises the supervisors. Monitors Oversight cells' health.
 
 use axiom_core::id::CellId;
+use parking_lot::Mutex;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 use std::time::Instant;
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
@@ -50,37 +51,33 @@ impl MetaOversightCell {
     }
 
     pub fn register_expected_cell(&self, cell_id: &str) {
-        self.expected_cells
-            .lock()
-            .unwrap()
-            .push(cell_id.to_string());
+        self.expected_cells.lock().push(cell_id.to_string());
         self.heartbeats
             .lock()
-            .unwrap()
             .entry(cell_id.to_string())
             .or_default();
     }
 
     pub fn set_interceptor_count(&self, n: usize) {
-        *self.interceptor_count.lock().unwrap() = n;
+        *self.interceptor_count.lock() = n;
     }
 
     pub fn set_witness_chain_ok(&self, ok: bool) {
-        *self.witness_chain_ok.lock().unwrap() = ok;
+        *self.witness_chain_ok.lock() = ok;
     }
 
     pub fn record_pong(&self, cell_id: &str) {
-        let mut hb = self.heartbeats.lock().unwrap();
+        let mut hb = self.heartbeats.lock();
         let entry = hb.entry(cell_id.to_string()).or_default();
-        entry.last_seen_ns = now_ns();
+        entry.last_seen_ns = axiom_core::signal::now_ns();
         entry.consecutive_misses = 0;
         entry.responsive = true;
     }
 
     pub fn tick_ping(&self) -> Vec<String> {
-        *self.last_ping.lock().unwrap() = Instant::now();
-        let expected = self.expected_cells.lock().unwrap().clone();
-        let mut hb = self.heartbeats.lock().unwrap();
+        *self.last_ping.lock() = Instant::now();
+        let expected = self.expected_cells.lock().clone();
+        let mut hb = self.heartbeats.lock();
         let mut unresponsive = Vec::new();
         for cid in &expected {
             let entry = hb.entry(cid.clone()).or_default();
@@ -94,15 +91,15 @@ impl MetaOversightCell {
     }
 
     pub fn integrity_report(&self) -> OversightIntegrityReport {
-        let expected = self.expected_cells.lock().unwrap().clone();
-        let hb = self.heartbeats.lock().unwrap();
+        let expected = self.expected_cells.lock().clone();
+        let hb = self.heartbeats.lock();
         let unresponsive: Vec<String> = expected
             .iter()
             .filter(|cid| !hb.get(*cid).map(|h| h.responsive).unwrap_or(false))
             .cloned()
             .collect();
-        let witness_ok = *self.witness_chain_ok.lock().unwrap();
-        let interceptor_count = *self.interceptor_count.lock().unwrap();
+        let witness_ok = *self.witness_chain_ok.lock();
+        let interceptor_count = *self.interceptor_count.lock();
         let healthy = unresponsive.is_empty() && witness_ok && interceptor_count > 0;
         OversightIntegrityReport {
             expected_cells: expected,
@@ -118,14 +115,6 @@ impl Default for MetaOversightCell {
     fn default() -> Self {
         Self::new()
     }
-}
-
-fn now_ns() -> u64 {
-    use std::time::{SystemTime, UNIX_EPOCH};
-    SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .map(|d| d.as_nanos() as u64)
-        .unwrap_or(0)
 }
 
 #[cfg(test)]

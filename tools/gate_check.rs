@@ -27,6 +27,7 @@ const AUDITED_DEPS: &[&str] = &[
     "tokio", "serde", "serde_json", "thiserror", "anyhow", "tracing",
     "tracing-subscriber", "sha2", "uuid", "futures", "clap", "ratatui",
     "crossterm", "syn", "quote", "proc-macro2", "linkme", "trybuild", "regex",
+    "parking_lot",
 ];
 
 fn crate_level_of(name: &str) -> Option<usize> {

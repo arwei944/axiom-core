@@ -3,9 +3,10 @@
 use crate::entropy_governor::{EntropyGovernorCell, EntropyLevel, EntropySnapshot};
 use crate::resource_manager::ResourceStats;
 use axiom_core::id::CellId;
+use parking_lot::Mutex;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 use std::time::{Instant, SystemTime, UNIX_EPOCH};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -100,7 +101,7 @@ impl HealthCollectorCell {
     }
 
     pub fn update_cell(&self, health: CellHealth) {
-        self.cells.lock().unwrap().insert(health.id.clone(), health);
+        self.cells.lock().insert(health.id.clone(), health);
     }
 
     pub fn set_message_stats(
@@ -110,7 +111,7 @@ impl HealthCollectorCell {
         dlq: usize,
         active_cells: usize,
     ) {
-        let mut m = self.message_stats.lock().unwrap();
+        let mut m = self.message_stats.lock();
         m.total_delivered = delivered;
         m.total_rejected = rejected;
         m.dlq_size = dlq;
@@ -118,24 +119,24 @@ impl HealthCollectorCell {
     }
 
     pub fn bind_entropy(&self, g: Arc<EntropyGovernorCell>) {
-        *self.entropy.lock().unwrap() = Some(g);
+        *self.entropy.lock() = Some(g);
     }
 
     pub fn bind_resources(&self, r: Arc<crate::resource_manager::ResourceManagerCell>) {
-        *self.resources.lock().unwrap() = Some(r);
+        *self.resources.lock() = Some(r);
     }
 
     pub fn update_oversight(&self, h: OversightHealth) {
-        *self.oversight_health.lock().unwrap() = h;
+        *self.oversight_health.lock() = h;
     }
 
     pub fn collect(&self) -> SystemHealth {
         let uptime = self.started_at.elapsed().as_secs();
-        let cells: Vec<CellHealth> = self.cells.lock().unwrap().values().cloned().collect();
-        let messages = self.message_stats.lock().unwrap().clone();
-        let entropy = self.entropy.lock().unwrap().as_ref().map(|g| g.snapshot());
-        let resources = self.resources.lock().unwrap().as_ref().map(|r| r.stats());
-        let oversight = self.oversight_health.lock().unwrap().clone();
+        let cells: Vec<CellHealth> = self.cells.lock().values().cloned().collect();
+        let messages = self.message_stats.lock().clone();
+        let entropy = self.entropy.lock().as_ref().map(|g| g.snapshot());
+        let resources = self.resources.lock().as_ref().map(|r| r.stats());
+        let oversight = self.oversight_health.lock().clone();
 
         let mut status = HealthStatus::Healthy;
 

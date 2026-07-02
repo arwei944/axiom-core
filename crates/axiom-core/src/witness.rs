@@ -84,8 +84,12 @@ fn compute_signal_fingerprint(
     let mut hasher = Sha256::new();
     hasher.update(signal_type.as_bytes());
     hasher.update(schema_version.0.to_le_bytes());
-    let bytes = serde_json::to_vec(payload)
-        .map_err(|e| crate::AxiomError::WitnessSerialization(format!("signal fingerprint payload: {e}")))?;
+    let bytes = serde_json::to_vec(payload).map_err(|e| {
+        crate::AxiomError::WitnessSerialization {
+            cell_id: "unknown".into(),
+            message: format!("signal fingerprint payload: {e}"),
+        }
+    })?;
     hasher.update(&bytes);
     let result = hasher.finalize();
     let mut fp = [0u8; 32];
@@ -134,7 +138,10 @@ impl Witness {
         hasher.update(self.signal_fingerprint);
         hasher.update(self.payload_size_bytes.to_le_bytes());
         let vi_bytes = serde_json::to_vec(&self.version_info)
-            .map_err(|e| crate::AxiomError::WitnessSerialization(format!("version_info: {e}")))?;
+            .map_err(|e| crate::AxiomError::WitnessSerialization {
+                cell_id: self.cell_id.clone(),
+                message: format!("version_info: {e}"),
+            })?;
         hasher.update(&vi_bytes);
         let result = hasher.finalize();
         let mut hash = [0u8; 32];
@@ -311,7 +318,10 @@ impl WitnessBuilder {
 
         let payload_size = serde_json::to_vec(&self.summary)
             .map_err(|e| {
-                crate::AxiomError::WitnessSerialization(format!("summary payload_size: {e}"))
+                crate::AxiomError::WitnessSerialization {
+                    cell_id: ctx.cell_id.as_str().to_string(),
+                    message: format!("summary payload_size: {e}"),
+                }
             })?
             .len();
 
@@ -547,10 +557,10 @@ mod tests {
     fn test_witness_builder_emit_produces_witness() {
         let cell_id = CellId::new("test-cell");
         let mut ctx = CellContext::new(&cell_id, Layer::Exec);
-        ctx.begin_processing(&crate::signal::SignalEnvelope::new(
-            &TestWitnessSignal::new("test"),
-            Layer::Exec,
-        ).unwrap());
+        ctx.begin_processing(
+            &crate::signal::SignalEnvelope::new(&TestWitnessSignal::new("test"), Layer::Exec)
+                .unwrap(),
+        );
 
         WitnessBuilder::new()
             .summary("test witness")

@@ -6,13 +6,31 @@
 //! Each layer-specific CellContext only exposes the send methods that are legal
 //! for that layer, preventing illegal cross-layer calls at compile time.
 
-use crate::context::{CellContext, OutgoingEnvelope, OutgoingWitness};
+use crate::context::{CellContext, LayeredCellContext, OutgoingEnvelope, OutgoingWitness};
 use crate::id::CellId;
 use crate::layer::Layer;
+use crate::sealed::LayerMarker;
 use crate::signal::{Signal, SignalEnvelope};
 use serde::{Deserialize, Serialize};
 use std::future::Future;
 use std::pin::Pin;
+
+/// Type alias for the boxed future returned by `handle_dyn`.
+///
+/// Without this alias, clippy flags the raw `Pin<Box<dyn Future<...>>>` type as
+/// `type_complexity` in the trait declaration, impl, and wrapper.
+pub type BoxHandleFuture<'a> = Pin<
+    Box<
+        dyn Future<
+                Output = (
+                    crate::Result<()>,
+                    Vec<OutgoingEnvelope>,
+                    Vec<OutgoingWitness>,
+                ),
+            > + Send
+            + 'a,
+    >,
+>;
 
 pub mod state {
     pub struct Created;
@@ -58,10 +76,14 @@ pub struct CellMeta {
 
 pub trait Cell: Send + 'static {
     type Message: Signal;
+    type Layer: LayerMarker;
     fn id(&self) -> &CellId;
     fn layer() -> Layer
     where
-        Self: Sized;
+        Self: Sized,
+    {
+        Self::Layer::LAYER
+    }
     fn supervision_strategy(&self) -> SupervisionStrategy {
         SupervisionStrategy::default()
     }
@@ -77,6 +99,10 @@ pub trait Cell: Send + 'static {
     }
     /// Handle a signal and return outgoing envelopes + witnesses drained from `ctx`.
     ///
+    /// Implementations receive a `LayeredCellContext<Self::Layer>` which only
+    /// exposes `send_to` / `emit_to` methods for target layers allowed by the
+    /// architecture. Illegal cross-layer calls are rejected at compile time.
+    ///
     /// Implementations MUST call `ctx.end_processing()` before returning, because
     /// the framework does NOT access `ctx` after this future resolves. This design
     /// avoids borrow-checker conflicts with the opaque `impl Future + 'a` return
@@ -84,7 +110,7 @@ pub trait Cell: Send + 'static {
     fn handle<'a>(
         &'a mut self,
         signal: Self::Message,
-        ctx: &'a mut CellContext<'a>,
+        ctx: LayeredCellContext<'a, Self::Layer>,
     ) -> impl Future<
         Output = (
             crate::Result<()>,
@@ -157,7 +183,7 @@ pub trait DynHandleCell: DynCell {
         &'a mut self,
         env: SignalEnvelope,
         ctx: &'a mut CellContext<'a>,
-    ) -> Pin<Box<dyn Future<Output = (crate::Result<()>, Vec<OutgoingEnvelope>)> + Send + 'a>>;
+    ) -> BoxHandleFuture<'a>;
 }
 
 impl<C> DynHandleCell for C
@@ -169,30 +195,29 @@ where
         &'a mut self,
         env: SignalEnvelope,
         ctx: &'a mut CellContext<'a>,
-    ) -> Pin<Box<dyn Future<Output = (crate::Result<()>, Vec<OutgoingEnvelope>)> + Send + 'a>> {
+    ) -> BoxHandleFuture<'a> {
         Box::pin(async move {
             let msg: C::Message = match serde_json::from_value(env.payload) {
                 Ok(m) => m,
                 Err(e) => {
                     // ctx is not yet borrowed by handle(), so we can drain here.
                     let outgoing = ctx.take_outgoing();
+                    let witnesses = ctx.take_witnesses();
                     return (
-                        Err(crate::AxiomError::SignalSerialization(format!(
-                            "dispatch deserialize {}: {e}",
-                            env.signal_type
-                        ))),
+                        Err(crate::AxiomError::SignalSerialization {
+                            signal_type: env.signal_type.clone(),
+                            message: format!("dispatch deserialize: {e}"),
+                        }),
                         outgoing,
+                        witnesses,
                     );
                 }
             };
             // handle() returns (Result, Vec<OutgoingEnvelope>, Vec<OutgoingWitness>)
-            // and drains ctx internally via end_processing(). We do NOT access ctx
-            // after this point — the opaque `impl Future + 'a` ties the `&mut ctx`
-            // borrow to `'a`, so any subsequent `&mut ctx` would be a second
-            // mutable borrow (E0499). We drop witnesses (runtime doesn't need them
-            // yet; witness recording will be wired separately).
-            let (result, outgoing, _witnesses) = self.handle(msg, ctx).await;
-            (result, outgoing)
+            // and drains ctx internally via end_processing().
+            let layered = ctx.as_layered::<C::Layer>();
+            let (result, outgoing, witnesses) = self.handle(msg, layered).await;
+            (result, outgoing, witnesses)
         })
     }
 }
@@ -228,7 +253,7 @@ impl CellHandle {
         &'a mut self,
         env: SignalEnvelope,
         ctx: &'a mut CellContext<'a>,
-    ) -> Pin<Box<dyn Future<Output = (crate::Result<()>, Vec<OutgoingEnvelope>)> + Send + 'a>> {
+    ) -> BoxHandleFuture<'a> {
         self.inner.handle_dyn(env, ctx)
     }
 }
@@ -298,7 +323,10 @@ mod tests {
         }
         fn serialize_to_json(&self) -> crate::Result<serde_json::Value> {
             serde_json::to_value(self)
-                .map_err(|e| crate::AxiomError::SignalSerialization(e.to_string()))
+                .map_err(|e| crate::AxiomError::SignalSerialization {
+                    signal_type: "TestSignal".into(),
+                    message: e.to_string(),
+                })
         }
     }
 
@@ -318,17 +346,16 @@ mod tests {
 
     impl Cell for TestExecCell {
         type Message = ExecCmd;
+        type Layer = crate::sealed::ExecLayer;
         fn id(&self) -> &CellId {
             &self.id
         }
-        fn layer() -> Layer {
-            Layer::Exec
-        }
 
+        #[allow(clippy::manual_async_fn)]
         fn handle<'a>(
             &'a mut self,
             signal: ExecCmd,
-            ctx: &'a mut CellContext<'a>,
+            ctx: LayeredCellContext<'a, Self::Layer>,
         ) -> impl Future<
             Output = (
                 crate::Result<()>,
@@ -338,6 +365,7 @@ mod tests {
         > + Send
                + 'a {
             async move {
+                let mut ctx = ctx;
                 self.received.push(signal.data);
                 let (outgoing, witnesses) = ctx.end_processing();
                 (Ok(()), outgoing, witnesses)
@@ -358,7 +386,8 @@ mod tests {
         };
         let cell_id = CellId::new("test-exec");
         let mut ctx = CellContext::new(&cell_id, Layer::Exec);
-        let (result, _outgoing, _witnesses) = cell.handle(cmd, &mut ctx).await;
+        let layered = ctx.as_layered::<crate::sealed::ExecLayer>();
+        let (result, _outgoing, _witnesses) = cell.handle(cmd, layered).await;
         result.unwrap();
         assert_eq!(cell.received, vec!["hello"]);
     }

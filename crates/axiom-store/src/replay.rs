@@ -132,6 +132,102 @@ impl ReplayEngine {
     pub async fn subscribe(&self) -> crate::store::EventReceiver {
         self.event_store.subscribe()
     }
+
+    pub async fn replay_by_cell<S: ReplayableState>(
+        &self,
+        cell_id: &str,
+    ) -> Result<ReplayResult<S>, StoreError> {
+        let all_events = self.event_store.read_by_cell_id(cell_id).await?;
+        let latest_seq = all_events
+            .iter()
+            .map(|e| e.sequence_number)
+            .max()
+            .unwrap_or(0);
+        self.replay_with_events::<S>(&all_events, latest_seq).await
+    }
+
+    pub async fn replay_by_time_range<S: ReplayableState>(
+        &self,
+        start_ns: u64,
+        end_ns: u64,
+    ) -> Result<ReplayResult<S>, StoreError> {
+        let all_events = self.event_store.read_by_time_range(start_ns, end_ns).await?;
+        let latest_seq = all_events
+            .iter()
+            .map(|e| e.sequence_number)
+            .max()
+            .unwrap_or(0);
+        self.replay_with_events::<S>(&all_events, latest_seq).await
+    }
+
+    pub async fn replay_by_correlation<S: ReplayableState>(
+        &self,
+        correlation_id: &str,
+    ) -> Result<ReplayResult<S>, StoreError> {
+        let all_events = self.event_store.read_by_correlation(correlation_id).await?;
+        let latest_seq = all_events
+            .iter()
+            .map(|e| e.sequence_number)
+            .max()
+            .unwrap_or(0);
+        self.replay_with_events::<S>(&all_events, latest_seq).await
+    }
+
+    async fn replay_with_events<S: ReplayableState>(
+        &self,
+        events: &[Event],
+        up_to_seq: u64,
+    ) -> Result<ReplayResult<S>, StoreError> {
+        let start_ns = axiom_core::signal::now_ns();
+
+        let snapshot = self
+            .snapshot_store
+            .load_snapshot_at("", up_to_seq)
+            .await?;
+
+        let (mut state, start_seq, mut vc, snapshot_used) = if let Some(snap) = snapshot {
+            if snap.schema_version > S::current_schema_version() {
+                return Err(StoreError::Storage(format!(
+                    "snapshot schema version {} is newer than current {}",
+                    snap.schema_version,
+                    S::current_schema_version()
+                )));
+            }
+            let state = S::from_snapshot(&snap.state)?;
+            (state, snap.sequence_number, snap.vector_clock.clone(), true)
+        } else {
+            (S::default(), 0, VectorClock::new(), false)
+        };
+
+        let applicable: Vec<&Event> = events
+            .iter()
+            .filter(|e| e.sequence_number > start_seq && e.sequence_number <= up_to_seq)
+            .collect();
+        let total_events = events.len() as u64;
+        let events_replayed = applicable.len() as u64;
+
+        for event in &applicable {
+            vc.merge(&event.vector_clock);
+            state.apply_event(&event.event_type, &event.payload)?;
+        }
+
+        let last_sequence = applicable
+            .last()
+            .map(|e| e.sequence_number)
+            .unwrap_or(start_seq);
+
+        let duration_ms = (axiom_core::signal::now_ns() - start_ns) / 1_000_000;
+
+        Ok(ReplayResult {
+            state,
+            last_sequence,
+            vector_clock: vc,
+            events_replayed,
+            total_events_for_aggregate: total_events,
+            snapshot_used,
+            replay_duration_ms: duration_ms,
+        })
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

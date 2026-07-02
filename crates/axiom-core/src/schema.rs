@@ -104,9 +104,10 @@ impl ValidationResult {
         self.errors.extend(other.errors);
     }
 
-    pub fn into_result(self) -> Result<()> {
+    pub fn into_result(self, signal_type: &str) -> Result<()> {
         if self.has_errors() {
             Err(AxiomError::SignalValidation {
+                signal_type: signal_type.to_string(),
                 message: self.to_string(),
             })
         } else {

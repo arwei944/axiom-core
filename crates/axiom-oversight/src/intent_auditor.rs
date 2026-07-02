@@ -1,9 +1,10 @@
 //! IntentAuditor - detects agent intent drift.
 
 use axiom_core::id::CellId;
+use parking_lot::Mutex;
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct IntentProfile {
@@ -86,7 +87,6 @@ impl IntentAuditorCell {
     pub fn register_intent(&self, profile: IntentProfile) {
         self.profiles
             .lock()
-            .unwrap()
             .insert(profile.agent_id.clone(), profile);
     }
 
@@ -99,7 +99,6 @@ impl IntentAuditorCell {
     ) {
         self.samples
             .lock()
-            .unwrap()
             .entry(agent_id.to_string())
             .or_default()
             .record_signal(signal_type, target, is_error);
@@ -136,9 +135,9 @@ impl IntentAuditorCell {
     }
 
     pub fn audit(&self, agent_id: &str) -> Option<DeviationReport> {
-        let profiles = self.profiles.lock().unwrap();
+        let profiles = self.profiles.lock();
         let profile = profiles.get(agent_id)?;
-        let samples = self.samples.lock().unwrap();
+        let samples = self.samples.lock();
         let sample = samples.get(agent_id)?;
 
         let observed_signals: HashSet<String> = sample.signal_types.keys().cloned().collect();
@@ -161,7 +160,7 @@ impl IntentAuditorCell {
             .cloned()
             .collect();
 
-        let mut history = self.history_error_rates.lock().unwrap();
+        let mut history = self.history_error_rates.lock();
         let hist = history.entry(agent_id.to_string()).or_default();
         let (mean, std) = Self::mean_std(hist);
         let err = sample.error_rate();

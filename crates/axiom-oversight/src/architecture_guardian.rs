@@ -5,9 +5,10 @@
 use axiom_core::id::CellId;
 use axiom_core::layer::Layer;
 use axiom_core::signal::SignalEnvelope;
+use parking_lot::Mutex;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 
 #[derive(Debug, Default, Clone, Serialize, Deserialize)]
 pub struct GuardianStats {
@@ -52,7 +53,7 @@ impl ArchitectureGuardianCell {
     }
 
     pub fn check_envelope(&self, env: &SignalEnvelope) -> Result<(), ViolationEvent> {
-        let mut stats = self.stats.lock().unwrap();
+        let mut stats = self.stats.lock();
         stats.total_intercepted += 1;
 
         if !env.source_layer.can_send_to(env.target_layer) {
@@ -112,7 +113,7 @@ impl ArchitectureGuardianCell {
     }
 
     pub fn report_violation(&self, kind: &str, reason: String, signal_type: String) {
-        let mut stats = self.stats.lock().unwrap();
+        let mut stats = self.stats.lock();
         stats.total_rejected += 1;
         *stats.layer_violations.entry(kind.to_string()).or_insert(0) += 1;
         drop(stats);
@@ -122,13 +123,13 @@ impl ArchitectureGuardianCell {
             to: None,
             signal_type,
             reason,
-            timestamp_ns: now_ns(),
+            timestamp_ns: axiom_core::signal::now_ns(),
         };
         self.record_violation(&ev);
     }
 
     fn record_violation(&self, ev: &ViolationEvent) {
-        let mut recent = self.recent_violations.lock().unwrap();
+        let mut recent = self.recent_violations.lock();
         recent.push(ev.clone());
         while recent.len() > self.max_recent {
             recent.remove(0);
@@ -136,11 +137,11 @@ impl ArchitectureGuardianCell {
     }
 
     pub fn stats(&self) -> GuardianStats {
-        self.stats.lock().unwrap().clone()
+        self.stats.lock().clone()
     }
 
     pub fn recent_violations(&self, n: usize) -> Vec<ViolationEvent> {
-        let recent = self.recent_violations.lock().unwrap();
+        let recent = self.recent_violations.lock();
         recent.iter().rev().take(n).cloned().collect()
     }
 }
@@ -149,14 +150,6 @@ impl Default for ArchitectureGuardianCell {
     fn default() -> Self {
         Self::new()
     }
-}
-
-fn now_ns() -> u64 {
-    use std::time::{SystemTime, UNIX_EPOCH};
-    SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .map(|d| d.as_nanos() as u64)
-        .unwrap_or(0)
 }
 
 #[cfg(test)]

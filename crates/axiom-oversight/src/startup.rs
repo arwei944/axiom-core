@@ -117,6 +117,7 @@ impl StartupCheck for LayerCanSendToCheck {
             (Layer::Agent, Layer::Validate),
             (Layer::Validate, Layer::Validate),
             (Layer::Validate, Layer::Exec),
+            (Layer::Validate, Layer::Agent),
             (Layer::Exec, Layer::Exec),
         ];
         for (a, b) in &legal_pairs {
@@ -131,7 +132,6 @@ impl StartupCheck for LayerCanSendToCheck {
             (Layer::Exec, Layer::Agent),
             (Layer::Exec, Layer::Oversight),
             (Layer::Validate, Layer::Oversight),
-            (Layer::Validate, Layer::Agent),
             (Layer::Agent, Layer::Oversight),
         ];
         for (a, b) in &illegal_pairs {

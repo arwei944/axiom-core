@@ -1,8 +1,8 @@
 //! Distributed registries using linkme for automatic discovery.
 //!
 //! Instead of manually pushing every Cell/Axiom/Migration into registries,
-//! use #[distributed_slice] to collect them at link time. The proc macros
-//! #[cell], #[axiom], #[migration] emit the necessary attributes to register
+//! use `#[linkme::distributed_slice]` to collect them at link time. The proc macros
+//! `#[cell]`, `#[axiom]`, `#[migration]` emit the necessary attributes to register
 //! into these slices automatically.
 
 use crate::axiom::DynAxiom;

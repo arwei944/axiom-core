@@ -1,10 +1,11 @@
 //! ResourceManager - token bucket rate limiting and resource budgets.
 
 use axiom_core::id::CellId;
+use parking_lot::Mutex;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicU64, Ordering};
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 use std::time::Instant;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -79,7 +80,7 @@ impl TokenBucket {
     }
 
     fn refill(&self) {
-        let mut last = self.last_refill.lock().unwrap();
+        let mut last = self.last_refill.lock();
         let now = Instant::now();
         let elapsed = now.duration_since(*last).as_secs_f64();
         if elapsed < 0.001 {
@@ -185,7 +186,7 @@ impl ResourceManagerCell {
     }
 
     pub fn cell_tokens(&self, cell_id: &str) -> Arc<TokenBucket> {
-        let mut map = self.per_cell.lock().unwrap();
+        let mut map = self.per_cell.lock();
         map.entry(cell_id.to_string())
             .or_insert_with(|| Arc::new(TokenBucket::new(1000, 100.0)))
             .clone()

@@ -43,6 +43,7 @@ pub const AUDITED_DEPS: &[&str] = &[
     "linkme",
     "trybuild",
     "regex",
+    "parking_lot",
 ];
 
 /// Find layer index for a crate by name.

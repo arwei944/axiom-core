@@ -1,5 +1,5 @@
+use parking_lot::Mutex;
 use std::collections::{HashSet, VecDeque};
-use std::sync::Mutex;
 
 pub struct LoopDetector {
     max_correlation_length: usize,
@@ -31,20 +31,20 @@ impl LoopDetector {
 
     pub fn record_hop(&self, path: &[String]) -> Option<Vec<String>> {
         if path.len() > self.max_correlation_length {
-            let mut c = self.loop_count.lock().unwrap();
+            let mut c = self.loop_count.lock();
             *c += 1;
             return Some(path[path.len() - self.max_correlation_length..].to_vec());
         }
-        let mut recent = self.recent_paths.lock().unwrap();
+        let mut recent = self.recent_paths.lock();
         for existing in recent.iter() {
             if existing.len() == path.len() && existing.iter().eq(path.iter()) {
-                let mut c = self.loop_count.lock().unwrap();
+                let mut c = self.loop_count.lock();
                 *c += 1;
                 return Some(path.to_vec());
             }
             if existing.len() >= 2 && path.len() >= 2 {
                 if let Some(cyc) = detect_cycle(existing, path) {
-                    let mut c = self.loop_count.lock().unwrap();
+                    let mut c = self.loop_count.lock();
                     *c += 1;
                     return Some(cyc);
                 }
@@ -58,12 +58,12 @@ impl LoopDetector {
     }
 
     pub fn loop_count(&self) -> u64 {
-        *self.loop_count.lock().unwrap()
+        *self.loop_count.lock()
     }
 
     pub fn reset(&self) {
-        self.recent_paths.lock().unwrap().clear();
-        *self.loop_count.lock().unwrap() = 0;
+        self.recent_paths.lock().clear();
+        *self.loop_count.lock() = 0;
     }
 }
 

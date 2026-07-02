@@ -1,0 +1,12 @@
+[package]
+name = "axiom-prompt"
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+description = "Type-safe prompt template system with composition and version management"
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+thiserror = "1"
+tracing = "0.1"

@@ -7,7 +7,7 @@ pub mod replay;
 pub mod snapshot;
 pub mod store;
 
-pub use event::{Event, EventBuilder, EventMetadata};
+pub use event::{Event, EventBuilder, EventMetadata, EventOutcome, WitnessHashData};
 pub use memory::MemoryStore;
 pub use metrics::{MeteredStore, StoreHealth, StoreMetrics};
 pub use replay::{ReplayEngine, ReplayResult, ReplayableState};

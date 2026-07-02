@@ -4,12 +4,17 @@ version.workspace = true
 edition.workspace = true
 license.workspace = true
 rust-version.workspace = true
+repository.workspace = true
 description = "Core primitives: Cell, Signal, Lens, Axiom, Witness + Version management"
+keywords = ["actor", "agent", "runtime", "audit", "distributed"]
+categories = ["concurrency", "asynchronous", "architecture"]
+publish = true
 
 [features]
 default = ["sha2-id", "uuid"]
 sha2-id = ["dep:sha2"]
 uuid = ["dep:uuid"]
+unstable = []
 
 [dependencies]
 serde = { workspace = true }

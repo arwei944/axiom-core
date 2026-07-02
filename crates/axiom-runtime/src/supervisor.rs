@@ -198,7 +198,7 @@ impl Supervisor {
 
     fn backoff_ms(attempt: u32) -> u64 {
         let base = 100u64;
-        let backoff = base * (1u64 << attempt.min(6));
+        let backoff = base * (1u64 << attempt.saturating_sub(1).min(9));
         backoff.min(30_000)
     }
 

@@ -37,18 +37,18 @@ impl Default for StoreHealth {
 }
 
 struct LatencyTracker {
-    samples: std::sync::Mutex<Vec<f64>>,
+    samples: parking_lot::Mutex<Vec<f64>>,
 }
 
 impl LatencyTracker {
     fn new() -> Self {
         Self {
-            samples: std::sync::Mutex::new(Vec::with_capacity(128)),
+            samples: parking_lot::Mutex::new(Vec::with_capacity(128)),
         }
     }
 
     fn record(&self, ms: f64) {
-        let mut s = self.samples.lock().unwrap();
+        let mut s = self.samples.lock();
         if s.len() >= 100 {
             s.remove(0);
         }
@@ -56,7 +56,7 @@ impl LatencyTracker {
     }
 
     fn percentile(&self, p: f64) -> f64 {
-        let mut s = self.samples.lock().unwrap();
+        let mut s = self.samples.lock();
         if s.is_empty() {
             return 0.0;
         }
@@ -238,6 +238,39 @@ impl<S: EventStore> EventStore for MeteredStore<S> {
         Box::pin(async move {
             let start = Instant::now();
             let res = self.inner.read_by_correlation(correlation_id).await;
+            self.metrics
+                .record_read(start.elapsed().as_secs_f64() * 1000.0);
+            if res.is_err() {
+                self.metrics.record_error();
+            }
+            res
+        })
+    }
+
+    fn read_by_cell_id<'a>(
+        &'a self,
+        cell_id: &'a str,
+    ) -> BoxFuture<'a, Result<Vec<Event>, StoreError>> {
+        Box::pin(async move {
+            let start = Instant::now();
+            let res = self.inner.read_by_cell_id(cell_id).await;
+            self.metrics
+                .record_read(start.elapsed().as_secs_f64() * 1000.0);
+            if res.is_err() {
+                self.metrics.record_error();
+            }
+            res
+        })
+    }
+
+    fn read_by_time_range<'a>(
+        &'a self,
+        start_ns: u64,
+        end_ns: u64,
+    ) -> BoxFuture<'a, Result<Vec<Event>, StoreError>> {
+        Box::pin(async move {
+            let start = Instant::now();
+            let res = self.inner.read_by_time_range(start_ns, end_ns).await;
             self.metrics
                 .record_read(start.elapsed().as_secs_f64() * 1000.0);
             if res.is_err() {

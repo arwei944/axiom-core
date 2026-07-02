@@ -3,12 +3,22 @@ name = "axiom-agent"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
-description = "Agent development toolkit: LLM, tools, memory, planner, RAG, eval, test (fascade crate)"
+description = "Agent development toolkit: LLM, tools, memory, planner, identity, prompt (fascade + integration crate)"
 
 [dependencies]
 axiom-core = { path = "../axiom-core" }
 axiom-runtime = { path = "../axiom-runtime" }
+axiom-llm = { path = "../axiom-llm" }
+axiom-tool = { path = "../axiom-tool" }
+axiom-memory = { path = "../axiom-memory" }
+axiom-planner = { path = "../axiom-planner" }
+axiom-prompt = { path = "../axiom-prompt" }
+axiom-identity = { path = "../axiom-identity" }
+
 serde = { workspace = true }
+serde_json = { workspace = true }
 thiserror = { workspace = true }
 tracing = { workspace = true }
 tokio = { workspace = true }
+parking_lot = { workspace = true }
+uuid = { workspace = true }

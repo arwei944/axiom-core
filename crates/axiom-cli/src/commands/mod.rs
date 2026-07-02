@@ -8,6 +8,30 @@ use crate::checks;
 mod init;
 use init::install_hooks;
 
+mod new;
+use new::run_new;
+
+mod run;
+use run::{run_run, run_dev};
+
+mod top;
+use top::run_top;
+
+mod trace;
+use trace::run_trace;
+
+mod why;
+use why::run_why;
+
+mod witness;
+use witness::run_witness;
+
+mod cell;
+use cell::run_cell;
+
+mod entropy;
+use entropy::run_entropy;
+
 #[derive(Parser)]
 #[command(
     name = "axm",
@@ -21,6 +45,24 @@ pub struct Cli {
 
 #[derive(Subcommand)]
 pub enum Commands {
+    /// Create a new axiom project
+    New(new::NewArgs),
+    /// Run the axiom runtime
+    Run(run::RunArgs),
+    /// Run the axiom runtime in development mode
+    Dev(run::DevArgs),
+    /// Real-time runtime monitor
+    Top(top::TopArgs),
+    /// Trace signal flow by correlation ID
+    Trace(trace::TraceArgs),
+    /// Analyze causal chain for an entity
+    Why(why::WhyArgs),
+    /// Witness management commands
+    Witness(witness::WitnessArgs),
+    /// Cell management commands
+    Cell(cell::CellArgs),
+    /// Entropy management commands
+    Entropy(entropy::EntropyArgs),
     /// Initialize an axiom project (install hooks, generate constraints lock)
     Init,
     /// Install git hooks (configures core.hooksPath to hooks/)
@@ -46,6 +88,15 @@ pub struct PreflightArgs {
 
 pub fn run(cli: &Cli) -> Result<ExitCode, anyhow::Error> {
     match &cli.command {
+        Commands::New(args) => run_new(args),
+        Commands::Run(args) => run_run(args),
+        Commands::Dev(args) => run_dev(args),
+        Commands::Top(args) => run_top(args),
+        Commands::Trace(args) => run_trace(args),
+        Commands::Why(args) => run_why(args),
+        Commands::Witness(args) => run_witness(args),
+        Commands::Cell(args) => run_cell(args),
+        Commands::Entropy(args) => run_entropy(args),
         Commands::Init => init::run_init(),
         Commands::InstallHooks => install_hooks_only(),
         Commands::Preflight(args) => run_preflight(args),

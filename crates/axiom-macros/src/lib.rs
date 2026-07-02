@@ -14,6 +14,22 @@ use proc_macro2::TokenStream as TokenStream2;
 use quote::quote;
 use syn::{parse_macro_input, DeriveInput, ItemImpl, ItemStruct, LitInt};
 
+fn parse_layer_marker(lit: &syn::LitStr) -> Result<TokenStream2, syn::Error> {
+    match lit.value().as_str() {
+        "exec" => Ok(quote! { ::axiom_core::sealed::ExecLayer }),
+        "validate" => Ok(quote! { ::axiom_core::sealed::ValidateLayer }),
+        "agent" => Ok(quote! { ::axiom_core::sealed::AgentLayer }),
+        "oversight" => Ok(quote! { ::axiom_core::sealed::OversightLayer }),
+        other => Err(syn::Error::new(
+            lit.span(),
+            format!(
+                "invalid layer '{}': expected exec|validate|agent|oversight",
+                other
+            ),
+        )),
+    }
+}
+
 fn parse_layer_variant(lit: &syn::LitStr) -> Result<TokenStream2, syn::Error> {
     match lit.value().as_str() {
         "exec" => Ok(quote! { ::axiom_core::Layer::Exec }),
@@ -225,7 +241,10 @@ pub fn derive_signal_payload(input: TokenStream) -> TokenStream {
             }
             fn serialize_to_json(&self) -> ::axiom_core::Result<serde_json::Value> {
                 serde_json::to_value(self)
-                    .map_err(|e| ::axiom_core::AxiomError::SignalSerialization(e.to_string()))
+                    .map_err(|e| ::axiom_core::AxiomError::SignalSerialization {
+                        signal_type: <Self as ::axiom_core::Signal>::signal_type(self).to_string(),
+                        message: e.to_string(),
+                    })
             }
         }
 
@@ -244,11 +263,15 @@ pub fn derive_signal_payload(input: TokenStream) -> TokenStream {
 /// ```
 #[proc_macro_attribute]
 pub fn cell(attr: TokenStream, item: TokenStream) -> TokenStream {
-    let input = parse_macro_input!(item as ItemImpl);
+    let mut input = parse_macro_input!(item as ItemImpl);
     let layer_lit = parse_macro_input!(attr as syn::LitStr);
 
     let layer_variant = match parse_layer_variant(&layer_lit) {
         Ok(lv) => lv,
+        Err(e) => return e.to_compile_error().into(),
+    };
+    let layer_marker = match parse_layer_marker(&layer_lit) {
+        Ok(lm) => lm,
         Err(e) => return e.to_compile_error().into(),
     };
 
@@ -263,6 +286,11 @@ pub fn cell(attr: TokenStream, item: TokenStream) -> TokenStream {
             .into();
         }
     };
+
+    let layer_assoc: syn::ImplItem = syn::parse_quote! {
+        type Layer = #layer_marker;
+    };
+    input.items.insert(0, layer_assoc);
 
     let marker_impl = match layer_lit.value().as_str() {
         "exec" => quote! { impl ::axiom_core::cell::ExecCell for #struct_type {} },

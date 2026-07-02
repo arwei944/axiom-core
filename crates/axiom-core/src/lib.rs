@@ -50,8 +50,8 @@ pub use sealed::{
 };
 pub use signal::{Signal, SignalEnvelope, SignalKind, VectorClock};
 pub use version::{
-    Compatibility, IdentityVersion, Migration, ProtocolVersion,
-    SchemaMigrator, SchemaVersion, Version, VersionInfo, Versioned,
+    Compatibility, IdentityVersion, Migration, ProtocolVersion, SchemaMigrator, SchemaVersion,
+    Version, VersionInfo, Versioned,
 };
 pub use witness::{
     TransitionOutcome, Witness, WitnessBatch, WitnessBuilder, WitnessHash, WitnessMetrics,
@@ -59,3 +59,9 @@ pub use witness::{
 
 pub use axiom_macros::{axiom, cell, migration, schema_version, SignalPayload};
 pub use linkme;
+
+#[cfg(feature = "unstable")]
+pub use cell::{
+    BoxHandleFuture, CellHandle, CellHealth, CellMeta, DynCell, DynHandleCell, ExecCell,
+    LayerOf, OversightCell, AgentCell, ValidateCell, SupervisionStrategy,
+};

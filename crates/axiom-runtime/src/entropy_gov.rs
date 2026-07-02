@@ -1,137 +1,245 @@
-//! Entropy Governor - runtime entropy tracking backed by `axiom_core::entropy::EntropyScore`.
+//! EntropyGovernorCell - quantifies disorder and prescribes governance actions.
 //!
-//! Unlike the previous standalone implementation, this delegates to the canonical
-//! 8-factor `EntropyScore` from axiom-core, ensuring weights and thresholds are
-//! consistent across the runtime and oversight layers.
+//! Moved from axiom-oversight to axiom-runtime to avoid circular dependencies.
+//! axiom-oversight re-exports these types for oversight-level consumers.
 
 use axiom_core::entropy::{
     EntropyLevel, EntropyScore, CRITICAL_THRESHOLD, GREEN_THRESHOLD, RED_THRESHOLD,
     YELLOW_THRESHOLD,
 };
-use std::sync::Mutex;
-use std::time::Instant;
+use axiom_core::id::CellId;
+use axiom_core::signal::now_ns;
+use parking_lot::Mutex;
+use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
+use std::sync::Arc;
 
-/// Runtime entropy governor wrapping `axiom_core::entropy::EntropyScore`.
-///
-/// Uses the canonical 8-factor model with weights from `EntropyWeights::default()`,
-/// so runtime entropy scoring is consistent with the oversight `EntropyGovernorCell`.
-pub struct EntropyGovernor {
-    score: Mutex<EntropyScore>,
-    last_reduction: Mutex<Option<Instant>>,
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum GovernanceAction {
+    None,
+    Warn {
+        message: String,
+    },
+    Throttle {
+        target_cell: Option<String>,
+        factor: f64,
+    },
+    Emergency {
+        reason: String,
+    },
 }
 
-/// Lightweight snapshot of runtime entropy for health reporting.
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct EntropySnapshot {
-    pub score: f64,
+    pub global: EntropyScore,
+    pub per_cell: HashMap<String, f64>,
     pub level: EntropyLevel,
-    pub dropped_messages: u64,
-    pub rejected_by_guardian: u64,
-    pub axiom_violations: u64,
-    pub cell_restarts: u64,
-    pub circuit_breaks: u64,
-    pub timeouts: u64,
-    pub duplicate_messages: u64,
-    pub stale_state_violations: u64,
+    pub last_action: Option<GovernanceAction>,
+    pub last_action_ns: u64,
+    pub cooldown_remaining_ns: u64,
 }
 
-impl EntropySnapshot {
-    fn from_score(s: &EntropyScore) -> Self {
-        Self {
-            score: s.value,
-            level: s.level(),
-            dropped_messages: s.dropped_messages,
-            rejected_by_guardian: s.rejected_by_guardian,
-            axiom_violations: s.axiom_violations,
-            cell_restarts: s.cell_restarts,
-            circuit_breaks: s.circuit_breaks,
-            timeouts: s.timeouts,
-            duplicate_messages: s.duplicate_messages,
-            stale_state_violations: s.stale_state_violations,
-        }
-    }
+#[derive(Debug, Clone)]
+pub enum EntropyEvent {
+    AxiomViolation { cell_id: String },
+    DroppedMessage { cell_id: String },
+    RejectedByGuardian { cell_id: String },
+    CellRestart { cell_id: String },
+    CircuitBreak { cell_id: String },
+    Timeout { cell_id: String },
+    DuplicateMessage { cell_id: String },
+    StaleStateViolation { cell_id: String },
+    Custom { cell_id: String, weight: f64 },
 }
 
-impl EntropyGovernor {
-    /// Create a new governor. `critical_threshold` maps to the critical level;
-    /// red/yellow/green are derived proportionally.
-    pub fn new(critical_threshold: f64) -> Self {
-        let critical = critical_threshold.max(CRITICAL_THRESHOLD);
-        let red = critical * (RED_THRESHOLD / CRITICAL_THRESHOLD);
-        let yellow = critical * (YELLOW_THRESHOLD / CRITICAL_THRESHOLD);
-        let green = critical * (GREEN_THRESHOLD / CRITICAL_THRESHOLD);
+pub struct EntropyGovernorCell {
+    id: CellId,
+    global: Arc<Mutex<EntropyScore>>,
+    per_cell: Arc<Mutex<HashMap<String, EntropyScore>>>,
+    last_action_ns: Arc<Mutex<u64>>,
+    last_action: Arc<Mutex<Option<GovernanceAction>>>,
+    cooldown_ns: u64,
+}
+
+impl EntropyGovernorCell {
+    pub fn new(green: f64, yellow: f64, red: f64, critical: f64) -> Self {
         Self {
-            score: Mutex::new(
+            id: CellId::new("oversight:entropy-governor"),
+            global: Arc::new(Mutex::new(
                 EntropyScore::new().with_thresholds(green, yellow, red, critical),
-            ),
-            last_reduction: Mutex::new(None),
+            )),
+            per_cell: Arc::new(Mutex::new(HashMap::new())),
+            last_action_ns: Arc::new(Mutex::new(0)),
+            last_action: Arc::new(Mutex::new(None)),
+            cooldown_ns: 30_000_000_000,
         }
     }
 
-    pub fn record_dropped_message(&self) {
-        self.score.lock().unwrap().record_dropped_message();
+    pub fn id(&self) -> &CellId {
+        &self.id
     }
 
-    pub fn record_rejected_by_guardian(&self) {
-        self.score.lock().unwrap().record_rejected_by_guardian();
+    pub fn record(&self, ev: EntropyEvent) {
+        let now = now_ns();
+        let cell_id = match &ev {
+            EntropyEvent::AxiomViolation { cell_id } => cell_id.clone(),
+            EntropyEvent::DroppedMessage { cell_id } => cell_id.clone(),
+            EntropyEvent::RejectedByGuardian { cell_id } => cell_id.clone(),
+            EntropyEvent::CellRestart { cell_id } => cell_id.clone(),
+            EntropyEvent::CircuitBreak { cell_id } => cell_id.clone(),
+            EntropyEvent::Timeout { cell_id } => cell_id.clone(),
+            EntropyEvent::DuplicateMessage { cell_id } => cell_id.clone(),
+            EntropyEvent::StaleStateViolation { cell_id } => cell_id.clone(),
+            EntropyEvent::Custom { cell_id, .. } => cell_id.clone(),
+        };
+
+        let mut global = self.global.lock();
+        match &ev {
+            EntropyEvent::AxiomViolation { .. } => global.record_axiom_violation(),
+            EntropyEvent::DroppedMessage { .. } => global.record_dropped_message(),
+            EntropyEvent::RejectedByGuardian { .. } => global.record_rejected_by_guardian(),
+            EntropyEvent::CellRestart { .. } => global.record_cell_restart(),
+            EntropyEvent::CircuitBreak { .. } => global.record_circuit_break(),
+            EntropyEvent::Timeout { .. } => global.record_timeout(),
+            EntropyEvent::DuplicateMessage { .. } => global.record_duplicate_message(),
+            EntropyEvent::StaleStateViolation { .. } => global.record_stale_state_violation(),
+            EntropyEvent::Custom { weight, .. } => global.record_custom(*weight),
+        }
+        global.last_updated_ns = now;
+        let gt = global.green_threshold;
+        let yt = global.yellow_threshold;
+        let rt = global.red_threshold;
+        let ct = global.critical_threshold;
+        drop(global);
+
+        if !cell_id.is_empty() {
+            let mut per_cell = self.per_cell.lock();
+            let entry = per_cell
+                .entry(cell_id)
+                .or_insert_with(|| EntropyScore::new().with_thresholds(gt, yt, rt, ct));
+            match &ev {
+                EntropyEvent::AxiomViolation { .. } => entry.record_axiom_violation(),
+                EntropyEvent::DroppedMessage { .. } => entry.record_dropped_message(),
+                EntropyEvent::RejectedByGuardian { .. } => entry.record_rejected_by_guardian(),
+                EntropyEvent::CellRestart { .. } => entry.record_cell_restart(),
+                EntropyEvent::CircuitBreak { .. } => entry.record_circuit_break(),
+                EntropyEvent::Timeout { .. } => entry.record_timeout(),
+                EntropyEvent::DuplicateMessage { .. } => entry.record_duplicate_message(),
+                EntropyEvent::StaleStateViolation { .. } => entry.record_stale_state_violation(),
+                EntropyEvent::Custom { weight, .. } => entry.record_custom(*weight),
+            }
+            entry.last_updated_ns = now;
+        }
     }
 
-    pub fn record_axiom_violation(&self) {
-        self.score.lock().unwrap().record_axiom_violation();
-    }
-
-    pub fn record_cell_restart(&self) {
-        self.score.lock().unwrap().record_cell_restart();
-    }
-
-    pub fn record_circuit_break(&self) {
-        self.score.lock().unwrap().record_circuit_break();
-    }
-
-    pub fn record_timeout(&self) {
-        self.score.lock().unwrap().record_timeout();
-    }
-
-    pub fn record_duplicate_message(&self) {
-        self.score.lock().unwrap().record_duplicate_message();
-    }
-
-    pub fn record_stale_state_violation(&self) {
-        self.score.lock().unwrap().record_stale_state_violation();
+    pub fn decay_tick(&self) {
+        let now = now_ns();
+        let mut g = self.global.lock();
+        g.decay(now);
+        drop(g);
+        let mut per_cell = self.per_cell.lock();
+        for s in per_cell.values_mut() {
+            s.decay(now);
+        }
     }
 
     pub fn snapshot(&self) -> EntropySnapshot {
-        EntropySnapshot::from_score(&self.score.lock().unwrap())
+        let now = now_ns();
+        let g = *self.global.lock();
+        let level = g.level();
+        let per_cell = self
+            .per_cell
+            .lock()
+            .iter()
+            .map(|(k, v)| (k.clone(), v.value))
+            .collect();
+        let last_action_ns = *self.last_action_ns.lock();
+        let cooldown_remaining = (last_action_ns + self.cooldown_ns).saturating_sub(now);
+        EntropySnapshot {
+            global: g,
+            per_cell,
+            level,
+            last_action: self.last_action.lock().clone(),
+            last_action_ns,
+            cooldown_remaining_ns: cooldown_remaining,
+        }
     }
 
-    pub fn reset(&self) {
-        self.score.lock().unwrap().reset();
+    pub fn take_action(&self) -> GovernanceAction {
+        let snap = self.snapshot();
+        let now = now_ns();
+        let mut last_action_ns = self.last_action_ns.lock();
+        if *last_action_ns + self.cooldown_ns > now {
+            return GovernanceAction::None;
+        }
+
+        let action = match snap.level {
+            EntropyLevel::Green => GovernanceAction::None,
+            EntropyLevel::Yellow => GovernanceAction::Warn {
+                message: format!("entropy yellow: {:.3}", snap.global.value),
+            },
+            EntropyLevel::Red => {
+                let hottest = snap
+                    .per_cell
+                    .iter()
+                    .max_by(|a, b| a.1.partial_cmp(b.1).unwrap_or(std::cmp::Ordering::Equal))
+                    .map(|(k, _)| k.clone());
+                GovernanceAction::Throttle {
+                    target_cell: hottest,
+                    factor: 0.5,
+                }
+            }
+            EntropyLevel::Critical => GovernanceAction::Emergency {
+                reason: format!("entropy critical: {:.3}", snap.global.value),
+            },
+        };
+
+        if !matches!(action, GovernanceAction::None) {
+            *last_action_ns = now;
+            *self.last_action.lock() = Some(action.clone());
+        }
+        action
     }
 
     /// Returns true when entropy reaches Red or Critical level and the cooldown
     /// has elapsed. On returning true, the cooldown timer is updated.
-    pub fn should_reduce(&self, cooldown_ms: u64) -> bool {
-        let s = self.score.lock().unwrap();
-        let hot = s.is_red() || s.is_critical();
-        drop(s);
+    pub fn should_reduce(&self, _cooldown_ms: u64) -> bool {
+        let g = *self.global.lock();
+        let hot = g.is_red() || g.is_critical();
         if !hot {
             return false;
         }
-        let mut last = self.last_reduction.lock().unwrap();
-        let now = Instant::now();
-        if let Some(t) = *last {
-            if now.duration_since(t).as_millis() < cooldown_ms as u128 {
-                return false;
-            }
+        let now = now_ns();
+        let mut last_action_ns = self.last_action_ns.lock();
+        if *last_action_ns + self.cooldown_ns > now {
+            return false;
         }
-        *last = Some(now);
+        *last_action_ns = now;
         true
+    }
+
+    pub fn reset(&self) {
+        let now = now_ns();
+        let mut g = self.global.lock();
+        let gt = g.green_threshold;
+        let yt = g.yellow_threshold;
+        let rt = g.red_threshold;
+        let ct = g.critical_threshold;
+        *g = EntropyScore::new().with_thresholds(gt, yt, rt, ct);
+        g.last_updated_ns = now;
+        drop(g);
+        self.per_cell.lock().clear();
     }
 }
 
-impl Default for EntropyGovernor {
+impl Default for EntropyGovernorCell {
     fn default() -> Self {
-        Self::new(CRITICAL_THRESHOLD)
+        Self::new(
+            GREEN_THRESHOLD,
+            YELLOW_THRESHOLD,
+            RED_THRESHOLD,
+            CRITICAL_THRESHOLD,
+        )
     }
 }
 
@@ -140,37 +248,155 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_entropy_accumulates() {
-        let g = EntropyGovernor::new(10.0);
-        g.record_dropped_message();
-        g.record_dropped_message();
-        g.record_rejected_by_guardian();
+    fn test_green_by_default() {
+        let g = EntropyGovernorCell::default();
         let s = g.snapshot();
-        assert_eq!(s.dropped_messages, 2);
-        assert_eq!(s.rejected_by_guardian, 1);
-        assert!(s.score > 0.0);
+        assert_eq!(s.level, EntropyLevel::Green);
+        assert!(matches!(g.take_action(), GovernanceAction::None));
+    }
+
+    #[test]
+    fn test_red_after_multiple_events() {
+        let g = EntropyGovernorCell::new(1.0, 5.0, 10.0, 20.0);
+        for _ in 0..10 {
+            g.record(EntropyEvent::AxiomViolation {
+                cell_id: "c1".into(),
+            });
+            g.record(EntropyEvent::CellRestart {
+                cell_id: "c1".into(),
+            });
+            g.record(EntropyEvent::CircuitBreak {
+                cell_id: "c1".into(),
+            });
+        }
+        let s = g.snapshot();
+        assert!(matches!(
+            s.level,
+            EntropyLevel::Red | EntropyLevel::Critical
+        ));
+        let action = g.take_action();
+        assert!(matches!(
+            action,
+            GovernanceAction::Throttle { .. } | GovernanceAction::Emergency { .. }
+        ));
+    }
+
+    #[test]
+    fn test_cooldown_prevents_spam() {
+        let g = EntropyGovernorCell::new(0.0, 0.0, 0.0, 0.0);
+        for _ in 0..50 {
+            g.record(EntropyEvent::AxiomViolation {
+                cell_id: "c1".into(),
+            });
+        }
+        let a1 = g.take_action();
+        assert!(!matches!(a1, GovernanceAction::None));
+        let a2 = g.take_action();
+        assert!(matches!(a2, GovernanceAction::None));
+    }
+
+    #[test]
+    fn test_reset_returns_green() {
+        let g = EntropyGovernorCell::default();
+        for _ in 0..20 {
+            g.record(EntropyEvent::AxiomViolation {
+                cell_id: "c1".into(),
+            });
+        }
+        g.reset();
+        assert_eq!(g.snapshot().level, EntropyLevel::Green);
+    }
+
+    #[test]
+    fn test_per_cell_tracking() {
+        let g = EntropyGovernorCell::default();
+        for _ in 0..5 {
+            g.record(EntropyEvent::AxiomViolation {
+                cell_id: "hot".into(),
+            });
+        }
+        g.record(EntropyEvent::AxiomViolation {
+            cell_id: "cold".into(),
+        });
+        let s = g.snapshot();
+        assert!(s.per_cell.get("hot").unwrap() > s.per_cell.get("cold").unwrap());
+    }
+
+    #[test]
+    fn test_all_entropy_event_types() {
+        let g = EntropyGovernorCell::default();
+        g.record(EntropyEvent::AxiomViolation {
+            cell_id: "c".into(),
+        });
+        g.record(EntropyEvent::DroppedMessage {
+            cell_id: "c".into(),
+        });
+        g.record(EntropyEvent::RejectedByGuardian {
+            cell_id: "c".into(),
+        });
+        g.record(EntropyEvent::CellRestart {
+            cell_id: "c".into(),
+        });
+        g.record(EntropyEvent::CircuitBreak {
+            cell_id: "c".into(),
+        });
+        g.record(EntropyEvent::Timeout {
+            cell_id: "c".into(),
+        });
+        g.record(EntropyEvent::DuplicateMessage {
+            cell_id: "c".into(),
+        });
+        g.record(EntropyEvent::StaleStateViolation {
+            cell_id: "c".into(),
+        });
+        let s = g.snapshot();
+        assert!(s.global.value > 0.0);
+    }
+
+    #[test]
+    fn test_entropy_accumulates() {
+        let g = EntropyGovernorCell::new(100.0, 100.0, 100.0, 100.0);
+        g.record(EntropyEvent::DroppedMessage {
+            cell_id: "c".into(),
+        });
+        g.record(EntropyEvent::DroppedMessage {
+            cell_id: "c".into(),
+        });
+        g.record(EntropyEvent::RejectedByGuardian {
+            cell_id: "c".into(),
+        });
+        let s = g.snapshot();
+        assert_eq!(s.global.dropped_messages, 2);
+        assert_eq!(s.global.rejected_by_guardian, 1);
+        assert!(s.global.value > 0.0);
     }
 
     #[test]
     fn test_entropy_reset() {
-        let g = EntropyGovernor::new(100.0);
-        g.record_dropped_message();
-        g.record_circuit_break();
+        let g = EntropyGovernorCell::new(100.0, 100.0, 100.0, 100.0);
+        g.record(EntropyEvent::DroppedMessage {
+            cell_id: "c".into(),
+        });
+        g.record(EntropyEvent::CircuitBreak {
+            cell_id: "c".into(),
+        });
         g.reset();
         let s = g.snapshot();
-        assert_eq!(s.score, 0.0);
+        assert_eq!(s.global.value, 0.0);
     }
 
     #[test]
     fn test_entropy_uses_core_weights() {
-        // Verify runtime governor uses core's canonical weights:
-        // cell_restart weight = 5.0, duplicate_message weight = 0.5
-        let g = EntropyGovernor::new(100.0);
-        g.record_cell_restart();
-        let s1 = g.snapshot().score;
+        let g = EntropyGovernorCell::new(100.0, 100.0, 100.0, 100.0);
+        g.record(EntropyEvent::CellRestart {
+            cell_id: "c".into(),
+        });
+        let s1 = g.snapshot().global.value;
         g.reset();
-        g.record_duplicate_message();
-        let s2 = g.snapshot().score;
+        g.record(EntropyEvent::DuplicateMessage {
+            cell_id: "c".into(),
+        });
+        let s2 = g.snapshot().global.value;
         assert!(
             s1 > s2,
             "cell_restart (weight 5.0) should score higher than duplicate (weight 0.5): {s1} vs {s2}"

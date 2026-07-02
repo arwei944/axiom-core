@@ -8,8 +8,11 @@ description = "Tokio-based runtime with supervision tree"
 
 [dependencies]
 axiom-core = { path = "../axiom-core" }
+axiom-store = { path = "../axiom-store" }
 tokio = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 thiserror = { workspace = true }
 tracing = { workspace = true }
+parking_lot = { workspace = true }
+futures = { workspace = true }

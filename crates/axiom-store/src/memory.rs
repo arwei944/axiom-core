@@ -175,6 +175,35 @@ impl EventStore for MemoryStore {
         })
     }
 
+    fn read_by_cell_id<'a>(
+        &'a self,
+        cell_id: &'a str,
+    ) -> BoxFuture<'a, Result<Vec<Event>, StoreError>> {
+        Box::pin(async move {
+            let events = self.inner.events.read().await;
+            Ok(events
+                .iter()
+                .filter(|e| e.cell_id.as_str() == cell_id)
+                .cloned()
+                .collect())
+        })
+    }
+
+    fn read_by_time_range<'a>(
+        &'a self,
+        start_ns: u64,
+        end_ns: u64,
+    ) -> BoxFuture<'a, Result<Vec<Event>, StoreError>> {
+        Box::pin(async move {
+            let events = self.inner.events.read().await;
+            Ok(events
+                .iter()
+                .filter(|e| e.timestamp_ns >= start_ns && e.timestamp_ns <= end_ns)
+                .cloned()
+                .collect())
+        })
+    }
+
     fn latest_sequence<'a>(&'a self) -> BoxFuture<'a, Result<u64, StoreError>> {
         Box::pin(async move { Ok(self.inner.sequence.load(Ordering::SeqCst)) })
     }

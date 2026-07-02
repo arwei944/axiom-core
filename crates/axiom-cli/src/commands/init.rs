@@ -49,8 +49,11 @@ pub(crate) fn install_hooks(project_root: &Path) -> Result<()> {
     let hooks_abs = hooks_src
         .canonicalize()
         .context("Failed to resolve hooks/ absolute path")?;
+    let hooks_str = hooks_abs
+        .to_str()
+        .ok_or_else(|| anyhow::anyhow!("hooks path contains non-UTF-8 characters"))?;
     let status = std::process::Command::new("git")
-        .args(["config", "core.hooksPath", hooks_abs.to_str().unwrap()])
+        .args(["config", "core.hooksPath", hooks_str])
         .current_dir(project_root)
         .status()
         .context("Failed to run 'git config core.hooksPath'")?;

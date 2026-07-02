@@ -32,7 +32,7 @@ impl Layer {
         match self {
             Layer::Oversight => true,
             Layer::Agent => matches!(target, Layer::Agent | Layer::Validate),
-            Layer::Validate => matches!(target, Layer::Validate | Layer::Exec),
+            Layer::Validate => matches!(target, Layer::Validate | Layer::Exec | Layer::Agent),
             Layer::Exec => matches!(target, Layer::Exec),
         }
     }

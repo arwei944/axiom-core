@@ -165,6 +165,7 @@ impl SignalEnvelope {
                 from: self.source_layer,
                 to: self.target_layer,
                 signal_type: self.signal_type.clone(),
+                source_cell: self.source_cell.clone().unwrap_or_default(),
             });
         }
         Ok(())
@@ -175,6 +176,7 @@ impl SignalEnvelope {
             let payload_bytes = self.payload.to_string().len();
             if payload_bytes > max_bytes {
                 return Err(crate::AxiomError::SignalValidation {
+                    signal_type: self.signal_type.clone(),
                     message: format!(
                         "payload size {} bytes exceeds max {} bytes",
                         payload_bytes, max_bytes
@@ -192,6 +194,7 @@ impl SignalEnvelope {
             return Err(crate::AxiomError::HandoffLimitExceeded {
                 msg_id: self.msg_id.to_string(),
                 hops: self.hop_count,
+                correlation_id: self.correlation_id.to_string(),
             });
         }
         Ok(())
@@ -352,7 +355,10 @@ mod tests {
         }
         fn serialize_to_json(&self) -> crate::Result<serde_json::Value> {
             serde_json::to_value(self)
-                .map_err(|e| crate::AxiomError::SignalSerialization(e.to_string()))
+                .map_err(|e| crate::AxiomError::SignalSerialization {
+                    signal_type: "TestSignal".into(),
+                    message: e.to_string(),
+                })
         }
     }
 }

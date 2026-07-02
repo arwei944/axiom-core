@@ -126,6 +126,7 @@ impl MessageBus {
                             interceptor.name(),
                             reason
                         ),
+                        source_cell: env.source_cell.clone().unwrap_or_default(),
                     });
                 }
                 InterceptDecision::Redirect { target_cell } => {
@@ -138,6 +139,7 @@ impl MessageBus {
             return Err(AxiomError::HandoffLimitExceeded {
                 msg_id: env.msg_id.to_string(),
                 hops: env.hop_count,
+                correlation_id: env.correlation_id.to_string(),
             });
         }
 

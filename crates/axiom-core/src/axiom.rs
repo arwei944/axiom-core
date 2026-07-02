@@ -182,11 +182,7 @@ mod tests {
     #[test]
     fn test_warn_only_no_reject() {
         let max_len = MaxLength(5);
-        let result = max_len.check(
-            &"".into(),
-            &"this is way too long".into(),
-            &"set".into(),
-        );
+        let result = max_len.check(&"".into(), &"this is way too long".into(), &"set".into());
         assert!(result.is_err());
         // Warn actions should not reject (just warn)
         assert_eq!(max_len.violation_action(), ViolationAction::Warn);

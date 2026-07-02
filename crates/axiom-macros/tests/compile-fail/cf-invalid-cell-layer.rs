@@ -24,7 +24,7 @@ impl axiom_core::signal::Signal for BogusSignal {
     fn as_any(&self) -> &dyn std::any::Any { self }
     fn clone_signal(&self) -> Box<dyn axiom_core::signal::Signal> { Box::new(self.clone()) }
     fn validate(&self) -> axiom_core::schema::ValidationResult { axiom_core::schema::ValidationResult::ok() }
-    fn serialize_to_json(&self) -> ::axiom_core::Result<serde_json::Value> { serde_json::to_value(self).map_err(|e| ::axiom_core::AxiomError::SignalSerialization(e.to_string())) }
+    fn serialize_to_json(&self) -> ::axiom_core::Result<serde_json::Value> { serde_json::to_value(self).map_err(|e| ::axiom_core::AxiomError::SignalSerialization { signal_type: "TestCmd".into(), message: e.to_string() }) }
 }
 struct BogusCell;
 

@@ -1,0 +1,40 @@
+[package]
+name = "axiom-bench"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Performance benchmarks and stress tests for Axiom Core"
+
+[dependencies]
+axiom-core = { workspace = true }
+axiom-runtime = { workspace = true }
+axiom-store = { workspace = true }
+tokio = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+parking_lot = { workspace = true }
+futures = { workspace = true }
+
+[dev-dependencies]
+criterion = { version = "0.5", features = ["async_tokio"] }
+
+[[bench]]
+name = "message_passing"
+harness = false
+
+[[bench]]
+name = "witness_chain"
+harness = false
+
+[[bench]]
+name = "mailbox_throughput"
+harness = false
+
+[[bench]]
+name = "bus_dispatch"
+harness = false
+
+[[bin]]
+name = "stress"
+path = "src/stress.rs"

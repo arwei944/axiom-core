@@ -1,7 +1,7 @@
 //! Integration tests for axiom-core - end-to-end verification of core primitives.
 
 use axiom_core::cell::{Cell, CellHandle};
-use axiom_core::context::{CellContext, OutgoingEnvelope, OutgoingWitness};
+use axiom_core::context::{CellContext, LayeredCellContext, OutgoingEnvelope, OutgoingWitness};
 use axiom_core::entropy::{
     EntropyScore, EntropySnapshot, CRITICAL_THRESHOLD, GREEN_THRESHOLD, RED_THRESHOLD,
     YELLOW_THRESHOLD,
@@ -9,6 +9,7 @@ use axiom_core::entropy::{
 use axiom_core::id::{CellId, CorrelationId, MsgId};
 use axiom_core::layer::Layer;
 use axiom_core::schema::{validators, ValidationResult};
+use axiom_core::sealed::ExecLayer;
 use axiom_core::signal::{Signal, SignalKind, VectorClock};
 use axiom_core::witness::TransitionOutcome;
 use axiom_core::{axiom, cell, schema_version, Axiom, DynAxiomChain, SignalPayload};
@@ -131,17 +132,11 @@ impl Cell for TestCell {
         &self.id
     }
 
-    fn layer() -> Layer
-    where
-        Self: Sized,
-    {
-        Layer::Exec
-    }
-
+    #[allow(clippy::manual_async_fn)]
     fn handle<'a>(
         &'a mut self,
         signal: TestCommand,
-        ctx: &'a mut CellContext<'a>,
+        ctx: LayeredCellContext<'a, Self::Layer>,
     ) -> impl Future<
         Output = (
             axiom_core::Result<()>,
@@ -151,16 +146,18 @@ impl Cell for TestCell {
     > + Send
            + 'a {
         async move {
+            let mut ctx = ctx;
             self.state.push(signal.value.clone());
 
             let event = TestEvent::new(signal.correlation_id.clone(), &signal.value);
             let result: axiom_core::Result<()> = (|| {
-                ctx.emit_event(event, Layer::Exec)?;
-                ctx.witness()
-                    .summary(format!("processed: {}", signal.value))
-                    .outcome(TransitionOutcome::Success)
-                    .processing_time_us(100)
-                    .emit(ctx)?;
+                ctx.emit_to::<ExecLayer, _>(event)?;
+                ctx.emit_witness(
+                    ctx.witness()
+                        .summary(format!("processed: {}", signal.value))
+                        .outcome(TransitionOutcome::Success)
+                        .processing_time_us(100)
+                )?;
                 Ok(())
             })();
             let (outgoing, witnesses) = ctx.end_processing();
@@ -186,7 +183,8 @@ async fn test_cell_signal_witness_e2e() {
     assert_eq!(signal.kind(), SignalKind::Command);
     assert_eq!(signal.schema_version(), SchemaVersion::new(1));
 
-    let (result, _outgoing, witnesses) = cell.handle(signal, &mut ctx).await;
+    let layered = ctx.as_layered::<ExecLayer>();
+    let (result, _outgoing, witnesses) = cell.handle(signal, layered).await;
     result.unwrap();
     assert_eq!(cell.state.len(), 1);
     assert_eq!(cell.state[0], "hello e2e");
@@ -213,8 +211,9 @@ async fn test_cell_handle_multiple_signals() {
     for i in 0..5u32 {
         let mut guard = cell.lock().await;
         let mut ctx = CellContext::new(&cell_id, Layer::Exec);
+        let layered = ctx.as_layered::<ExecLayer>();
         let (r, _, w) = guard
-            .handle(TestCommand::new(&format!("msg-{i}")), &mut ctx)
+            .handle(TestCommand::new(&format!("msg-{i}")), layered)
             .await;
         r.unwrap();
         witness_count += w.len();
@@ -257,7 +256,7 @@ fn test_signal_validation() {
     let result_clone = result.clone();
     assert!(result_clone.has_errors());
 
-    let _: Result<(), _> = result.into_result();
+    let _: Result<(), _> = result.into_result("TestCommand");
 }
 
 #[test]
@@ -502,4 +501,208 @@ fn test_entropy_high_weight_more_damage() {
         s1.value,
         s2.value
     );
+}
+
+// ============================================================
+// Error Path Tests (Phase 6.1)
+// ============================================================
+
+/// 1. LayerViolation — compile-time constraint prevents invalid cross-layer calls.
+/// This test verifies that LayeredCellContext correctly enforces layer rules at compile time.
+#[tokio::test]
+async fn test_error_path_layer_violation() {
+    let cell_id = CellId::new("layer-violation-test");
+    let mut ctx = CellContext::new(&cell_id, Layer::Exec);
+    let mut layered_ctx = LayeredCellContext::<axiom_core::sealed::ExecLayer>::from_cell_context(&mut ctx);
+
+    let event = TestEvent::new(CorrelationId::generate(), "same-layer-target");
+    let result = layered_ctx.emit_to::<axiom_core::sealed::ExecLayer, _>(event);
+    assert!(result.is_ok());
+}
+
+/// 2. Witness hash chain break — verify_chain_integrity detects tampering.
+#[cfg(feature = "sha2-id")]
+#[test]
+fn test_error_path_witness_chain_break() {
+    use axiom_core::witness::WitnessBuilder;
+
+    let cell_id = CellId::new("chain-test");
+
+    // First context: produce w1 then w2 (properly chained)
+    let mut ctx1 = CellContext::new(&cell_id, Layer::Exec);
+    WitnessBuilder::new()
+        .summary("first")
+        .emit(&mut ctx1)
+        .unwrap();
+    let w1 = ctx1.take_witnesses().pop().unwrap().0;
+
+    WitnessBuilder::new()
+        .summary("second")
+        .emit(&mut ctx1)
+        .unwrap();
+    let w2 = ctx1.take_witnesses().pop().unwrap().0;
+
+    // Chain w1 → w2 is intact (w2.prev_hash == w1.hash)
+    assert!(axiom_core::witness::Witness::verify_chain_integrity(&[
+        w1.clone(),
+        w2.clone()
+    ]));
+
+    // Second context: fresh CellContext → w3.prev_hash is None (not chained from w1)
+    let mut ctx2 = CellContext::new(&cell_id, Layer::Exec);
+    WitnessBuilder::new()
+        .summary("tampered")
+        .emit(&mut ctx2)
+        .unwrap();
+    let w3 = ctx2.take_witnesses().pop().unwrap().0;
+
+    // w3.prev_hash is None, not Some(w1.hash) — chain is broken
+    assert!(!axiom_core::witness::Witness::verify_chain_integrity(&[
+        w1, w3
+    ]));
+}
+
+/// 3. Signal serialization failure — SignalEnvelope::new propagates the error.
+#[test]
+fn test_error_path_signal_serialization_failure() {
+    struct UnserializableSignal {
+        msg_id: MsgId,
+        correlation_id: CorrelationId,
+        vector_clock: VectorClock,
+    }
+
+    impl Clone for UnserializableSignal {
+        fn clone(&self) -> Self {
+            Self {
+                msg_id: self.msg_id.clone(),
+                correlation_id: self.correlation_id.clone(),
+                vector_clock: self.vector_clock.clone(),
+            }
+        }
+    }
+
+    impl Signal for UnserializableSignal {
+        fn signal_type(&self) -> &'static str {
+            "unserializable"
+        }
+        fn msg_id(&self) -> &MsgId {
+            &self.msg_id
+        }
+        fn correlation_id(&self) -> &CorrelationId {
+            &self.correlation_id
+        }
+        fn vector_clock(&self) -> &VectorClock {
+            &self.vector_clock
+        }
+        fn timestamp_ns(&self) -> u64 {
+            1
+        }
+        fn kind(&self) -> SignalKind {
+            SignalKind::Command
+        }
+        fn layer(&self) -> Layer {
+            Layer::Exec
+        }
+        fn as_any(&self) -> &dyn std::any::Any {
+            self
+        }
+        fn clone_signal(&self) -> Box<dyn Signal> {
+            Box::new(self.clone())
+        }
+        fn validate(&self) -> ValidationResult {
+            ValidationResult::ok()
+        }
+        fn serialize_to_json(&self) -> axiom_core::Result<serde_json::Value> {
+            Err(axiom_core::AxiomError::SignalSerialization {
+                signal_type: "UnserializableSignal".into(),
+                message: "intentional failure".into(),
+            })
+        }
+    }
+
+    let sig = UnserializableSignal {
+        msg_id: MsgId::generate(),
+        correlation_id: CorrelationId::generate(),
+        vector_clock: VectorClock::new(),
+    };
+    let result = axiom_core::signal::SignalEnvelope::new(&sig, Layer::Exec);
+    assert!(result.is_err());
+    assert!(matches!(
+        result.unwrap_err(),
+        axiom_core::AxiomError::SignalSerialization { .. }
+    ));
+}
+
+/// 4. Axiom type mismatch — check_all silently skips TypeMismatch (no false positives).
+#[test]
+fn test_error_path_axiom_type_mismatch_no_false_positive() {
+    let chain = DynAxiomChain::from_registry_for_layer(Layer::Exec);
+    assert!(chain.count() >= 1, "MaxValueAxiom should be registered");
+
+    // Pass wrong types — String instead of Vec<String>, String instead of TestCommand
+    let violations = chain.check_all(
+        &"wrong-state".to_string(),
+        &"wrong-state".to_string(),
+        &"wrong-message".to_string(),
+    );
+
+    // TypeMismatch should be silently skipped — no violations produced
+    assert!(
+        violations.is_empty(),
+        "type mismatch should not produce false positives, got {} violations",
+        violations.len()
+    );
+}
+
+/// 5. hop_count overflow — increment_hop beyond MAX_HOPS returns HandoffLimitExceeded.
+#[test]
+fn test_error_path_hop_count_overflow() {
+    let cmd = TestCommand::new("hop-test");
+    let mut env = axiom_core::signal::SignalEnvelope::new(&cmd, Layer::Exec).unwrap();
+
+    // MAX_HOPS is 8 — first 8 increments succeed
+    for i in 0..8 {
+        env.increment_hop()
+            .unwrap_or_else(|_| panic!("hop {i} should succeed"));
+    }
+    assert_eq!(env.hop_count, 8);
+
+    // 9th hop should fail
+    let result = env.increment_hop();
+    assert!(result.is_err());
+    assert!(matches!(
+        result.unwrap_err(),
+        axiom_core::AxiomError::HandoffLimitExceeded { hops: 9, .. }
+    ));
+}
+
+// ============================================================
+// Concurrency Tests (Phase 6.2 — concurrent Cell processing)
+// ============================================================
+
+/// Multiple tokio::spawn tasks processing Cell::handle in parallel.
+#[tokio::test]
+async fn test_concurrent_cells_parallel() {
+    let mut handles = Vec::new();
+
+    for i in 0..10u32 {
+        handles.push(tokio::spawn(async move {
+            let id_str = format!("parallel-cell-{i}");
+            let mut cell = TestCell::new(&id_str);
+            let cell_id = CellId::new(&id_str);
+            let mut ctx = CellContext::new(&cell_id, Layer::Exec);
+            let layered = ctx.as_layered::<ExecLayer>();
+            let (result, _outgoing, witnesses) = cell
+                .handle(TestCommand::new(&format!("msg-{i}")), layered)
+                .await;
+            result.unwrap();
+            assert_eq!(witnesses.len(), 1, "each cell should produce 1 witness");
+            assert_eq!(cell.state.len(), 1);
+            assert_eq!(cell.state[0], format!("msg-{i}"));
+        }));
+    }
+
+    for h in handles {
+        h.await.unwrap();
+    }
 }

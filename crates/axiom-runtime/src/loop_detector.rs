@@ -1,8 +1,10 @@
 //! Message loop detector using correlation path tracking.
 
 use axiom_core::signal::SignalEnvelope;
+use parking_lot::RwLock;
 use std::collections::{HashMap, HashSet, VecDeque};
-use std::sync::RwLock;
+
+type Result<T> = std::result::Result<T, axiom_core::AxiomError>;
 
 struct CorrelationTrack {
     cells: HashSet<String>,
@@ -34,7 +36,7 @@ impl LruCorrelationMap {
                 },
             );
         }
-        &mut self.map.get_mut(&k).unwrap().cells
+        &mut self.map.get_mut(&k).expect("key just inserted should exist").cells
     }
     fn evict_if_needed(&mut self) {
         while self.map.len() >= self.max_tracked {
@@ -63,30 +65,35 @@ impl LoopDetector {
         }
     }
 
-    pub fn check_and_record(&self, env: &SignalEnvelope) -> Result<(), String> {
+    pub fn check_and_record(&self, env: &SignalEnvelope) -> Result<()> {
         let cid = env.correlation_id.as_str().to_string();
         let target = env
             .target_cell
             .clone()
             .unwrap_or_else(|| format!("layer:{:?}", env.target_layer));
 
-        let mut paths = self.paths.write().unwrap();
+        let mut paths = self.paths.write();
         let cells = paths.get_or_default(&cid);
 
         if cells.contains(&target) && cells.len() >= 2 {
-            return Err(format!(
-                "message loop detected for correlation {}: revisiting cell {} after visiting {} cells",
-                cid, target, cells.len()
-            ));
+            return Err(axiom_core::AxiomError::LoopDetected {
+                message: format!(
+                    "revisiting cell {} after visiting {} cells",
+                    target, cells.len()
+                ),
+                correlation_id: cid,
+            });
         }
 
         if cells.len() >= self.max_cells_per_correlation {
-            return Err(format!(
-                "message chain too long for correlation {}: visited {} cells (max {})",
-                cid,
-                cells.len(),
-                self.max_cells_per_correlation
-            ));
+            return Err(axiom_core::AxiomError::LoopDetected {
+                message: format!(
+                    "visited {} cells (max {})",
+                    cells.len(),
+                    self.max_cells_per_correlation
+                ),
+                correlation_id: cid,
+            });
         }
 
         cells.insert(target);
@@ -94,7 +101,7 @@ impl LoopDetector {
     }
 
     pub fn tracked_count(&self) -> usize {
-        self.paths.read().unwrap().len()
+        self.paths.read().len()
     }
 }
 

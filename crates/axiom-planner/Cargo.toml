@@ -1,0 +1,21 @@
+[package]
+name = "axiom-planner"
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+description = "Planning strategies for axiom-core agents (ReAct, Plan-and-Execute)"
+
+[dependencies]
+axiom-core = { path = "../axiom-core" }
+axiom-llm = { path = "../axiom-llm" }
+axiom-tool = { path = "../axiom-tool" }
+axiom-memory = { path = "../axiom-memory" }
+
+tokio = { version = "1", features = ["rt-multi-thread", "sync", "macros"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+thiserror = "1"
+anyhow = "1"
+tracing = "0.1"
+async-trait = "0.1"
+uuid = { version = "1", features = ["v4"] }

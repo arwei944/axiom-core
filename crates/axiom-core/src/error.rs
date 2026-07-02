@@ -4,11 +4,14 @@ use thiserror::Error;
 
 #[derive(Error, Debug)]
 pub enum AxiomError {
-    #[error("Mailbox is full (capacity: {capacity})")]
-    MailboxFull { capacity: usize },
+    #[error("Mailbox for cell {cell_id} is full (capacity: {capacity})")]
+    MailboxFull { cell_id: String, capacity: usize },
 
     #[error("Cell {cell_id} not found")]
     CellNotFound { cell_id: String },
+
+    #[error("Cell {cell_id} already exists")]
+    CellAlreadyExists { cell_id: String },
 
     #[error("Cell {cell_id} is not running (state: {state})")]
     CellNotRunning { cell_id: String, state: String },
@@ -16,36 +19,37 @@ pub enum AxiomError {
     #[error("Axiom invariant violated: {message}")]
     InvariantViolated { message: String },
 
-    #[error("Schema validation failed: {message}")]
-    SchemaValidation { message: String },
+    #[error("Schema validation failed for {signal_type}: {message}")]
+    SchemaValidation { signal_type: String, message: String },
 
-    #[error("Signal validation failed: {message}")]
-    SignalValidation { message: String },
+    #[error("Signal validation failed for {signal_type}: {message}")]
+    SignalValidation { signal_type: String, message: String },
 
-    #[error("Layer violation: {from} cannot send to {to} (signal: {signal_type})")]
+    #[error("Layer violation: {from} cannot send to {to} (signal: {signal_type}, source_cell: {source_cell})")]
     LayerViolation {
         from: Layer,
         to: Layer,
         signal_type: String,
+        source_cell: String,
     },
 
-    #[error("Handoff limit exceeded: message {msg_id} hopped {hops} times (max 8)")]
-    HandoffLimitExceeded { msg_id: String, hops: u32 },
+    #[error("Handoff limit exceeded: message {msg_id} hopped {hops} times (max 8, correlation: {correlation_id})")]
+    HandoffLimitExceeded { msg_id: String, hops: u32, correlation_id: String },
 
     #[error("Cell {cell_id} heartbeat timeout (last seen {last_seen_ms}ms ago)")]
     HeartbeatTimeout { cell_id: String, last_seen_ms: u64 },
 
-    #[error("Cell crashed: {message}")]
-    CellCrashed { message: String },
+    #[error("Cell {cell_id} crashed: {message}")]
+    CellCrashed { cell_id: String, message: String },
 
-    #[error("Circuit breaker open for cell {cell_id}")]
-    CircuitBreak { cell_id: String },
+    #[error("Circuit breaker open for cell {cell_id} (failures: {failures})")]
+    CircuitBreak { cell_id: String, failures: u32 },
 
-    #[error("Stale state detected: expected version {expected:?}, got {actual:?}")]
-    StaleState { expected: u64, actual: u64 },
+    #[error("Stale state detected for cell {cell_id}: expected version {expected}, got {actual}")]
+    StaleState { cell_id: String, expected: u64, actual: u64 },
 
-    #[error("Duplicate message {msg_id} (idempotency violation)")]
-    DuplicateMessage { msg_id: String },
+    #[error("Duplicate message {msg_id} (idempotency violation, correlation: {correlation_id})")]
+    DuplicateMessage { msg_id: String, correlation_id: String },
 
     #[error("Version incompatibility: {compatibility:?} (required: {required}, found: {found})")]
     VersionMismatch {
@@ -54,38 +58,50 @@ pub enum AxiomError {
         found: Version,
     },
 
-    #[error("Schema version too new: found v{found}, max supported v{max_supported}")]
-    SchemaVersionTooNew { found: u16, max_supported: u16 },
+    #[error("Schema version too new for {signal_type}: found v{found}, max supported v{max_supported}")]
+    SchemaVersionTooNew { signal_type: String, found: u16, max_supported: u16 },
 
-    #[error("Schema version too old: found v{found}, no migration path to v{current}")]
-    MigrationPathNotFound { found: u16, current: u16 },
+    #[error("Schema version too old for {signal_type}: found v{found}, no migration path to v{current}")]
+    MigrationPathNotFound { signal_type: String, found: u16, current: u16 },
 
-    #[error("Migration chain incomplete: missing migration v{from} to v{to}")]
-    MigrationChainGap { from: u16, to: u16 },
+    #[error("Migration chain incomplete for {signal_type}: missing migration v{from} to v{to}")]
+    MigrationChainGap { signal_type: String, from: u16, to: u16 },
 
     #[error("Protocol version mismatch: expected v{expected}, got v{got}")]
     ProtocolMismatch { expected: u16, got: u16 },
 
-    #[error("Migration failed from v{from} to v{to}: {reason}")]
-    MigrationFailed { from: u16, to: u16, reason: String },
+    #[error("Migration failed from v{from} to v{to} for {signal_type}: {reason}")]
+    MigrationFailed { signal_type: String, from: u16, to: u16, reason: String },
 
-    #[error("Permission denied: {action} requires {required:?} permission")]
+    #[error("Permission denied: {action} requires {required} permission")]
     PermissionDenied { action: String, required: String },
 
-    #[error("Correlation chain broken: {message}")]
-    CorrelationBroken { message: String },
+    #[error("Correlation chain broken: {message} (correlation_id: {correlation_id})")]
+    CorrelationBroken { message: String, correlation_id: String },
 
-    #[error("Entropy threshold exceeded: {score} > {threshold}")]
-    EntropyExceeded { score: f64, threshold: f64 },
+    #[error("Witness chain broken: {message} (cell_id: {cell_id}, witness_id: {witness_id})")]
+    WitnessChainBroken { message: String, cell_id: String, witness_id: String },
 
-    #[error("Token budget exceeded: used {used}, budget {budget}")]
-    TokenBudgetExceeded { used: u64, budget: u64 },
+    #[error("Entropy threshold exceeded: {score} > {threshold} (cell_id: {cell_id})")]
+    EntropyExceeded { score: f64, threshold: f64, cell_id: String },
 
-    #[error("Message loop detected: {message}")]
-    LoopDetected { message: String },
+    #[error("Token budget exceeded for {cell_id}: used {used}, budget {budget}")]
+    TokenBudgetExceeded { cell_id: String, used: u64, budget: u64 },
 
-    #[error("Timeout after {timeout_ms}ms")]
-    Timeout { timeout_ms: u64 },
+    #[error("Message loop detected: {message} (correlation: {correlation_id})")]
+    LoopDetected { message: String, correlation_id: String },
+
+    #[error("Timeout after {timeout_ms}ms (cell_id: {cell_id}, operation: {operation})")]
+    Timeout { cell_id: String, timeout_ms: u64, operation: String },
+
+    #[error("Resource exhausted: {resource} (cell_id: {cell_id})")]
+    ResourceExhausted { resource: String, cell_id: String },
+
+    #[error("Invalid signal type: {signal_type} (expected one of: {expected_types})")]
+    InvalidSignalType { signal_type: String, expected_types: String },
+
+    #[error("Shutdown in progress: {message}")]
+    ShutdownInProgress { message: String },
 
     #[error("Store error: {0}")]
     Store(String),
@@ -102,14 +118,14 @@ pub enum AxiomError {
         actual: &'static str,
     },
 
-    #[error("Witness serialization failed: {0}")]
-    WitnessSerialization(String),
+    #[error("Witness serialization failed for {cell_id}: {message}")]
+    WitnessSerialization { cell_id: String, message: String },
 
-    #[error("Signal serialization failed: {0}")]
-    SignalSerialization(String),
+    #[error("Signal serialization failed for {signal_type}: {message}")]
+    SignalSerialization { signal_type: String, message: String },
 
-    #[error("Internal error: {0}")]
-    Internal(String),
+    #[error("Internal error: {message}")]
+    Internal { message: String },
 }
 
 pub type Result<T> = std::result::Result<T, AxiomError>;

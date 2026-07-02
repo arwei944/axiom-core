@@ -1,11 +1,12 @@
 //! Hello Cell example - minimal working example demonstrating Cell, Signal, Witness, Entropy.
 
 use axiom_core::cell::{Cell, CellHandle};
-use axiom_core::context::{CellContext, OutgoingEnvelope, OutgoingWitness};
+use axiom_core::context::{CellContext, LayeredCellContext, OutgoingEnvelope, OutgoingWitness};
 use axiom_core::entropy::EntropyScore;
 use axiom_core::id::{CellId, CorrelationId, MsgId};
 use axiom_core::layer::Layer;
 use axiom_core::schema::{validators, ValidationResult};
+use axiom_core::sealed::ExecLayer;
 use axiom_core::signal::{Signal, SignalKind, VectorClock};
 use axiom_core::witness::TransitionOutcome;
 use axiom_core::Result;
@@ -111,31 +112,27 @@ impl Cell for HelloCell {
         &self.id
     }
 
-    fn layer() -> Layer
-    where
-        Self: Sized,
-    {
-        Layer::Exec
-    }
-
+    #[allow(clippy::manual_async_fn)]
     fn handle<'a>(
         &'a mut self,
         signal: HelloCommand,
-        ctx: &'a mut CellContext<'a>,
+        ctx: LayeredCellContext<'a, Self::Layer>,
     ) -> impl Future<Output = (Result<()>, Vec<OutgoingEnvelope>, Vec<OutgoingWitness>)> + Send + 'a
     {
         async move {
+            let mut ctx = ctx;
             println!("Received: {}", signal.message);
             self.greetings.push(signal.message.clone());
 
             let event = GreetedEvent::new(signal.correlation_id.clone(), &signal.message);
             let result: Result<()> = (|| {
-                ctx.emit_event(event, Layer::Exec)?;
-                ctx.witness()
-                    .summary(format!("processed greeting: {}", signal.message))
-                    .outcome(TransitionOutcome::Success)
-                    .processing_time_us(42)
-                    .emit(ctx)?;
+                ctx.emit_to::<ExecLayer, _>(event)?;
+                ctx.emit_witness(
+                    ctx.witness()
+                        .summary(format!("processed greeting: {}", signal.message))
+                        .outcome(TransitionOutcome::Success)
+                        .processing_time_us(42)
+                )?;
                 Ok(())
             })();
             let (outgoing, witnesses) = ctx.end_processing();
@@ -169,7 +166,8 @@ async fn main() {
     assert_eq!(signal.schema_version().0, 1);
     assert_eq!(signal.kind(), SignalKind::Command);
 
-    let (result, _outgoing, witnesses) = cell.handle(signal, &mut ctx).await;
+    let layered = ctx.as_layered::<ExecLayer>();
+    let (result, _outgoing, witnesses) = cell.handle(signal, layered).await;
     result.unwrap();
     println!("Greetings received: {:?}", cell.greetings);
     assert_eq!(cell.greetings, vec!["Hello, Axiom!"]);

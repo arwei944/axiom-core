@@ -3,8 +3,8 @@
 use crate::bus::{BusInterceptor, InterceptDecision};
 use crate::loop_detector::LoopDetector;
 use axiom_core::signal::SignalEnvelope;
+use parking_lot::RwLock;
 use std::collections::HashSet;
-use std::sync::RwLock;
 
 pub struct HopLimitInterceptor {
     max_hops: u32,
@@ -57,7 +57,7 @@ impl BusInterceptor for IdempotencyInterceptor {
     }
     fn intercept(&self, env: &SignalEnvelope) -> InterceptDecision {
         let id = env.msg_id.as_str().to_string();
-        let mut set = self.seen.write().unwrap();
+        let mut set = self.seen.write();
         if set.contains(&id) {
             return InterceptDecision::Reject {
                 reason: format!("duplicate message id: {id}"),
@@ -106,7 +106,9 @@ impl BusInterceptor for LoopDetectInterceptor {
     fn intercept(&self, env: &SignalEnvelope) -> InterceptDecision {
         match self.detector.check_and_record(env) {
             Ok(()) => InterceptDecision::Allow,
-            Err(reason) => InterceptDecision::Reject { reason },
+            Err(reason) => InterceptDecision::Reject {
+                reason: reason.to_string(),
+            },
         }
     }
 }

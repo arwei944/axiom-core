@@ -1,8 +1,8 @@
 //! Dead Letter Queue - captures undeliverable messages for analysis.
 
 use axiom_core::signal::SignalEnvelope;
+use parking_lot::RwLock;
 use std::collections::VecDeque;
-use std::sync::RwLock;
 
 #[derive(Debug, Clone)]
 pub struct DeadLetter {
@@ -25,7 +25,7 @@ impl DeadLetterQueue {
     }
 
     pub fn enqueue(&self, envelope: SignalEnvelope, reason: &str) {
-        let mut letters = self.letters.write().unwrap();
+        let mut letters = self.letters.write();
         if letters.len() >= self.capacity {
             letters.pop_front();
         }
@@ -37,7 +37,7 @@ impl DeadLetterQueue {
     }
 
     pub fn len(&self) -> usize {
-        self.letters.read().unwrap().len()
+        self.letters.read().len()
     }
 
     pub fn is_empty(&self) -> bool {
@@ -45,12 +45,12 @@ impl DeadLetterQueue {
     }
 
     pub fn drain(&self) -> Vec<DeadLetter> {
-        let mut letters = self.letters.write().unwrap();
+        let mut letters = self.letters.write();
         letters.drain(..).collect()
     }
 
     pub fn peek_all(&self) -> Vec<DeadLetter> {
-        self.letters.read().unwrap().iter().cloned().collect()
+        self.letters.read().iter().cloned().collect()
     }
 }
 

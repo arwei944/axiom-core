@@ -20,7 +20,7 @@ use std::fmt;
 // CrateVersion (SemVer)
 // ============================================================
 
-/// Semantic version (MAJOR.MINOR.PATCH) following https://semver.org/
+/// Semantic version (MAJOR.MINOR.PATCH) following <https://semver.org/>
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 pub struct Version {
     pub major: u16,
@@ -269,6 +269,7 @@ impl SchemaMigrator {
         let latest =
             self.latest_version(signal_type)
                 .ok_or(crate::AxiomError::MigrationPathNotFound {
+                    signal_type: signal_type.to_string(),
                     found: from_version.0,
                     current: 0,
                 })?;
@@ -289,6 +290,7 @@ impl SchemaMigrator {
         }
         if from.0 > to.0 {
             return Err(crate::AxiomError::MigrationFailed {
+                signal_type: signal_type.to_string(),
                 from: from.0,
                 to: to.0,
                 reason: "Cannot migrate backwards".into(),
@@ -298,6 +300,7 @@ impl SchemaMigrator {
             self.migrations
                 .get(signal_type)
                 .ok_or(crate::AxiomError::MigrationPathNotFound {
+                    signal_type: signal_type.to_string(),
                     found: from.0,
                     current: to.0,
                 })?;
@@ -308,12 +311,14 @@ impl SchemaMigrator {
                 .iter()
                 .find(|m| m.source_version().0 == current && m.target_version().0 == next)
                 .ok_or(crate::AxiomError::MigrationChainGap {
+                    signal_type: signal_type.to_string(),
                     from: current,
                     to: next,
                 })?;
             json = migration
                 .migrate(json)
                 .map_err(|e| crate::AxiomError::MigrationFailed {
+                    signal_type: signal_type.to_string(),
                     from: current,
                     to: next,
                     reason: e.to_string(),
@@ -329,6 +334,7 @@ impl SchemaMigrator {
             self.migrations
                 .get(signal_type)
                 .ok_or(crate::AxiomError::MigrationPathNotFound {
+                    signal_type: signal_type.to_string(),
                     found: 0,
                     current: 0,
                 })?;
@@ -337,7 +343,11 @@ impl SchemaMigrator {
                 .iter()
                 .any(|m| m.source_version().0 == v && m.target_version().0 == v + 1);
             if !found {
-                return Err(crate::AxiomError::MigrationChainGap { from: v, to: v + 1 });
+                return Err(crate::AxiomError::MigrationChainGap {
+                    signal_type: signal_type.to_string(),
+                    from: v,
+                    to: v + 1,
+                });
             }
         }
         Ok(())
@@ -593,7 +603,7 @@ mod tests {
         );
         assert!(result.is_err());
         match result.unwrap_err() {
-            crate::AxiomError::MigrationChainGap { from, to } => {
+            crate::AxiomError::MigrationChainGap { from, to, .. } => {
                 assert_eq!(from, 2);
                 assert_eq!(to, 3);
             }

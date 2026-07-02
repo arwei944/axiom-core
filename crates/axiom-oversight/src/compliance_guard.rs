@@ -1,10 +1,11 @@
 //! ComplianceGuard - PII/sensitive data detection and redaction.
 
 use axiom_core::id::CellId;
+use parking_lot::Mutex;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Severity {
@@ -107,7 +108,7 @@ impl ComplianceGuardCell {
 
     pub fn add_pattern(&self, pattern: SensitivePattern) -> Result<(), regex::Error> {
         let re = Regex::new(pattern.regex)?;
-        self.patterns.lock().unwrap().push((pattern, re));
+        self.patterns.lock().push((pattern, re));
         Ok(())
     }
 
@@ -116,12 +117,11 @@ impl ComplianceGuardCell {
         let mut redacted = text.to_string();
         let mut rejected = false;
 
-        for (pat, re) in self.patterns.lock().unwrap().iter() {
+        for (pat, re) in self.patterns.lock().iter() {
             for m in re.find_iter(text) {
                 *self
                     .violation_counts
                     .lock()
-                    .unwrap()
                     .entry(pat.name.to_string())
                     .or_insert(0) += 1;
 
@@ -161,7 +161,7 @@ impl ComplianceGuardCell {
     }
 
     pub fn stats(&self) -> HashMap<String, u64> {
-        self.violation_counts.lock().unwrap().clone()
+        self.violation_counts.lock().clone()
     }
 }
 

@@ -8,6 +8,14 @@ members = [
     "crates/axiom-viz",
     "crates/axiom-macros",
     "crates/axiom-cli",
+    "crates/axiom-mcp",
+    "crates/axiom-llm",
+    "crates/axiom-tool",
+    "crates/axiom-memory",
+    "crates/axiom-planner",
+    "crates/axiom-prompt",
+    "crates/axiom-identity",
+    "crates/axiom-bench",
 ]
 resolver = "2"
 
@@ -36,6 +44,7 @@ trybuild = "1"
 ratatui = "0.29"
 crossterm = "0.28"
 regex = "1"
+parking_lot = "0.12"
 
 axiom-core = { path = "crates/axiom-core" }
 axiom-runtime = { path = "crates/axiom-runtime" }
@@ -44,3 +53,9 @@ axiom-oversight = { path = "crates/axiom-oversight" }
 axiom-agent = { path = "crates/axiom-agent" }
 axiom-viz = { path = "crates/axiom-viz" }
 axiom-macros = { path = "crates/axiom-macros" }
+axiom-llm = { path = "crates/axiom-llm" }
+axiom-tool = { path = "crates/axiom-tool" }
+axiom-memory = { path = "crates/axiom-memory" }
+axiom-planner = { path = "crates/axiom-planner" }
+axiom-prompt = { path = "crates/axiom-prompt" }
+axiom-identity = { path = "crates/axiom-identity" }

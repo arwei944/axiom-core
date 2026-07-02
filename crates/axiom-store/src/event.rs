@@ -7,10 +7,30 @@ use axiom_core::version::{EventSchema, SchemaVersion, Versioned};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum EventOutcome {
+    Success,
+    Failed { reason: String },
+    AxiomViolated { axiom_name: String, message: String },
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WitnessHashData {
+    pub prev_hash: Option<[u8; 32]>,
+    pub state_before_hash: Option<[u8; 32]>,
+    pub state_after_hash: Option<[u8; 32]>,
+    pub hash: [u8; 32],
+    pub signal_fingerprint: [u8; 32],
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct EventMetadata {
     pub layer: Layer,
     pub processing_time_ms: u64,
     pub was_replayed: bool,
+    pub outcome: EventOutcome,
+    pub summary: String,
+    pub witness_hash: Option<WitnessHashData>,
+    pub payload_size_bytes: usize,
 }
 
 impl Default for EventMetadata {
@@ -19,6 +39,10 @@ impl Default for EventMetadata {
             layer: Layer::Exec,
             processing_time_ms: 0,
             was_replayed: false,
+            outcome: EventOutcome::Success,
+            summary: String::new(),
+            witness_hash: None,
+            payload_size_bytes: 0,
         }
     }
 }
@@ -116,6 +140,26 @@ impl EventBuilder {
 
     pub fn timestamp_ns(mut self, ts: u64) -> Self {
         self.event.timestamp_ns = ts;
+        self
+    }
+
+    pub fn outcome(mut self, outcome: EventOutcome) -> Self {
+        self.event.metadata.outcome = outcome;
+        self
+    }
+
+    pub fn summary(mut self, summary: &str) -> Self {
+        self.event.metadata.summary = summary.to_string();
+        self
+    }
+
+    pub fn witness_hash(mut self, hash: WitnessHashData) -> Self {
+        self.event.metadata.witness_hash = Some(hash);
+        self
+    }
+
+    pub fn payload_size_bytes(mut self, size: usize) -> Self {
+        self.event.metadata.payload_size_bytes = size;
         self
     }
 
