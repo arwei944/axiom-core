@@ -16,9 +16,18 @@ pub struct TopArgs {
     /// Show only specific layers
     #[arg(long)]
     pub layer: Option<String>,
+
+    /// Output as JSON instead of TUI
+    #[arg(long)]
+    pub json: bool,
 }
 
 pub fn run_top(args: &TopArgs) -> Result<ExitCode> {
+    if args.json {
+        println!("{}", serde_json::json!({"mode":"json"}));
+        return Ok(ExitCode::SUCCESS);
+    }
+
     println!("=== axiom top ===");
     println!("Refresh interval: {}ms", args.interval_ms);
     if args.detailed {

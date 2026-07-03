@@ -93,25 +93,34 @@ struct WitnessCapability;
 | **Entropy** | 熵治理版本 | 阈值策略/治理动作 |
 | **Runtime** | 运行时协议版本 | 监督策略/邮箱配置 |
 
-## 四层架构
+## 架构总览
+
+Axiom Core 采用 **9 层分层架构**，所有架构规则定义在 [`.axiom/architecture.toml`](.axiom/architecture.toml) 中。
 
 ```
-┌─────────────────────────────────────────────────────┐
-│  Layer 0: 监督层（Oversight）← 元层，监督一切       │
-│  熵治理 · 架构合规 · 意图审计 · 资源管控 · 死锁检测  │
-├─────────────────────────────────────────────────────┤
-│  Layer 3: 推理层（LLM/非确定性）  ← 可以犯错        │
-│  输出必须经过 Axiom 验证，不直接产生副作用           │
-├─────────────────────────────────────────────────────┤
-│  Layer 2: 验证层（确定性）        ← 守门人          │
-│  Schema 校验 · 规则引擎 · Axiom 不变量检查           │
-├─────────────────────────────────────────────────────┤
-│  Layer 1: 执行层（确定性）        ← 不出错          │
-│  数据库 · API 调用 · 计算，幂等 + 自动重试           │
-└─────────────────────────────────────────────────────┘
+Layer 0: 顶层应用 — axiom-cli, axiom-bench
+Layer 1: 可视化   — axiom-viz
+Layer 2: Agent 门面 — axiom-identity, axiom-prompt
+Layer 3: 监督与集成 — axiom-mcp, axiom-alert, axiom-agent, axiom-oversight
+Layer 4: 运行时与协调 — axiom-distributed, axiom-planner, axiom-runtime
+Layer 5: 存储与工具 — axiom-llm, axiom-tool, axiom-memory, axiom-store
+Layer 6: （预留）
+Layer 7: 核心原语 — axiom-core
+Layer 8: Proc-macro（豁免） — axiom-macros
 ```
 
-**铁律**：调用方向只能从上往下（Oversight→Agent→Validate→Exec），编译期 + 运行时双层检查。
+**铁律**：Layer N 的 crate **只能依赖** Layer >= N 的 crate（即只能向下依赖）。
+
+### 架构治理
+
+Axiom Core 使用编译期架构门禁（Architecture Gate）确保代码库的架构一致性：
+
+- **单一数据源**：`.axiom/architecture.toml` 定义所有架构规则
+- **编译期强制**：每个 crate 的 `build.rs` 在编译时自动检查依赖方向、禁止依赖、审计依赖
+- **零信任原则**：不依赖开发者自觉，编译期自动拦截架构违规
+- **豁免机制**：支持 `proc-macro-exemptions` 和 `reverse-dependency-exemptions`
+
+详见：[docs/plans/architecture-governance-implementation.md](docs/plans/architecture-governance-implementation.md)
 
 ## Agent 配套体系
 
@@ -123,6 +132,17 @@ struct WitnessCapability;
 | **Skill（技能）** | Agent 会什么 | 遵循 agentskills.io 开放标准，渐进式披露三层加载，支持绑定 Axiom/Lens/Permission |
 | **Rules（规则）** | Agent 守什么底线 | 软约束（区别于 Axiom 硬约束），Prompt注入+输出验证+升级Axiom三层执行 |
 | **MCP（模型上下文协议）** | Agent 连什么外部世界 | 双向桥接（Client+Server），四层安全检查（Permission→Rules→Axiom→Human-in-the-loop） |
+
+## 架构治理
+
+Axiom Core 使用编译期架构门禁（Architecture Gate）确保代码库的架构一致性：
+
+- **单一数据源**：`.axiom/architecture.toml` 定义所有架构规则
+- **编译期强制**：每个 crate 的 `build.rs` 在编译时自动检查依赖方向、禁止依赖、审计依赖
+- **零信任原则**：不依赖开发者自觉，编译期自动拦截架构违规
+- **豁免机制**：支持 `proc-macro-exemptions` 和 `reverse-dependency-exemptions`
+
+详见：[docs/plans/architecture-governance-implementation.md](docs/plans/architecture-governance-implementation.md)
 
 ## 项目结构
 
@@ -139,6 +159,9 @@ axiom-core/
 │   ├── axiom-viz/           # 可视化数据导出：拓扑/时间轴/熵值
 │   ├── axiom-macros/        # 过程宏：#[signal] #[cell] #[tool] #[guard] #[capability]（新增）
 │   └── axiom-cli/           # axm 命令行工具
+├── tools/
+│   ├── archcheck/           # 架构检查工具（编译期门禁 + CLI）
+│   └── xtask/               # 任务运行器（gatecheck / state）
 ├── docs/
 │   └── architecture/
 │       ├── 00-requirements.md              # 需求文档
@@ -196,6 +219,7 @@ axm doctor                    # 系统健康诊断
 
 - [需求文档](docs/architecture/00-requirements.md)
 - [Agent Identity·Skill·Rules·MCP 配套设计](docs/architecture/01-agent-identity-skills-mcp-rules.md)
+- [架构治理实施计划](docs/plans/architecture-governance-implementation.md)
 
 ## License
 

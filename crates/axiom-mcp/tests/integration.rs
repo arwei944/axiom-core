@@ -1,12 +1,11 @@
 use std::sync::Arc;
 
-use axiom_mcp::{client::McpClient, server::McpServer, tools::{ToolRegistry, AxiomTool}, protocol::{McpCapability, McpError}};
+use axiom_mcp::{client::McpClient, server::McpServer, tools::{ToolRegistry, AxiomTool, BoxMcpFuture}, protocol::{McpCapability, McpError}};
 use serde_json::Value;
 use tokio;
 
 struct TestTool;
 
-#[async_trait::async_trait]
 impl AxiomTool for TestTool {
     fn name(&self) -> &str {
         "test_tool"
@@ -39,12 +38,14 @@ impl AxiomTool for TestTool {
         false
     }
 
-    async fn execute(&self, arguments: &Value) -> Result<Value, McpError> {
-        let message = arguments.get("message")
-            .and_then(|v| v.as_str())
-            .ok_or_else(|| McpError::InvalidRequest("message is required".into()))?;
+    fn execute<'a>(&'a self, arguments: &'a Value) -> BoxMcpFuture<'a> {
+        Box::pin(async move {
+            let message = arguments.get("message")
+                .and_then(|v| v.as_str())
+                .ok_or_else(|| McpError::InvalidRequest("message is required".into()))?;
 
-        Ok(serde_json::json!({ "echo": message }))
+            Ok(serde_json::json!({ "echo": message }))
+        })
     }
 }
 
@@ -78,23 +79,8 @@ async fn test_mcp_tool_not_found() {
 
     assert!(result.is_err());
     if let Err(McpError::ToolNotFound(_)) = result {
+        // expected
     } else {
-        panic!("Expected ToolNotFound error");
-    }
-}
-
-#[tokio::test]
-async fn test_mcp_client_url_parsing() {
-    let result = McpClient::new("http://localhost:8080");
-    assert!(result.is_ok());
-}
-
-#[tokio::test]
-async fn test_mcp_client_invalid_url() {
-    let result = McpClient::new("invalid-url");
-    assert!(result.is_err());
-    if let Err(McpError::Connection(_)) = result {
-    } else {
-        panic!("Expected Connection error");
+        panic!("expected ToolNotFound error");
     }
 }

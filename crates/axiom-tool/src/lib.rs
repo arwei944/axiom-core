@@ -13,4 +13,4 @@ pub mod error;
 
 pub use error::ToolError;
 pub use registry::ToolRegistry;
-pub use tool::{Tool, ToolInfo, ToolParameter};
+pub use tool::{BoxToolFuture, Tool, ToolInfo, ToolParameter};

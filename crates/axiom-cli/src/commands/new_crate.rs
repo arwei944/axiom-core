@@ -19,26 +19,15 @@ pub struct NewCrateArgs {
     pub minimal: bool,
 }
 
-const CRATE_LAYERS: &[(&str, usize)] = &[
-    ("axiom-cli", 0),
-    ("axiom-viz", 1),
-    ("axiom-agent", 2),
-    ("axiom-oversight", 3),
-    ("axiom-runtime", 4),
-    ("axiom-store", 5),
-    ("axiom-macros", 6),
-    ("axiom-core", 7),
-];
-
 pub fn run_new_crate(args: &NewCrateArgs) -> Result<std::process::ExitCode> {
     let crate_name = format!("axiom-{}", args.name);
-    
+
     if args.layer > 7 {
         return Err(anyhow::anyhow!("Layer must be between 0 and 7"));
     }
 
     let crate_path = PathBuf::from("crates").join(&crate_name);
-    
+
     if crate_path.exists() {
         return Err(anyhow::anyhow!(
             "Crate '{}' already exists at {}",
@@ -49,18 +38,14 @@ pub fn run_new_crate(args: &NewCrateArgs) -> Result<std::process::ExitCode> {
 
     println!("Creating crate '{}' at layer {}...", crate_name, args.layer);
 
-    let allowed_deps: Vec<&str> = CRATE_LAYERS
-        .iter()
-        .filter(|(_, l)| *l >= args.layer)
-        .map(|(name, _)| *name)
-        .collect();
+    let allowed_deps = get_allowed_deps_for_layer(args.layer);
 
     println!("Allowed dependencies: {:?}", allowed_deps);
 
     create_crate_structure(&crate_path, args.minimal)?;
     create_cargo_toml(&crate_path, &crate_name, args.layer, &allowed_deps)?;
     create_lib_rs(&crate_path, &crate_name)?;
-    update_gate_rs(&crate_name, args.layer)?;
+    update_architecture_toml(&crate_name, args.layer)?;
 
     if !args.minimal {
         create_tests(&crate_path)?;
@@ -73,6 +58,37 @@ pub fn run_new_crate(args: &NewCrateArgs) -> Result<std::process::ExitCode> {
     println!("  3. Run `cargo check -p {}` to verify", crate_name);
 
     Ok(std::process::ExitCode::SUCCESS)
+}
+
+fn get_allowed_deps_for_layer(layer: usize) -> Vec<String> {
+    let mut deps = Vec::new();
+    let arch_path = PathBuf::from(".axiom/architecture.toml");
+    if let Ok(content) = fs::read_to_string(&arch_path) {
+        let mut in_crate_layers = false;
+        for line in content.lines() {
+            let trimmed = line.trim();
+            if trimmed == "[crate-layers]" {
+                in_crate_layers = true;
+                continue;
+            }
+            if in_crate_layers && trimmed.starts_with('[') {
+                break;
+            }
+            if in_crate_layers && trimmed.contains('=') {
+                let crate_name = trimmed.split('=').next().map(|s| s.trim()).unwrap_or("");
+                if !crate_name.is_empty() {
+                    if let Some(layer_str) = trimmed.split('=').nth(1) {
+                        if let Ok(crate_layer) = layer_str.trim().parse::<usize>() {
+                            if crate_layer >= layer && !deps.contains(&crate_name.to_string()) {
+                                deps.push(crate_name.to_string());
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    deps
 }
 
 fn create_crate_structure(crate_path: &Path, minimal: bool) -> Result<()> {
@@ -92,15 +108,13 @@ fn create_crate_structure(crate_path: &Path, minimal: bool) -> Result<()> {
     Ok(())
 }
 
-fn create_cargo_toml(crate_path: &Path, name: &str, _layer: usize, allowed_deps: &[&str]) -> Result<()> {
-    let mut deps_section = String::new();
-    
-    for dep in allowed_deps {
-        if *dep == name {
-            continue;
-        }
-        deps_section.push_str(&format!("{} = {{ workspace = true }}\n", dep));
-    }
+fn create_cargo_toml(crate_path: &Path, name: &str, _layer: usize, allowed_deps: &[String]) -> Result<()> {
+    let deps_section = allowed_deps
+        .iter()
+        .filter(|dep| *dep != name)
+        .map(|dep| format!("{} = {{ workspace = true }}", dep))
+        .collect::<Vec<_>>()
+        .join("\n");
 
     let content = format!(
         "[package]\n\
@@ -147,7 +161,7 @@ fn create_cargo_toml(crate_path: &Path, name: &str, _layer: usize, allowed_deps:
 fn create_lib_rs(crate_path: &Path, name: &str) -> Result<()> {
     let module_name = name.replace("axiom-", "");
     let layer = get_layer_for_crate(name);
-    
+
     let content = format!(
         "//! Axiom {} crate\n\
          //!\n\
@@ -217,34 +231,50 @@ fn create_lib_rs(crate_path: &Path, name: &str) -> Result<()> {
 }
 
 fn get_layer_for_crate(name: &str) -> usize {
-    CRATE_LAYERS.iter()
-        .find(|(n, _)| *n == name)
-        .map(|(_, l)| *l)
-        .unwrap_or(4)
+    let arch_path = PathBuf::from(".axiom/architecture.toml");
+    if let Ok(content) = fs::read_to_string(&arch_path) {
+        let mut in_crate_layers = false;
+        for line in content.lines() {
+            let trimmed = line.trim();
+            if trimmed == "[crate-layers]" {
+                in_crate_layers = true;
+                continue;
+            }
+            if in_crate_layers && trimmed.starts_with('[') {
+                break;
+            }
+            if in_crate_layers && trimmed.starts_with(name) && trimmed.contains('=') {
+                if let Some(layer_str) = trimmed.split('=').nth(1) {
+                    if let Ok(layer) = layer_str.trim().parse::<usize>() {
+                        return layer;
+                    }
+                }
+            }
+        }
+    }
+    4 // default layer
 }
 
-fn update_gate_rs(crate_name: &str, layer: usize) -> Result<()> {
-    let gate_path = PathBuf::from("crates/axiom-core/src/gate.rs");
-    
-    let mut content = fs::read_to_string(&gate_path)
-        .context("Failed to read gate.rs")?;
+fn update_architecture_toml(crate_name: &str, layer: usize) -> Result<()> {
+    let arch_path = PathBuf::from(".axiom/architecture.toml");
 
-    let insert_line = format!(
-        "    (\"{}\", {}),\n",
-        crate_name, layer
-    );
+    let mut content = fs::read_to_string(&arch_path)
+        .context("Failed to read architecture.toml")?;
 
-    if !content.contains(&format!("(\"{}\"", crate_name)) {
+    let insert_line = format!("{} = {}\n", crate_name, layer);
+
+    // Find the [crate-layers] section and add the new crate
+    if !content.contains(&format!("{}", crate_name)) {
         content = content.replace(
-            "pub const CRATE_LAYERS: &[(&str, usize)] = &[",
-            &format!("pub const CRATE_LAYERS: &[(&str, usize)] = &[\n{}", insert_line)
+            "[crate-layers]",
+            &format!("[crate-layers]\n{}", insert_line)
         );
     }
 
-    fs::write(&gate_path, content)
-        .context("Failed to write gate.rs")?;
+    fs::write(&arch_path, content)
+        .context("Failed to write architecture.toml")?;
 
-    println!("Updated gate.rs with new crate registration");
+    println!("Updated .axiom/architecture.toml with new crate registration");
 
     Ok(())
 }

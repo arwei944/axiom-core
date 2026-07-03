@@ -2,7 +2,6 @@
 
 use std::sync::Arc;
 
-use async_trait::async_trait;
 use parking_lot::RwLock;
 use serde::de::DeserializeOwned;
 use serde_json::Value;
@@ -12,10 +11,9 @@ use crate::types::{
     ChatMessage, ChatResponse, CompletionResponse, LlmError, RetryConfig, TokenBudget, TokenUsage,
 };
 
-#[async_trait]
 pub trait LlmProvider: Send + Sync + 'static {
-    async fn complete(&self, prompt: &str) -> Result<CompletionResponse, LlmError>;
-    async fn chat(&self, messages: &[ChatMessage]) -> Result<ChatResponse, LlmError>;
+    fn complete<'a>(&'a self, prompt: &'a str) -> crate::BoxLlmFuture<'a, Result<CompletionResponse, LlmError>>;
+    fn chat<'a>(&'a self, messages: &'a [ChatMessage]) -> crate::BoxLlmFuture<'a, Result<ChatResponse, LlmError>>;
 }
 
 pub struct LlmClient {

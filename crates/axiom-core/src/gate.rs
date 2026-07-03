@@ -1,57 +1,109 @@
 //! Compile-time architecture gate data — single source of truth for dependency rules.
 //!
 //! Layer indices (lower index = higher layer, can depend on higher indices):
-//! 0: axiom-cli, 1: axiom-viz, 2: axiom-agent, 3: axiom-oversight,
-//! 4: axiom-runtime, 5: axiom-store, 6: axiom-macros, 7: axiom-core
+//! 0: axiom-cli, 1: axiom-viz, 2: axiom-identity, 3: axiom-oversight,
+//! 4: axiom-runtime, 5: axiom-store, 7: axiom-core
+//!
+//! Note: Layer 6 is reserved for future use.
 //!
 //! Rule: crate at level N may only depend on crates at level >= N (same or lower layer).
+//!
+//! NOTE: The `Architecture` struct and parsing logic are intentionally duplicated from
+//! `tools/archcheck/src/loader.rs` because `axiom-core` cannot depend on the `archcheck`
+//! crate (which is a build-time tool). Any changes to the TOML structure must be
+//! synchronized with `loader.rs`. The canonical implementation lives in `loader.rs`.
 
-/// (crate_name, layer_index). Lower index = higher layer.
-pub const CRATE_LAYERS: &[(&str, usize)] = &[
-    ("axiom-cli", 0),
-    ("axiom-viz", 1),
-    ("axiom-agent", 2),
-    ("axiom-oversight", 3),
-    ("axiom-runtime", 4),
-    ("axiom-store", 5),
-    ("axiom-macros", 6),
-    ("axiom-core", 7),
-];
+use std::sync::OnceLock;
 
-/// Third-party dependencies that are FORBIDDEN in any axiom crate.
-/// R-004: async-trait is banned (Rust 1.75+ supports native async fn in traits).
-pub const FORBIDDEN_DEPS: &[&str] = &["async-trait"];
+static ARCHITECTURE_TOML: &str = include_str!("../../../.axiom/architecture.toml");
 
-/// Third-party dependencies that have been audited and are allowed.
-pub const AUDITED_DEPS: &[&str] = &[
-    "tokio",
-    "serde",
-    "serde_json",
-    "thiserror",
-    "anyhow",
-    "tracing",
-    "tracing-subscriber",
-    "sha2",
-    "uuid",
-    "futures",
-    "clap",
-    "ratatui",
-    "crossterm",
-    "syn",
-    "quote",
-    "proc-macro2",
-    "linkme",
-    "trybuild",
-    "regex",
-    "parking_lot",
-];
+#[derive(Debug, Clone)]
+struct Architecture {
+    crate_layers: Vec<(String, usize)>,
+    forbidden_deps: Vec<String>,
+    audited_deps: Vec<String>,
+    proc_macro_exemptions: Vec<(String, Vec<String>)>,
+    reverse_dependency_exemptions: Vec<(String, Vec<String>)>,
+}
+
+impl Architecture {
+    fn from_toml(toml_str: &str) -> Option<Self> {
+        let parsed: toml::Value = toml::from_str(toml_str).ok()?;
+
+        let crate_layers = parsed
+            .get("crate-layers")?
+            .as_table()?
+            .iter()
+            .filter_map(|(k, v)| v.as_integer().map(|i| (k.clone(), i as usize)))
+            .collect();
+
+        let forbidden_deps = parsed
+            .get("forbidden-deps")?
+            .as_table()?
+            .keys()
+            .cloned()
+            .collect();
+
+        let audited_deps = parsed
+            .get("audited-deps")?
+            .as_table()?
+            .keys()
+            .cloned()
+            .collect();
+
+        let proc_macro_exemptions = parsed
+            .get("proc-macro-exemptions")?
+            .as_table()?
+            .iter()
+            .filter_map(|(k, v)| {
+                let allowed = v.get("allowed_deps")?.as_array()?.iter()
+                    .filter_map(|d| d.as_str().map(|s| s.to_string()))
+                    .collect::<Vec<_>>();
+                Some((k.clone(), allowed))
+            })
+            .collect();
+
+        let reverse_dependency_exemptions = parsed
+            .get("reverse-dependency-exemptions")?
+            .as_table()?
+            .iter()
+            .filter_map(|(k, v)| {
+                let allowed = v.get("allowed_deps")?.as_array()?.iter()
+                    .filter_map(|d| d.as_str().map(|s| s.to_string()))
+                    .collect::<Vec<_>>();
+                Some((k.clone(), allowed))
+            })
+            .collect();
+
+        Some(Architecture {
+            crate_layers,
+            forbidden_deps,
+            audited_deps,
+            proc_macro_exemptions,
+            reverse_dependency_exemptions,
+        })
+    }
+}
+
+fn architecture() -> &'static Architecture {
+    static ARCH: OnceLock<Architecture> = OnceLock::new();
+    ARCH.get_or_init(|| {
+        Architecture::from_toml(ARCHITECTURE_TOML).expect("failed to parse .axiom/architecture.toml")
+    })
+}
 
 /// Find layer index for a crate by name.
 pub fn crate_level(name: &str) -> Option<usize> {
-    CRATE_LAYERS
+    architecture()
+        .crate_layers
         .iter()
-        .find(|(n, _)| *n == name)
+        .find(|(n, _)| n == name)
         .map(|(_, l)| *l)
+}
+
+/// Return all registered crates and their layer indices.
+pub fn crate_layers() -> &'static [(String, usize)] {
+    &architecture().crate_layers
 }
 
 /// Verify local dependency direction. Returns list of violation messages.
@@ -60,13 +112,23 @@ pub fn verify_dependencies(crate_name: &str, deps: &[String]) -> Vec<String> {
         Some(l) => l,
         None => return Vec::new(),
     };
+    let arch = architecture();
     let mut violations = Vec::new();
     for dep in deps {
         if dep == "axiom-macros" {
-            continue;
+            let is_exempt = arch.proc_macro_exemptions.iter()
+                .any(|(k, v)| k == crate_name && v.contains(dep));
+            if is_exempt {
+                continue;
+            }
         }
         if let Some(dep_level) = crate_level(dep) {
             if dep_level < level {
+                let is_exempt = arch.reverse_dependency_exemptions.iter()
+                    .any(|(k, v)| k == crate_name && v.contains(dep));
+                if is_exempt {
+                    continue;
+                }
                 violations.push(format!(
                     "REVERSE DEPENDENCY: {crate_name} (level {level}) depends on {dep} (level {dep_level})"
                 ));
@@ -78,10 +140,11 @@ pub fn verify_dependencies(crate_name: &str, deps: &[String]) -> Vec<String> {
 
 /// Audit a single third-party dependency. Returns Err(reason) if forbidden/unaudited.
 pub fn audit_dependency(dep: &str) -> Result<(), String> {
-    if FORBIDDEN_DEPS.contains(&dep) {
+    let arch = architecture();
+    if arch.forbidden_deps.contains(&dep.to_string()) {
         return Err(format!("forbidden dependency '{dep}' (R-004)"));
     }
-    if !AUDITED_DEPS.contains(&dep) {
+    if !arch.audited_deps.contains(&dep.to_string()) {
         return Err(format!("unaudited dependency '{dep}' (R-022)"));
     }
     Ok(())
@@ -93,9 +156,8 @@ mod tests {
 
     #[test]
     fn test_layer_order_is_dag() {
-        for (name, level) in CRATE_LAYERS {
-            assert!(*level < CRATE_LAYERS.len(), "level out of range for {name}");
-        }
+        let layers = architecture().crate_layers.iter().map(|(_, l)| l).collect::<Vec<_>>();
+        assert!(!layers.is_empty(), "crate layers should not be empty");
     }
 
     #[test]

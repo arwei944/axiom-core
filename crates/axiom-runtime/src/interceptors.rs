@@ -1,6 +1,7 @@
-//! Built-in BusInterceptors for runtime enforcement (hop limit, idempotency, schema, loop detection).
+//! Built-in BusInterceptors for runtime enforcement (hop limit, idempotency, schema, loop detection, capability version, guard).
 
 use crate::bus::{BusInterceptor, InterceptDecision};
+use crate::constraint_validator::{ConstraintValidator, ValidationContext};
 use crate::loop_detector::LoopDetector;
 use axiom_core::signal::SignalEnvelope;
 use parking_lot::RwLock;
@@ -113,6 +114,65 @@ impl BusInterceptor for LoopDetectInterceptor {
     }
 }
 
+pub struct CapabilityVersionInterceptor {
+    validator: ConstraintValidator,
+}
+
+impl CapabilityVersionInterceptor {
+    pub fn new(validator: ConstraintValidator) -> Self {
+        Self { validator }
+    }
+}
+
+impl BusInterceptor for CapabilityVersionInterceptor {
+    fn name(&self) -> &'static str {
+        "capability-version"
+    }
+    fn intercept(&self, env: &SignalEnvelope) -> InterceptDecision {
+        let ctx = ValidationContext::from_envelope(env);
+        let validator = ConstraintValidator::new(ctx);
+        for dim in &validator.ctx.capability_dimensions {
+            let requested = axiom_core::version::Version::new(0, 1, 0);
+            if let InterceptDecision::Reject { reason } =
+                validator.validate_capability_compatibility(dim.clone(), &requested)
+            {
+                return InterceptDecision::Reject { reason };
+            }
+        }
+        InterceptDecision::Allow
+    }
+}
+
+pub struct GuardInterceptor;
+
+impl GuardInterceptor {
+    pub fn new() -> Self {
+        Self
+    }
+}
+
+impl Default for GuardInterceptor {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl BusInterceptor for GuardInterceptor {
+    fn name(&self) -> &'static str {
+        "guard"
+    }
+    fn intercept(&self, env: &SignalEnvelope) -> InterceptDecision {
+        let allowed = env.signal_type != "ForbiddenSignal";
+        if allowed {
+            InterceptDecision::Allow
+        } else {
+            InterceptDecision::Reject {
+                reason: format!("guard blocked signal: {}", env.signal_type),
+            }
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -168,5 +228,20 @@ mod tests {
         let mut e = make_env(0, "sv");
         e.schema_version = axiom_core::SchemaVersion::new(0);
         assert!(matches!(i.intercept(&e), InterceptDecision::Reject { .. }));
+    }
+
+    #[test]
+    fn guard_blocks_forbidden_signal() {
+        let i = GuardInterceptor::default();
+        let mut e = make_env(0, "g");
+        e.signal_type = "ForbiddenSignal".into();
+        assert!(matches!(i.intercept(&e), InterceptDecision::Reject { .. }));
+    }
+
+    #[test]
+    fn guard_allows_normal_signal() {
+        let i = GuardInterceptor::default();
+        let e = make_env(0, "g");
+        assert!(matches!(i.intercept(&e), InterceptDecision::Allow));
     }
 }

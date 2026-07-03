@@ -22,6 +22,7 @@ use axiom_core::layer::Layer;
 use axiom_core::signal::{now_ns, SignalEnvelope, SignalKind, VectorClock};
 
 use crate::bus::{BusInterceptor, InterceptDecision, MessageBus};
+use crate::constraint_validator::{ConstraintValidator, ValidationContext};
 use crate::entropy_gov::{EntropyEvent, EntropyGovernorCell, GovernanceAction};
 use crate::entropy_interceptors::{EmergencyInterceptor, ThrottleInterceptor};
 use crate::guardian::ArchitectureGuardian;
@@ -381,6 +382,16 @@ impl AxiomRuntime {
                     crate::interceptors::LoopDetectInterceptor::default(),
                 ))
                 .await;
+            self.bus
+                .register_interceptor(Arc::new(
+                    crate::interceptors::CapabilityVersionInterceptor::new(
+                        ConstraintValidator::new(ValidationContext::default()),
+                    ),
+                ))
+                .await;
+            self.bus
+                .register_interceptor(Arc::new(crate::interceptors::GuardInterceptor::default()))
+                .await;
         }
 
         let (tx, rx) = oneshot::channel::<()>();
@@ -541,12 +552,20 @@ impl AxiomRuntime {
                                             if !events.is_empty() {
                                                 let event_count = events.len();
                                                 if let Err(e) =
-                                                    store.append_batch(events).await
+                                                    store.append_batch(events.clone()).await
                                                 {
                                                     tracing::error!(
                                                         error = %e,
                                                         count = event_count,
                                                         "failed to persist witnesses to event store"
+                                                    );
+                                                } else if let Err(chain_err) =
+                                                    axiom_store::verify_witness_chain(&events)
+                                                {
+                                                    tracing::warn!(
+                                                        error = %chain_err,
+                                                        count = event_count,
+                                                        "witness chain integrity check failed after persistence"
                                                     );
                                                 }
                                             }
@@ -849,6 +868,54 @@ impl AxiomRuntime {
         );
 
         self.bus.publish(env).await
+    }
+
+    pub async fn snapshot_viz(&self) -> Result<serde_json::Value, AxiomError> {
+        let cells = self.cells.read().await;
+        let cell_nodes = cells
+            .iter()
+            .map(|r| serde_json::json!({
+                "id": r.id.as_str(),
+                "name": r.id.as_str(),
+                "layer": r.layer.as_str(),
+                "status": if r.cell.is_some() { "running" } else { "mailbox" }
+            }))
+            .collect::<Vec<_>>();
+
+        let mut edges = Vec::new();
+        for from in cells.iter() {
+            for to in cells.iter() {
+                if from.id != to.id && from.layer.can_send_to(to.layer) {
+                    edges.push(serde_json::json!({
+                        "from": from.id.as_str(),
+                        "to": to.id.as_str()
+                    }));
+                }
+            }
+        }
+
+        let topology = serde_json::json!({
+            "cells": cell_nodes,
+            "edges": edges
+        });
+
+        let timeline = serde_json::json!({"entries": []});
+
+        let entropy_snapshot = self.governor.snapshot();
+        let entropy = serde_json::json!({
+            "system_entropy": entropy_snapshot.global.value,
+            "cell_entropies": entropy_snapshot.per_cell.iter().map(|(k, v)| (k.clone(), *v)).collect::<Vec<_>>(),
+            "status": format!("{:?}", entropy_snapshot.global.level())
+        });
+
+        let flow = serde_json::json!({"records": []});
+
+        Ok(serde_json::json!({
+            "topology": topology,
+            "timeline": timeline,
+            "entropy": entropy,
+            "flow": flow
+        }))
     }
 }
 

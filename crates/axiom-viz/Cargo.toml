@@ -9,3 +9,9 @@ description = "Visualization data export: topology, timeline, entropy, traces, m
 axiom-core = { path = "../axiom-core" }
 serde = { workspace = true }
 serde_json = { workspace = true }
+
+[build-dependencies]
+archcheck = { path = "../../tools/archcheck" }
+toml = "0.8"
+
+

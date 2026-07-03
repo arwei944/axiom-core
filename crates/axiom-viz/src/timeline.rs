@@ -3,7 +3,7 @@
 use axiom_core::layer::Layer;
 use serde::Serialize;
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Clone, Serialize)]
 pub struct TimelineEntry {
     pub cell_id: String,
     pub layer: Layer,
@@ -12,7 +12,7 @@ pub struct TimelineEntry {
     pub outcome: String,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Clone, Serialize)]
 pub struct Timeline {
     pub entries: Vec<TimelineEntry>,
 }

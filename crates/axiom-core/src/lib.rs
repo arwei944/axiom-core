@@ -13,6 +13,44 @@
 //! - **Version**: Semantic versioning, schema versioning, and witness chain compatibility
 //! - **Schema**: Compile-time message validation
 //! - **Context**: CellContext with correlation ID propagation
+//!
+//! # Quick Start
+//!
+//! ```rust
+//! use axiom_core::{Axiom, Result, CellId, Layer};
+//! use axiom_core::signal::{Signal, SignalEnvelope, SignalKind, VectorClock};
+//!
+//! // Define a custom axiom
+//! struct NonEmpty;
+//! impl Axiom for NonEmpty {
+//!     type State = String;
+//!     type Message = String;
+//!     fn name(&self) -> &'static str { "non-empty" }
+//!     fn check(&self, _current: &String, new: &String, _msg: &String) -> Result<()> {
+//!         if new.is_empty() {
+//!             Err(axiom_core::AxiomError::InvariantViolated {
+//!                 message: "state is empty".into(),
+//!             })
+//!         } else {
+//!             Ok(())
+//!         }
+//!     }
+//! }
+//! ```
+//!
+//! # Crate Features
+//!
+//! | Feature | Default | Description |
+//! |---------|---------|-------------|
+//! | `unstable` | No | Enable unstable APIs |
+//! | `sha2-id` | No | Enable SHA-2 witness hashing |
+//!
+//! # Version
+//!
+//! Current version: **v0.2.0**
+//!
+//! See [VERSIONING.md](../VERSIONING.md) for versioning policy.
+//! See [API_BOUNDARY.md](../API_BOUNDARY.md) for stable API surface.
 
 #![allow(async_fn_in_trait)]
 
@@ -22,9 +60,11 @@ pub mod cell;
 pub mod context;
 pub mod entropy;
 pub mod error;
+#[doc(hidden)]
 pub mod gate;
 pub mod id;
 pub mod layer;
+pub mod lens;
 pub mod registry;
 pub mod schema;
 pub mod sealed;
@@ -62,9 +102,13 @@ pub use witness::{
     TransitionOutcome, Witness, WitnessBatch, WitnessBuilder, WitnessEvent, WitnessGenerator,
     WitnessHash, WitnessKind, WitnessMetrics,
 };
+pub use lens::{
+    CacheMetrics, DependencyCycleError, IncrementalProjectionCache, InMemoryProjectionCache, Lens,
+    LensAccessor, LensAccessError, LensEvent, LensError, LensRegistry, LENS_REGISTRY, Projectable,
+    Projection, ProjectionCache, ProjectionDowncastError,
+};
 
-pub use axiom_macros::{axiom, capability, cell, guard, migration, schema_version, signal, SignalPayload, tool};
-pub use linkme;
+pub use axiom_macros::{axiom, capability, cell, guard, lens, migration, schema_version, signal, SignalPayload, tool};
 
 #[cfg(feature = "unstable")]
 pub use cell::{

@@ -2,9 +2,7 @@
 
 use std::sync::Arc;
 
-use async_trait::async_trait;
-
-use crate::planner::{Planner, PlannerError, PlanningResult};
+use crate::planner::{BoxPlannerFuture, Planner, PlannerError, PlanningResult};
 use crate::step::{PlanStep, StepStatus};
 
 pub struct PlanAndExecutePlanner {
@@ -198,7 +196,6 @@ impl Default for PlanAndExecutePlanner {
     }
 }
 
-#[async_trait]
 impl Planner for PlanAndExecutePlanner {
     fn name(&self) -> &str {
         "plan_and_execute"
@@ -208,93 +205,95 @@ impl Planner for PlanAndExecutePlanner {
         self.max_iterations
     }
 
-    async fn plan_and_execute(&self, goal: &str, context: &str) -> Result<PlanningResult, PlannerError> {
-        let start = std::time::Instant::now();
+    fn plan_and_execute<'a>(&'a self, goal: &'a str, context: &'a str) -> BoxPlannerFuture<'a> {
+        Box::pin(async move {
+            let start = std::time::Instant::now();
 
-        if let Some(mem) = &self.memory {
-            mem.add(axiom_memory::MemoryItem::goal(goal));
-            if !context.is_empty() {
-                mem.add(axiom_memory::MemoryItem::observation(context));
-            }
-        }
-
-        let mut steps = self.create_plan(goal, context).await?;
-        let mut iteration = 0;
-
-        if let Some(mem) = &self.memory {
-            mem.add(
-                axiom_memory::MemoryItem::plan(format!(
-                    "Plan created with {} steps",
-                    steps.len()
-                ))
-                .with_importance(0.7),
-            );
-        }
-
-        loop {
-            iteration += 1;
-            if iteration > self.max_iterations {
-                return Ok(PlanningResult::failure(
-                    steps,
-                    "Max iterations reached",
-                ));
+            if let Some(mem) = &self.memory {
+                mem.add(axiom_memory::MemoryItem::goal(goal));
+                if !context.is_empty() {
+                    mem.add(axiom_memory::MemoryItem::observation(context));
+                }
             }
 
-            let mut all_done = true;
-            let mut progress_made = false;
+            let mut steps = self.create_plan(goal, context).await?;
+            let mut iteration = 0;
 
-            for i in 0..steps.len() {
-                if steps[i].status.is_finished() {
-                    continue;
+            if let Some(mem) = &self.memory {
+                mem.add(
+                    axiom_memory::MemoryItem::plan(format!(
+                        "Plan created with {} steps",
+                        steps.len()
+                    ))
+                    .with_importance(0.7),
+                );
+            }
+
+            loop {
+                iteration += 1;
+                if iteration > self.max_iterations {
+                    return Ok(PlanningResult::failure(
+                        steps,
+                        "Max iterations reached",
+                    ));
                 }
 
-                all_done = false;
+                let mut all_done = true;
+                let mut progress_made = false;
 
-                if !self.dependencies_satisfied(&steps[i], &steps) {
-                    continue;
-                }
-
-                match self.execute_step(&mut steps[i]).await {
-                    Ok(_) => {
-                        progress_made = true;
+                for i in 0..steps.len() {
+                    if steps[i].status.is_finished() {
+                        continue;
                     }
-                    Err(e) => {
-                        steps[i].mark_failed(e.to_string());
-                        self.replan(&mut steps, i, goal).await?;
-                        progress_made = true;
-                        break;
+
+                    all_done = false;
+
+                    if !self.dependencies_satisfied(&steps[i], &steps) {
+                        continue;
+                    }
+
+                    match self.execute_step(&mut steps[i]).await {
+                        Ok(_) => {
+                            progress_made = true;
+                        }
+                        Err(e) => {
+                            steps[i].mark_failed(e.to_string());
+                            self.replan(&mut steps, i, goal).await?;
+                            progress_made = true;
+                            break;
+                        }
                     }
                 }
-            }
 
-            if all_done {
-                let all_completed = steps.iter().all(|s| s.status == StepStatus::Completed);
-                let final_output = if all_completed {
-                    steps
-                        .last()
-                        .and_then(|s| s.actual_output.clone())
-                        .unwrap_or_else(|| "Task completed successfully".to_string())
-                } else {
-                    "Plan did not complete successfully".to_string()
-                };
+                if all_done {
+                    let all_completed = steps.iter().all(|s| s.status == StepStatus::Completed);
+                    let final_output = if all_completed {
+                        steps
+                            .last()
+                            .and_then(|s| s.actual_output.clone())
+                            .unwrap_or_else(|| "Task completed successfully".to_string())
+                    } else {
+                        "Plan did not complete successfully".to_string()
+                    };
 
-                let duration = start.elapsed().as_millis() as u64;
-                return Ok(PlanningResult {
-                    success: all_completed,
-                    steps,
-                    final_output: Some(final_output),
-                    iterations: iteration,
-                    total_duration_ms: duration,
-                });
-            }
+                    let duration = start.elapsed().as_millis() as u64;
+                    return Ok(PlanningResult {
+                        success: all_completed,
+                        steps,
+                        final_output: Some(final_output),
+                        iterations: iteration,
+                        total_duration_ms: duration,
+                    });
+                }
 
-            if !progress_made {
-                return Ok(PlanningResult::failure(
-                    steps,
-                    "No progress made - possible deadlock in dependencies",
-                ));
+                if !progress_made {
+                    return Ok(PlanningResult::failure(
+                        steps,
+                        "No progress made - possible deadlock in dependencies",
+                    ));
+                }
             }
-        }
+        })
     }
 }
 

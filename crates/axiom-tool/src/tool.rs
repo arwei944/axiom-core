@@ -1,6 +1,8 @@
 //! Tool trait and metadata definitions.
 
-use async_trait::async_trait;
+use std::future::Future;
+use std::pin::Pin;
+
 use serde_json::Value;
 
 use crate::error::ToolError;
@@ -22,11 +24,12 @@ pub struct ToolInfo {
     pub version: String,
 }
 
-#[async_trait]
+pub type BoxToolFuture<'a> = Pin<Box<dyn Future<Output = Result<Value, ToolError>> + Send + 'a>>;
+
 pub trait Tool: Send + Sync + 'static {
     fn info(&self) -> ToolInfo;
 
-    async fn execute(&self, parameters: &Value) -> Result<Value, ToolError>;
+    fn execute<'a>(&'a self, parameters: &'a Value) -> BoxToolFuture<'a>;
 
     fn validate(&self, parameters: &Value) -> Result<(), ToolError> {
         let info = self.info();
@@ -61,7 +64,6 @@ where
     }
 }
 
-#[async_trait]
 impl<F> Tool for SimpleTool<F>
 where
     F: Fn(&Value) -> Result<Value, ToolError> + Send + Sync + 'static,
@@ -70,8 +72,10 @@ where
         self.info.clone()
     }
 
-    async fn execute(&self, parameters: &Value) -> Result<Value, ToolError> {
-        self.validate(parameters)?;
-        (self.handler)(parameters)
+    fn execute<'a>(&'a self, parameters: &'a Value) -> BoxToolFuture<'a> {
+        Box::pin(async move {
+            self.validate(parameters)?;
+            (self.handler)(parameters)
+        })
     }
 }

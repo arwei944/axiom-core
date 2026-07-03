@@ -1,22 +1,24 @@
 //! Tool registry and type-safe tool definitions for MCP.
 
 use std::collections::HashMap;
+use std::future::Future;
+use std::pin::Pin;
 use std::sync::Arc;
 
-use async_trait::async_trait;
 use parking_lot::RwLock;
 use serde_json::Value;
 
 use crate::protocol::{McpError, McpTool};
 
-#[async_trait]
+pub type BoxMcpFuture<'a> = Pin<Box<dyn Future<Output = Result<Value, McpError>> + Send + 'a>>;
+
 pub trait AxiomTool: Send + Sync + 'static {
     fn name(&self) -> &str;
     fn description(&self) -> &str;
     fn input_schema(&self) -> Value;
     fn output_schema(&self) -> Option<Value>;
     fn requires_permission(&self) -> bool;
-    async fn execute(&self, arguments: &Value) -> Result<Value, McpError>;
+    fn execute<'a>(&'a self, arguments: &'a Value) -> BoxMcpFuture<'a>;
 }
 
 pub struct ToolRegistry {
@@ -74,7 +76,6 @@ impl CellListTool {
     }
 }
 
-#[async_trait]
 impl AxiomTool for CellListTool {
     fn name(&self) -> &str {
         "cell_list"
@@ -113,8 +114,10 @@ impl AxiomTool for CellListTool {
         false
     }
 
-    async fn execute(&self, _arguments: &Value) -> Result<Value, McpError> {
-        self.runtime.list_cells().await.map_err(|e| McpError::ToolExecution(e.to_string()))
+    fn execute<'a>(&'a self, _arguments: &'a Value) -> BoxMcpFuture<'a> {
+        Box::pin(async move {
+            self.runtime.list_cells().await.map_err(|e| McpError::ToolExecution(e.to_string()))
+        })
     }
 }
 
@@ -128,7 +131,6 @@ impl CellStatusTool {
     }
 }
 
-#[async_trait]
 impl AxiomTool for CellStatusTool {
     fn name(&self) -> &str {
         "cell_status"
@@ -169,12 +171,14 @@ impl AxiomTool for CellStatusTool {
         false
     }
 
-    async fn execute(&self, arguments: &Value) -> Result<Value, McpError> {
-        let cell_id = arguments.get("cell_id")
-            .and_then(|v| v.as_str())
-            .ok_or_else(|| McpError::InvalidRequest("cell_id is required".into()))?;
+    fn execute<'a>(&'a self, arguments: &'a Value) -> BoxMcpFuture<'a> {
+        Box::pin(async move {
+            let cell_id = arguments.get("cell_id")
+                .and_then(|v| v.as_str())
+                .ok_or_else(|| McpError::InvalidRequest("cell_id is required".into()))?;
 
-        self.runtime.cell_status(cell_id).await.map_err(|e| McpError::ToolExecution(e.to_string()))
+            self.runtime.cell_status(cell_id).await.map_err(|e| McpError::ToolExecution(e.to_string()))
+        })
     }
 }
 
@@ -188,7 +192,6 @@ impl EntropyStatusTool {
     }
 }
 
-#[async_trait]
 impl AxiomTool for EntropyStatusTool {
     fn name(&self) -> &str {
         "entropy_status"
@@ -231,14 +234,15 @@ impl AxiomTool for EntropyStatusTool {
         false
     }
 
-    async fn execute(&self, _arguments: &Value) -> Result<Value, McpError> {
-        self.runtime.entropy_status().await.map_err(|e| McpError::ToolExecution(e.to_string()))
+    fn execute<'a>(&'a self, _arguments: &'a Value) -> BoxMcpFuture<'a> {
+        Box::pin(async move {
+            self.runtime.entropy_status().await.map_err(|e| McpError::ToolExecution(e.to_string()))
+        })
     }
 }
 
-#[async_trait]
 pub trait RuntimeAccessor: Send + Sync + 'static {
-    async fn list_cells(&self) -> Result<Value, anyhow::Error>;
-    async fn cell_status(&self, cell_id: &str) -> Result<Value, anyhow::Error>;
-    async fn entropy_status(&self) -> Result<Value, anyhow::Error>;
+    fn list_cells<'a>(&'a self) -> BoxMcpFuture<'a>;
+    fn cell_status<'a>(&'a self, cell_id: &'a str) -> BoxMcpFuture<'a>;
+    fn entropy_status<'a>(&'a self) -> BoxMcpFuture<'a>;
 }

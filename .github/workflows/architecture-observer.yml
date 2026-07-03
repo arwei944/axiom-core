@@ -1,0 +1,14 @@
+name: Architecture Observer
+on: [push, pull_request]
+
+jobs:
+  observe:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - run: cargo run -p xtask -- gatecheck --format json --output arch-report.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: architecture-report
+          path: arch-report.json

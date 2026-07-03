@@ -27,7 +27,15 @@ futures = { workspace = true }
 linkme = { workspace = true }
 parking_lot = { workspace = true }
 axiom-macros = { workspace = true }
+dashmap = { workspace = true }
+toml = "0.8"
 
 [dev-dependencies]
 tokio = { workspace = true, features = ["rt-multi-thread", "macros"] }
 tracing-subscriber = { workspace = true }
+linkme = { workspace = true }
+
+[build-dependencies]
+archcheck = { path = "../../tools/archcheck" }
+toml = "0.8"
+

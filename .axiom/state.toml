@@ -1,0 +1,22 @@
+[state]
+generated_by = "xtask state"
+
+[crates]
+axiom-agent = 3
+axiom-alert = 3
+axiom-bench = 0
+axiom-cli = 0
+axiom-core = 7
+axiom-distributed = 4
+axiom-identity = 2
+axiom-llm = 5
+axiom-macros = 8
+axiom-mcp = 3
+axiom-memory = 5
+axiom-oversight = 3
+axiom-planner = 4
+axiom-prompt = 2
+axiom-runtime = 4
+axiom-store = 5
+axiom-tool = 5
+axiom-viz = 1

@@ -38,3 +38,9 @@ harness = false
 [[bin]]
 name = "stress"
 path = "src/stress.rs"
+
+[build-dependencies]
+archcheck = { path = "../../tools/archcheck" }
+toml = "0.8"
+
+

@@ -1,0 +1,30 @@
+[package]
+name = "axiom-distributed"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+description = "Distributed primitives for Axiom: node discovery, event sync, cross-node witness"
+authors = ["Axiom Contributors"]
+repository = "https://github.com/arwei944/axiom-core"
+
+[dependencies]
+axiom-core = { path = "../axiom-core" }
+axiom-store = { path = "../axiom-store" }
+axiom-runtime = { path = "../axiom-runtime" }
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+tracing = { workspace = true }
+tokio = { workspace = true, features = ["sync", "rt", "macros", "time"] }
+uuid = { workspace = true }
+dashmap = { workspace = true }
+
+[features]
+default = []
+
+[build-dependencies]
+archcheck = { path = "../../tools/archcheck" }
+toml = "0.8"
+
+

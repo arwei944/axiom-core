@@ -1,349 +1,256 @@
-# Versioning Strategy
+# Versioning Policy
 
-> **Status**: Active
-> **Effective**: v0.1.0
+> **Version**: v0.2.0  
+> **Status**: Stable  
+> **Last Updated**: 2026-07-04
+
+This document defines the versioning strategy for the Axiom framework.
 
 ---
 
 ## 1. Semantic Versioning
 
-Axiom Core follows [Semantic Versioning 2.0.0](https://semver.org/):
-
-- **Major (MAJOR)**: Breaking changes that require migration
-- **Minor (MINOR)**: New features, backwards-compatible
-- **Patch (PATCH)**: Bug fixes, no new features
-
-### 1.1 Version Format
+Axiom follows [Semantic Versioning 2.0.0](https://semver.org/):
 
 ```
-MAJOR.MINOR.PATCH[-PRE][+BUILD]
+MAJOR.MINOR.PATCH[-PRERELEASE][+BUILD]
 ```
 
-### 1.2 Breaking Change Criteria
+### 1.1 Version Components
 
-A change is considered **breaking** if it:
+| Component | Increment When | Example |
+|-----------|---------------|---------|
+| **MAJOR** | Breaking API changes | `1.0.0` → `2.0.0` |
+| **MINOR** | New features, backward compatible | `1.0.0` → `1.1.0` |
+| **PATCH** | Bug fixes, backward compatible | `1.0.0` → `1.0.1` |
+| **PRERELEASE** | Pre-release identifiers | `1.0.0-alpha.1` |
+| **BUILD** | Build metadata | `1.0.0+20240101` |
 
-- Removes or renames a public API (function, type, trait, method)
-- Changes the signature of a public API
-- Changes the behavior of a public API in a way that could break existing code
-- Removes or changes the format of persisted data (Witness, Event)
-- Changes the protocol format or version requirements
-- Changes the capability dimension version in an incompatible way
+### 1.2 Version Examples
 
-### 1.3 Non-breaking Change Criteria
-
-A change is **non-breaking** if it:
-
-- Adds new public API (functions, types, traits)
-- Adds new fields to existing structs (with default values)
-- Adds new variants to existing enums
-- Improves documentation
-- Fixes bugs without changing API behavior
-- Adds new features that are opt-in (e.g., feature flags)
-- Adds new capability dimension registrations (compatible versions)
+- `1.0.0` - Stable release
+- `1.0.1` - Bug fix release
+- `1.1.0` - Feature release
+- `2.0.0` - Breaking change release
+- `1.0.0-alpha.1` - Alpha pre-release
+- `1.0.0-beta.1` - Beta pre-release
+- `1.0.0-rc.1` - Release candidate
 
 ---
 
-## 2. Deprecation Process
+## 2. API Stability Levels
 
-### 2.1 Deprecation Lifecycle
+### 2.1 Stable API
 
-1. **Phase 1: Warning** (MINOR release)
-   - Mark API with `#[deprecated]` attribute
-   - Add clear deprecation message with migration guidance
-   - Update documentation
+- Guaranteed backward compatibility within major version
+- Only removed in major version bumps
+- 6-month deprecation notice before removal
+- Documented in `API_BOUNDARY.md`
 
-2. **Phase 2: Grace Period** (1-2 MINOR releases)
-   - Keep deprecated API functional
-   - Continue warning users
-   - Provide migration examples
+### 2.2 Unstable API
 
-3. **Phase 3: Removal** (MAJOR release)
-   - Remove deprecated API
-   - Update CHANGELOG with migration guide
+- Gated behind feature flags (`--features unstable`)
+- No compatibility guarantees
+- May change without notice
+- Not recommended for production
 
-### 2.2 Deprecation Message Format
+### 2.3 Internal API
+
+- Not exported from crates
+- No stability guarantees
+- May change anytime
+
+---
+
+## 3. Deprecation Policy
+
+### 3.1 Deprecation Timeline
+
+```
+v1.2.0: Deprecate API X
+  ↓
+v1.3.0: Emit deprecation warnings
+  ↓
+v1.4.0: Continue warnings
+  ↓
+v2.0.0: Remove API X (after 2 minor versions or 6 months)
+```
+
+### 3.2 Deprecation Requirements
+
+1. **Mark**: Add `#[deprecated(since = "X.Y.Z", note = "use Z instead")]`
+2. **Document**: Update `CHANGELOG.md` with migration instructions
+3. **Notify**: Release notes must highlight deprecated items
+4. **Warn**: Compiler warnings for all deprecated API usage
+
+### 3.3 Deprecation Attributes
 
 ```rust
-#[deprecated = "Use `new_function()` instead. See migration guide at: https://axiom-core.dev/migration/v0.2"]
-pub fn old_function() { ... }
+#[deprecated(
+    since = "1.2.0",
+    note = "Use `new_api` instead. See migration guide at https://..."
+)]
+pub fn old_api() { }
 ```
 
 ---
 
-## 3. Breaking Change Notification
+## 4. Breaking Changes
 
-### 3.1 CHANGELOG Requirements
+### 4.1 What Constitutes a Breaking Change
 
-Every breaking change must include:
+- Removing or renaming public API items
+- Changing function signatures
+- Changing trait implementations
+- Changing behavior in incompatible ways
+- Removing feature flags
+- Changing default values
 
-- Clear description of what changed
-- Impact assessment (which code will break)
-- Migration steps with code examples
-- Version number where the change was introduced
+### 4.2 Breaking Change Process
 
-### 3.2 Release Notes
+1. **Proposal**: Open issue with `breaking-change` label
+2. **Discussion**: Community feedback period (minimum 2 weeks)
+3. **Deprecation**: Mark old API as deprecated
+4. **Migration Guide**: Provide step-by-step migration instructions
+5. **Release**: Bump major version, include migration guide in release notes
 
-Major releases must include:
+### 4.3 Breaking Change Checklist
 
-- Summary of breaking changes
-- Migration guide
-- Compatibility table
-- Known issues
-
----
-
-## 4. Schema Versioning
-
-### 4.1 Schema Version Scope
-
-Each Signal type has its own schema version:
-
-- Schema version starts at `1` (never `0`)
-- Increment on structural changes to the signal payload
-- Use `#[schema_version(N)]` macro to specify
-
-### 4.2 Migration Requirements
-
-When a schema changes:
-
-1. Create a migration function using `#[migration]` macro
-2. Migration functions are registered in the global registry
-3. Runtime automatically migrates signals on deserialization
-4. Missing migrations cause `MigrationPathNotFound` error
-
-### 4.3 Compatibility Rules
-
-- Higher schema versions cannot be read by older runtimes (`SchemaVersionTooNew`)
-- Lower schema versions without migration paths cannot be upgraded (`MigrationChainGap`)
+- [ ] All deprecated APIs have migration paths
+- [ ] `MIGRATION.md` updated with instructions
+- [ ] `CHANGELOG.md` clearly documents changes
+- [ ] Release notes highlight breaking changes
+- [ ] Semantic version major bump
 
 ---
 
-## 5. Protocol Versioning
+## 5. Pre-release Versions
 
-### 5.1 Protocol Version Scope
+### 5.1 Pre-release Identifiers
 
-The inter-cell communication protocol has its own version:
+| Identifier | Meaning | Usage |
+|------------|---------|-------|
+| `alpha` | Early testing | Internal testing, API may change |
+| `beta` | Feature complete | Public testing, API mostly stable |
+| `rc` | Release candidate | Final testing before stable |
 
-- Protocol version is negotiated during connection
-- Mismatched protocol versions cause `ProtocolMismatch` error
-- Protocol version is separate from package version
+### 5.2 Pre-release Examples
 
-### 5.2 Compatibility Matrix
+- `1.0.0-alpha.1` - First alpha release
+- `1.0.0-beta.1` - First beta release
+- `1.0.0-rc.1` - First release candidate
+- `1.0.0` - Stable release
 
-| Runtime Version | Protocol Version |
-|-----------------|------------------|
-| v0.x            | v1               |
+### 5.3 Pre-release Rules
 
----
-
-## 6. Witness Chain Compatibility
-
-### 6.1 Witness Hash Chain
-
-Every witness includes a hash of the previous witness, forming an immutable chain.
-
-### 6.2 Compatibility Rules
-
-- Witness format changes require schema version increment
-- Hash algorithm changes require major version increment
-- Old witnesses must remain verifiable by new versions
+- Pre-releases are not guaranteed stable
+- API may change between pre-releases
+- No deprecation policy applies to pre-releases
+- Stable release requires full test suite pass
 
 ---
 
-## 7. Capability Dimension Versioning
+## 6. Crate Versioning
 
-### 7.1 Overview
+### 6.1 Unified Versioning
 
-Axiom Core manages 8 independent capability dimensions, each with its own versioning:
+All crates in the Axiom workspace share the same version number:
 
-| Dimension | Purpose | Description |
-|-----------|---------|-------------|
-| **Witness** | Audit chain version | State transition record format |
-| **Schema** | Signal protocol version | Message serialization format |
-| **Layer** | Architecture layer version | Inter-layer call rules |
-| **Tool** | Tool interface version | Tool execution protocol |
-| **Guard** | Constraint rule version | Permission check rules |
-| **Identity** | Identity protocol version | Agent identity/permission set |
-| **Entropy** | Entropy governance version | Threshold policies/governance actions |
-| **Runtime** | Runtime protocol version | Supervision policies/mailbox configuration |
-
-### 7.2 CapabilityDescriptor Structure
-
-```rust
-pub struct CapabilityDescriptor {
-    pub dimension: CapabilityDimension,
-    pub name: &'static str,
-    pub version: Version,
-    pub compatibility: Compatibility,
-    pub applies_to_layer: Option<Layer>,
-    pub migration_chain_start: Option<u16>,
-}
+```
+Cargo.toml: version = "1.2.0"
 ```
 
-### 7.3 Compatibility Strategies
+### 6.2 Independent Crates
 
-| Strategy | Description | Example |
-|----------|-------------|---------|
-| **Exact** | Only exact version matches | Locked to specific implementation |
-| **SemVer** | Semantic versioning | Compatible with minor/patch updates |
-| **Forward** | Forward compatible only | Newer versions understand older |
-| **Backward** | Backward compatible only | Older versions understand newer |
+External crates depending on specific Axiom crates can use:
 
-### 7.4 Registration
-
-Use the `#[capability]` macro to register capability versions:
-
-```rust
-#[axiom_core::capability(dim = "witness", version = "1.0.0")]
-struct WitnessV1;
-
-#[axiom_core::capability(dim = "identity", version = "1.0.0")]
-struct IdentityCapability;
-
-#[axiom_core::capability(dim = "entropy", version = "1.0.0")]
-struct EntropyCapability;
-
-#[axiom_core::capability(dim = "runtime", version = "1.0.0")]
-struct RuntimeCapability;
+```toml
+axiom-core = "1.2"
+axiom-runtime = "1.2"
 ```
 
-### 7.5 Automatic Compatibility Check
+### 6.3 Version Ranges
 
-The `CapabilityVersionRegistry` automatically checks compatibility at runtime:
-
-```rust
-CapabilityVersionRegistry::auto_check_compatibility()?;
-```
-
-This ensures all registered capabilities are compatible with each other.
-
-### 7.6 Version Query API
-
-```rust
-// Get all registered capabilities
-let caps = CapabilityVersionRegistry::registered_capabilities();
-
-// Get capabilities by dimension
-let witness_caps = CapabilityVersionRegistry::capabilities_by_dimension(CapabilityDimension::Witness);
-
-// Get latest version for a dimension
-let latest = CapabilityVersionRegistry::latest_version_for_dimension(CapabilityDimension::Schema);
-
-// Count capabilities by dimension
-let count = CapabilityVersionRegistry::count_by_dimension(CapabilityDimension::Tool);
-```
+| Range | Meaning |
+|-------|---------|
+| `"1.2"` | Compatible with 1.2.x |
+| `"1.2.3"` | Exactly 1.2.3 |
+| `"~1.2.3"` | Compatible with 1.2.3 (>=1.2.3, <1.3.0) |
+| `"^1.2.3"` | Compatible with 1.2.3 (>=1.2.3, <2.0.0) |
 
 ---
 
-## 8. Feature Flags
+## 7. Compatibility Matrix
 
-### 8.1 Stable vs Unstable
+| Axiom Version | Rust Version | Features |
+|--------------|--------------|----------|
+| v1.x | 1.75+ | Stable |
+| v0.2.x | 1.75+ | Stable |
+| v0.1.x | 1.70+ | Legacy |
 
-- **Stable**: Enabled by default, guaranteed backwards-compatible
-- **Unstable**: Disabled by default, may change without warning
+---
 
-### 8.2 Feature Flag List
+## 8. Migration Guides
 
-| Feature | Stability | Description |
-|---------|-----------|-------------|
-| `default` | Stable | Core functionality |
-| `sha2-id` | Stable | SHA2-based ID generation |
-| `uuid` | Stable | UUID-based ID generation |
-| `unstable` | Unstable | Experimental APIs |
+### 8.1 Current Guides
 
-### 8.3 Unstable API Guidelines
+- [Migrating from v0.1 to v0.2](MIGRATION_0.1_TO_0.2.md)
+- [Migrating from v0.2 to v1.0](MIGRATION_0.2_TO_1.0.md)
 
-- Unstable APIs are prefixed with `#[cfg(feature = "unstable")]`
-- Users must explicitly opt-in with `features = ["unstable"]`
-- No guarantees of backwards compatibility
-- Breaking changes may occur in any release
+### 8.2 Guide Structure
+
+Each migration guide includes:
+1. Overview of changes
+2. Step-by-step migration instructions
+3. Code examples (before/after)
+4. Troubleshooting section
+5. API reference for new features
 
 ---
 
 ## 9. Release Process
 
-### 9.1 Pre-release Checklist
+### 9.1 Release Checklist
 
-Before any release:
+1. Update version in all `Cargo.toml` files
+2. Update `CHANGELOG.md`
+3. Run full test suite: `cargo test --workspace`
+4. Run clippy: `cargo clippy --workspace -D warnings`
+5. Run fmt: `cargo fmt --all --check`
+6. Run dry-run: `cargo publish --dry-run`
+7. Create git tag: `git tag vX.Y.Z`
+8. Push tag: `git push origin vX.Y.Z`
+9. Publish: `cargo publish --workspace`
 
-- [ ] All tests pass (`cargo test --workspace`)
-- [ ] Clippy warnings resolved (`cargo clippy --workspace`)
-- [ ] Documentation builds (`cargo doc --no-deps`)
-- [ ] CHANGELOG updated with breaking changes
-- [ ] Migration guides written (if needed)
-- [ ] Version bumped in `Cargo.toml`
-- [ ] Capability versions verified (`CapabilityVersionRegistry::auto_check_compatibility()`)
+### 9.2 Release Frequency
 
-### 9.2 Release Branching
-
-- `main`: Development branch
-- `vX.Y`: Release branch for major/minor versions
-- Hotfixes applied to release branches and merged back to main
-
----
-
-## 10. Backwards Compatibility Pledge
-
-### 10.1 Commitment
-
-We pledge to maintain backwards compatibility for:
-
-- **Patch releases**: 100% compatible
-- **Minor releases**: 99% compatible (deprecations allowed)
-- **Major releases**: Breaking changes allowed with migration guide
-
-### 10.2 Exceptions
-
-Backwards compatibility does not apply to:
-
-- Private APIs (not exported from crate root)
-- Unstable features (behind `unstable` feature flag)
-- Internal implementation details
-- Test-only code
+- **Patch**: As needed (bug fixes)
+- **Minor**: Monthly (new features)
+- **Major**: Annually or as needed (breaking changes)
 
 ---
 
-## 11. Capability Version Migration
+## 10. Support Policy
 
-### 11.1 Migration Chain
+### 10.1 Supported Versions
 
-When a capability dimension version changes, a migration chain must be established:
+| Version | Supported | Security Fixes |
+|---------|-----------|----------------|
+| v1.x (current) | Yes | Yes |
+| v0.2.x | No | No |
+| v0.1.x | No | No |
 
-```rust
-#[axiom_core::capability(dim = "schema", version = "1.0.0")]
-struct SchemaV1;
+### 10.2 Support Duration
 
-#[axiom_core::capability(dim = "schema", version = "2.0.0", migration_chain_start = 1)]
-struct SchemaV2;
-```
-
-### 11.2 Migration Requirements
-
-- Each version increment must have a corresponding migration function
-- Migration functions must be registered in the migration registry
-- Missing migrations cause `MigrationChainGap` error at startup
+- Current major version: Full support
+- Previous major version: Security fixes only (6 months)
+- Older versions: No support
 
 ---
 
-## 12. Version Compatibility Matrix
+## 11. References
 
-### 12.1 Runtime Compatibility
-
-| Runtime | Compatible With |
-|---------|----------------|
-| v0.2.0 | v0.1.x (backwards compatible) |
-| v0.1.x | v0.1.x only |
-
-### 12.2 Capability Dimension Compatibility
-
-| Dimension | v0.1.0 | v0.2.0 |
-|-----------|--------|--------|
-| Witness | 1.0.0 | 1.0.0+ |
-| Schema | 1.0.0 | 1.0.0+ |
-| Layer | 1.0.0 | 1.0.0+ |
-| Tool | 1.0.0 | 1.0.0+ |
-| Guard | 1.0.0 | 1.0.0+ |
-| Identity | - | 1.0.0+ |
-| Entropy | - | 1.0.0+ |
-| Runtime | - | 1.0.0+ |
+- [Semantic Versioning 2.0.0](https://semver.org/)
+- [Rust API Guidelines](https://rust-lang.github.io/api-guidelines/)
+- [API_BOUNDARY.md](./API_BOUNDARY.md)
+- [CHANGELOG.md](./CHANGELOG.md)

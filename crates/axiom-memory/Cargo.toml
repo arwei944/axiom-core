@@ -16,3 +16,8 @@ anyhow = "1"
 tracing = "0.1"
 parking_lot = "0.12"
 uuid = { version = "1", features = ["v4"] }
+[build-dependencies]
+archcheck = { path = "../../tools/archcheck" }
+toml = "0.8"
+
+

@@ -27,6 +27,9 @@ pub enum WitnessKind {
     SignalEmission,
     CellStartup,
     CellShutdown,
+    LensProjection,
+    CacheHit,
+    CacheMiss,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -51,6 +54,15 @@ pub enum WitnessEvent {
     SignalSent {
         signal_type: String,
         target_cell: Option<String>,
+        timestamp: u64,
+    },
+    LensProjected {
+        lens_id: String,
+        input_hash: [u8; 32],
+        output_hash: [u8; 32],
+        event_count: usize,
+        projection_time_ms: u64,
+        was_cached: bool,
         timestamp: u64,
     },
 }
@@ -180,6 +192,9 @@ impl Witness {
             }
             WitnessEvent::StateChanged { from, to, .. } => format!("state changed: {} -> {}", from, to),
             WitnessEvent::SignalSent { signal_type, .. } => format!("signal {} sent", signal_type),
+            WitnessEvent::LensProjected { lens_id, was_cached, .. } => {
+                format!("lens {} projected (cached: {})", lens_id, was_cached)
+            }
         };
 
         Self {

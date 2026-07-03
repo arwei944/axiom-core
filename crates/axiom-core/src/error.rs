@@ -129,6 +129,15 @@ pub enum AxiomError {
 
     #[error("Internal error: {message}")]
     Internal { message: String },
+
+    #[error("Lens not found: {lens_id}")]
+    LensNotFound { lens_id: String },
+
+    #[error("Lens projection error for {lens_id}: {message}")]
+    LensProjectionError { lens_id: String, message: String },
+
+    #[error("Lens access denied: cell {cell_id} cannot access lens {lens_id}")]
+    LensAccessDenied { cell_id: String, lens_id: String },
 }
 
 pub type Result<T> = std::result::Result<T, AxiomError>;

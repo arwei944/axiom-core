@@ -21,4 +21,8 @@ url = "2"
 reqwest = { version = "0.12", features = ["json"] }
 axum = "0.7"
 uuid = { version = "1", features = ["v4"] }
-async-trait = "0.1"
+[build-dependencies]
+archcheck = { path = "../../tools/archcheck" }
+toml = "0.8"
+
+

@@ -3,7 +3,7 @@
 use axiom_core::layer::Layer;
 use serde::Serialize;
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Clone, Serialize)]
 pub struct CellNode {
     pub id: String,
     pub name: String,
@@ -11,7 +11,7 @@ pub struct CellNode {
     pub status: String,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Clone, Serialize)]
 pub struct TopologyGraph {
     pub cells: Vec<CellNode>,
     pub edges: Vec<(String, String)>,

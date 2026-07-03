@@ -1,41 +1,39 @@
-// tools/gate_check.rs — Shared build.rs gate check logic.
-// Included via include!() from each crate's build.rs.
-//
-// Usage in build.rs:
-//   fn main() {
-//       gate_check("axiom-runtime");
-//   }
-//   include!("../../tools/gate_check.rs");
+//! Build hook for compile-time architecture enforcement.
+//!
+//! This module provides `check_current_crate()` which can be called from
+//! any crate's `build.rs` to enforce architecture rules at compile time.
+//!
+//! Usage in build.rs:
+//!   fn main() {
+//!       archcheck::build_hook::check_current_crate("axiom-runtime");
+//!   }
 
-use std::fs;
+use std::env;
 use std::path::Path;
+use std::sync::OnceLock;
 
-const CRATE_LAYERS: &[(&str, usize)] = &[
-    ("axiom-cli", 0),
-    ("axiom-viz", 1),
-    ("axiom-agent", 2),
-    ("axiom-oversight", 3),
-    ("axiom-runtime", 4),
-    ("axiom-store", 5),
-    ("axiom-macros", 6),
-    ("axiom-core", 7),
-];
+use crate::loader::Architecture;
 
-const FORBIDDEN_DEPS: &[&str] = &["async-trait"];
+static ARCHITECTURE_TOML: &str = include_str!("../../../.axiom/architecture.toml");
 
-const AUDITED_DEPS: &[&str] = &[
-    "tokio", "serde", "serde_json", "thiserror", "anyhow", "tracing",
-    "tracing-subscriber", "sha2", "uuid", "futures", "clap", "ratatui",
-    "crossterm", "syn", "quote", "proc-macro2", "linkme", "trybuild", "regex",
-    "parking_lot",
-];
+fn architecture() -> &'static Architecture {
+    static ARCH: OnceLock<Architecture> = OnceLock::new();
+    ARCH.get_or_init(|| {
+        Architecture::from_toml_str(ARCHITECTURE_TOML)
+            .expect("TOML parse error in ../../../.axiom/architecture.toml")
+    })
+}
 
 fn crate_level_of(name: &str) -> Option<usize> {
-    CRATE_LAYERS.iter().find(|(n, _)| *n == name).map(|(_, l)| *l)
+    architecture()
+        .crate_layers
+        .iter()
+        .find(|(n, _)| *n == name)
+        .map(|(_, l)| *l)
 }
 
 fn parse_local_axiom_deps(cargo_toml: &Path) -> Vec<String> {
-    let content = match fs::read_to_string(cargo_toml) {
+    let content = match std::fs::read_to_string(cargo_toml) {
         Ok(c) => c,
         Err(_) => return Vec::new(),
     };
@@ -62,7 +60,7 @@ fn parse_local_axiom_deps(cargo_toml: &Path) -> Vec<String> {
 }
 
 fn parse_third_party_deps(cargo_toml: &Path) -> Vec<String> {
-    let content = match fs::read_to_string(cargo_toml) {
+    let content = match std::fs::read_to_string(cargo_toml) {
         Ok(c) => c,
         Err(_) => return Vec::new(),
     };
@@ -74,7 +72,7 @@ fn parse_third_party_deps(cargo_toml: &Path) -> Vec<String> {
             section = trimmed.trim_start_matches('[').trim_end_matches(']').trim();
             continue;
         }
-        if (section == "dependencies" || section == "build-dependencies")
+        if (section == "dependencies" || section == "build-dependencies" || section == "dev-dependencies")
             && !trimmed.is_empty()
             && !trimmed.starts_with('#')
         {
@@ -88,19 +86,32 @@ fn parse_third_party_deps(cargo_toml: &Path) -> Vec<String> {
     deps
 }
 
-#[allow(dead_code)]
-fn gate_check(crate_name: &str) {
+/// Check current crate architecture compliance at compile time.
+///
+/// This function should be called from each crate's `build.rs` to enforce
+/// architecture rules. It will panic with a descriptive message if violations are found.
+pub fn check_current_crate(crate_name: &str) {
     let manifest_dir = env!("CARGO_MANIFEST_DIR");
     let cargo_toml = Path::new(manifest_dir).join("Cargo.toml");
 
     let local_deps = parse_local_axiom_deps(&cargo_toml);
     if let Some(level) = crate_level_of(crate_name) {
+        let arch = architecture();
         for dep in &local_deps {
             if dep == "axiom-macros" {
-                continue;
+                let is_exempt = arch.proc_macro_exemptions.iter()
+                    .any(|(k, v)| k == crate_name && v.allowed_deps.contains(dep));
+                if is_exempt {
+                    continue;
+                }
             }
             if let Some(dep_level) = crate_level_of(dep) {
                 if dep_level < level {
+                    let is_exempt = arch.reverse_dependency_exemptions.iter()
+                        .any(|(k, v)| k == crate_name && v.allowed_deps.contains(dep));
+                    if is_exempt {
+                        continue;
+                    }
                     panic!(
                         "\n\n\
                         ╔══════════════════════════════════════════════════════════════╗\n\
@@ -110,7 +121,7 @@ fn gate_check(crate_name: &str) {
                         ║  {dep:20} (level {dep_level}) which is a HIGHER layer       ║\n\
                         ║                                                              ║\n\
                         ║  Rule: crates may only depend on same-level or lower-level   ║\n\
-                        ║  crates (higher level index). See gate.rs CRATE_LAYERS.      ║\n\
+                        ║  crates (higher level index). See .axiom/architecture.toml.  ║\n\
                         ╚══════════════════════════════════════════════════════════════╝\n\n",
                     );
                 }
@@ -119,8 +130,9 @@ fn gate_check(crate_name: &str) {
     }
 
     let third_party = parse_third_party_deps(&cargo_toml);
+    let arch = architecture();
     for dep in &third_party {
-        if FORBIDDEN_DEPS.contains(&dep.as_str()) {
+        if arch.forbidden_deps.contains_key(dep) {
             panic!(
                 "\n\n\
                 ╔══════════════════════════════════════════════════════════════╗\n\
@@ -132,7 +144,7 @@ fn gate_check(crate_name: &str) {
                 ╚══════════════════════════════════════════════════════════════╝\n\n",
             );
         }
-        if !AUDITED_DEPS.contains(&dep.as_str()) {
+        if !arch.audited_deps.contains_key(dep) {
             panic!(
                 "\n\n\
                 ╔══════════════════════════════════════════════════════════════╗\n\
@@ -140,7 +152,7 @@ fn gate_check(crate_name: &str) {
                 ╠══════════════════════════════════════════════════════════════╣\n\
                 ║  '{dep}' has not been audited (R-022).                      ║\n\
                 ║  Either:                                                     ║\n\
-                ║  1. Add it to AUDITED_DEPS in gate.rs if reviewed           ║\n\
+                ║  1. Add it to audited-deps in .axiom/architecture.toml      ║\n\
                 ║  2. Remove it if unnecessary                                ║\n\
                 ╚══════════════════════════════════════════════════════════════╝\n\n",
             );
@@ -148,5 +160,5 @@ fn gate_check(crate_name: &str) {
     }
 
     println!("cargo:rerun-if-changed=Cargo.toml");
-    println!("cargo:rerun-if-changed=../../tools/gate_check.rs");
+    println!("cargo:rerun-if-changed=../../tools/archcheck/src/build_hook.rs");
 }

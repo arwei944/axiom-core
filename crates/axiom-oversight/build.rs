@@ -1,4 +1,4 @@
 fn main() {
-    gate_check("axiom-oversight");
+    archcheck::build_hook::check_current_crate(env!("CARGO_PKG_NAME"));
 }
-include!("../../tools/gate_check.rs");
+

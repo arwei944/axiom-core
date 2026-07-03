@@ -1,4 +1,5 @@
 pub mod bus;
+pub mod constraint_validator;
 pub mod dlq;
 pub mod entropy_gov;
 pub mod entropy_interceptors;

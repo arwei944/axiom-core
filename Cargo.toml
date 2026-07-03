@@ -16,6 +16,10 @@ members = [
     "crates/axiom-prompt",
     "crates/axiom-identity",
     "crates/axiom-bench",
+    "crates/axiom-distributed",
+    "crates/axiom-alert",
+    "tools/archcheck",
+    "xtask",
 ]
 resolver = "2"
 
@@ -45,6 +49,8 @@ ratatui = "0.29"
 crossterm = "0.28"
 regex = "1"
 parking_lot = "0.12"
+dashmap = "5"
+schemars = "0.8"
 
 axiom-core = { path = "crates/axiom-core" }
 axiom-runtime = { path = "crates/axiom-runtime" }

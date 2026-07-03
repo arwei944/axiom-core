@@ -2,7 +2,6 @@
 
 use std::sync::Arc;
 
-use async_trait::async_trait;
 use parking_lot::RwLock;
 
 use crate::types::{ChatMessage, ChatResponse, CompletionResponse, LlmError, MessageRole, TokenUsage};
@@ -62,38 +61,41 @@ impl MockProvider {
     }
 }
 
-#[async_trait]
 impl super::LlmProvider for MockProvider {
-    async fn complete(&self, _prompt: &str) -> Result<CompletionResponse, LlmError> {
-        self.check_fail()?;
+    fn complete<'a>(&'a self, _prompt: &'a str) -> crate::BoxLlmFuture<'a, Result<CompletionResponse, LlmError>> {
+        Box::pin(async move {
+            self.check_fail()?;
 
-        Ok(CompletionResponse {
-            text: self.completion_response.read().clone(),
-            usage: TokenUsage {
-                prompt_tokens: 10,
-                completion_tokens: 20,
-                total_tokens: 30,
-            },
-            model: "mock-model".to_string(),
+            Ok(CompletionResponse {
+                text: self.completion_response.read().clone(),
+                usage: TokenUsage {
+                    prompt_tokens: 10,
+                    completion_tokens: 20,
+                    total_tokens: 30,
+                },
+                model: "mock-model".to_string(),
+            })
         })
     }
 
-    async fn chat(&self, _messages: &[ChatMessage]) -> Result<ChatResponse, LlmError> {
-        self.check_fail()?;
+    fn chat<'a>(&'a self, _messages: &'a [ChatMessage]) -> crate::BoxLlmFuture<'a, Result<ChatResponse, LlmError>> {
+        Box::pin(async move {
+            self.check_fail()?;
 
-        Ok(ChatResponse {
-            message: ChatMessage {
-                role: MessageRole::Assistant,
-                content: self.chat_response.read().clone(),
-                name: None,
-                tool_call_id: None,
-            },
-            usage: TokenUsage {
-                prompt_tokens: 50,
-                completion_tokens: 30,
-                total_tokens: 80,
-            },
-            model: "mock-model".to_string(),
+            Ok(ChatResponse {
+                message: ChatMessage {
+                    role: MessageRole::Assistant,
+                    content: self.chat_response.read().clone(),
+                    name: None,
+                    tool_call_id: None,
+                },
+                usage: TokenUsage {
+                    prompt_tokens: 50,
+                    completion_tokens: 30,
+                    total_tokens: 80,
+                },
+                model: "mock-model".to_string(),
+            })
         })
     }
 }

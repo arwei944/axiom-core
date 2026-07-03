@@ -9,12 +9,14 @@
 //! at COMPILE TIME. ExecCellContext can only send to Exec. AgentCellContext
 //! can send to Agent and Validate. Etc.
 
-use crate::id::{CellId, CorrelationId, MsgId, TraceId};
+use crate::id::{CellId, CorrelationId, LensId, MsgId, TraceId};
 use crate::layer::Layer;
+use crate::lens::{LensAccessor, LensEvent, LensRegistry, Projection};
 use crate::sealed::{CanSendTo, LayerMarker};
 use crate::signal::{now_ns, Signal, SignalEnvelope, VectorClock};
 use crate::version::SchemaVersion;
 use crate::witness::{TransitionOutcome, Witness, WitnessBuilder, WitnessHash};
+use serde::{de::DeserializeOwned, Serialize};
 use std::marker::PhantomData;
 
 #[derive(Debug, Clone)]
@@ -413,5 +415,26 @@ impl<'a, L: LayerMarker> LayeredCellContext<'a, L> {
 
     pub fn take_witnesses(&mut self) -> Vec<OutgoingWitness> {
         self.inner.take_witnesses()
+    }
+
+    pub fn lens<I, O>(
+        &self,
+        lens_id: &str,
+        input: &I,
+        events: &[LensEvent],
+    ) -> crate::Result<Projection>
+    where
+        I: Serialize + Send + Sync + 'static,
+        O: DeserializeOwned + Send + Sync + 'static,
+    {
+        let projectable = LensRegistry::get_by_id(&LensId::new(lens_id))
+            .ok_or_else(|| crate::AxiomError::LensNotFound { lens_id: lens_id.to_string() })?;
+
+        let lens_accessor = LensAccessor::new(projectable);
+        lens_accessor.project::<I, O>(events, input)
+            .map_err(|e| crate::AxiomError::LensProjectionError { 
+                lens_id: lens_id.to_string(),
+                message: e.to_string(),
+            })
     }
 }

@@ -24,3 +24,9 @@ anyhow = { workspace = true }
 tokio = { workspace = true }
 
 axiom-core = { workspace = true }
+
+[build-dependencies]
+archcheck = { path = "../../tools/archcheck" }
+toml = "0.8"
+
+

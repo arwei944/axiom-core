@@ -7,6 +7,22 @@
 //! This crate provides JSON-serializable data structures;
 //! actual rendering (TUI, Web UI, etc.) is handled by consumers.
 
+use serde::Serialize;
+
+pub mod cell_flow;
 pub mod entropy;
 pub mod timeline;
 pub mod topology;
+
+pub use cell_flow::{CellFlowRecord, CellFlowSnapshot};
+pub use entropy::EntropyData;
+pub use timeline::{Timeline, TimelineEntry};
+pub use topology::{CellNode, TopologyGraph};
+
+#[derive(Debug, Clone, Serialize)]
+pub struct VizSnapshot {
+    pub topology: TopologyGraph,
+    pub timeline: Timeline,
+    pub entropy: EntropyData,
+    pub flow: CellFlowSnapshot,
+}

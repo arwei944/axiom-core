@@ -1,6 +1,7 @@
 //! EventStore trait - abstraction for event storage.
 
 use crate::event::Event;
+use axiom_core::witness::{Witness, WitnessHash};
 use std::future::Future;
 use std::pin::Pin;
 use std::sync::Arc;
@@ -26,6 +27,8 @@ pub enum StoreError {
         from: u32,
         current: u32,
     },
+    #[error("Witness chain broken: {0}")]
+    WitnessChainBroken(String),
 }
 
 pub type EventSender = broadcast::Sender<Arc<Event>>;
@@ -74,4 +77,26 @@ pub trait EventStore: Send + Sync {
     fn latest_sequence<'a>(&'a self) -> BoxFuture<'a, Result<u64, StoreError>>;
 
     fn subscribe(&self) -> EventReceiver;
+}
+
+pub fn verify_witness_chain(events: &[Event]) -> Result<(), StoreError> {
+    let mut witnesses: Vec<Witness> = events
+        .iter()
+        .filter(|e| e.event_type == "witness")
+        .filter_map(|e| serde_json::from_value(e.payload.clone()).ok())
+        .collect();
+
+    witnesses.sort_by_key(|w| w.timestamp_ns);
+
+    for window in witnesses.windows(2) {
+        let prev = &window[0];
+        let curr = &window[1];
+        if curr.prev_hash.as_ref() != Some(&prev.hash) {
+            return Err(StoreError::WitnessChainBroken(format!(
+                "witness {} prev_hash mismatch",
+                curr.witness_id.as_str()
+            )));
+        }
+    }
+    Ok(())
 }

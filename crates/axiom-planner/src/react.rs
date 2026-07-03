@@ -2,9 +2,7 @@
 
 use std::sync::Arc;
 
-use async_trait::async_trait;
-
-use crate::planner::{Planner, PlannerError, PlanningResult};
+use crate::planner::{BoxPlannerFuture, Planner, PlannerError, PlanningResult};
 use crate::step::PlanStep;
 
 pub struct ReActPlanner {
@@ -91,7 +89,6 @@ impl Default for ReActPlanner {
     }
 }
 
-#[async_trait]
 impl Planner for ReActPlanner {
     fn name(&self) -> &str {
         "react"
@@ -101,84 +98,86 @@ impl Planner for ReActPlanner {
         self.max_iterations
     }
 
-    async fn plan_and_execute(&self, goal: &str, context: &str) -> Result<PlanningResult, PlannerError> {
-        let start = std::time::Instant::now();
-        let mut steps: Vec<PlanStep> = Vec::new();
-        let mut scratchpad = String::new();
+    fn plan_and_execute<'a>(&'a self, goal: &'a str, context: &'a str) -> BoxPlannerFuture<'a> {
+        Box::pin(async move {
+            let start = std::time::Instant::now();
+            let mut steps: Vec<PlanStep> = Vec::new();
+            let mut scratchpad = String::new();
 
-        if let Some(mem) = &self.memory {
-            mem.add(axiom_memory::MemoryItem::goal(goal));
-            if !context.is_empty() {
-                mem.add(axiom_memory::MemoryItem::observation(context));
+            if let Some(mem) = &self.memory {
+                mem.add(axiom_memory::MemoryItem::goal(goal));
+                if !context.is_empty() {
+                    mem.add(axiom_memory::MemoryItem::observation(context));
+                }
             }
-        }
 
-        for iteration in 0..self.max_iterations {
-            let thought = format!("Iteration {} - thinking about: {}", iteration + 1, goal);
-            let mut step = PlanStep::new(iteration as usize, &thought);
-            step.mark_started();
+            for iteration in 0..self.max_iterations {
+                let thought = format!("Iteration {} - thinking about: {}", iteration + 1, goal);
+                let mut step = PlanStep::new(iteration as usize, &thought);
+                step.mark_started();
 
-            let prompt = if !scratchpad.is_empty() {
-                format!(
-                    "Goal: {}\nContext: {}\n\nScratchpad:\n{}\n\nContinue with next Thought/Action or provide Final Answer.",
-                    goal, context, scratchpad
-                )
-            } else {
-                format!(
-                    "Goal: {}\nContext: {}\n\nUse ReAct pattern: Thought -> Action -> Observation -> ... -> Final Answer",
-                    goal, context
-                )
-            };
-
-            let response = if let Some(llm) = &self.llm_client {
-                llm.complete(&prompt)
-                    .await
-                    .map_err(|e| PlannerError::LlmError(e.to_string()))?
-                    .text
-            } else {
-                if iteration == 0 {
+                let prompt = if !scratchpad.is_empty() {
                     format!(
-                        "Thought: I need to understand the goal first.\nAction: {}\nAction Input: {{\"query\": \"{}\"}}",
-                        if self.tool_registry.is_some() { "search" } else { "mock_tool" },
-                        goal
+                        "Goal: {}\nContext: {}\n\nScratchpad:\n{}\n\nContinue with next Thought/Action or provide Final Answer.",
+                        goal, context, scratchpad
                     )
                 } else {
-                    format!("Final Answer: Based on the analysis, the answer for '{}' is ready.", goal)
+                    format!(
+                        "Goal: {}\nContext: {}\n\nUse ReAct pattern: Thought -> Action -> Observation -> ... -> Final Answer",
+                        goal, context
+                    )
+                };
+
+                let response = if let Some(llm) = &self.llm_client {
+                    llm.complete(&prompt)
+                        .await
+                        .map_err(|e| PlannerError::LlmError(e.to_string()))?
+                        .text
+                } else {
+                    if iteration == 0 {
+                        format!(
+                            "Thought: I need to understand the goal first.\nAction: {}\nAction Input: {{\"query\": \"{}\"}}",
+                            if self.tool_registry.is_some() { "search" } else { "mock_tool" },
+                            goal
+                        )
+                    } else {
+                        format!("Final Answer: Based on the analysis, the answer for '{}' is ready.", goal)
+                    }
+                };
+
+                if let Some(answer) = self.is_final_answer(&response) {
+                    step.mark_completed(&answer);
+                    steps.push(step);
+
+                    let duration = start.elapsed().as_millis() as u64;
+                    return Ok(PlanningResult {
+                        success: true,
+                        steps,
+                        final_output: Some(answer),
+                        iterations: iteration + 1,
+                        total_duration_ms: duration,
+                    });
                 }
-            };
 
-            if let Some(answer) = self.is_final_answer(&response) {
-                step.mark_completed(&answer);
+                let action_name = extract_action(&response).unwrap_or("unknown");
+                let action_input = extract_action_input(&response);
+
+                self.think(&mut step, extract_thought(&response).unwrap_or(&thought));
+                self.act(&mut step, action_name, &action_input).await?;
+
+                scratchpad.push_str(&format!("\nThought: {}\nAction: {} with {}\nObservation: {}",
+                    extract_thought(&response).unwrap_or("thinking"),
+                    action_name,
+                    action_input,
+                    step.actual_output.as_deref().unwrap_or("")
+                ));
+
                 steps.push(step);
-
-                let duration = start.elapsed().as_millis() as u64;
-                return Ok(PlanningResult {
-                    success: true,
-                    steps,
-                    final_output: Some(answer),
-                    iterations: iteration + 1,
-                    total_duration_ms: duration,
-                });
             }
 
-            let action_name = extract_action(&response).unwrap_or("unknown");
-            let action_input = extract_action_input(&response);
-
-            self.think(&mut step, extract_thought(&response).unwrap_or(&thought));
-            self.act(&mut step, action_name, &action_input).await?;
-
-            scratchpad.push_str(&format!("\nThought: {}\nAction: {} with {}\nObservation: {}",
-                extract_thought(&response).unwrap_or("thinking"),
-                action_name,
-                action_input,
-                step.actual_output.as_deref().unwrap_or("")
-            ));
-
-            steps.push(step);
-        }
-
-        let duration = start.elapsed().as_millis() as u64;
-        Ok(PlanningResult::failure(steps, "Max iterations reached without final answer"))
+            let duration = start.elapsed().as_millis() as u64;
+            Ok(PlanningResult::failure(steps, "Max iterations reached without final answer"))
+        })
     }
 }
 

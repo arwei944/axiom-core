@@ -1,8 +1,9 @@
 //! Planner trait and common types.
 
-use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 use std::fmt;
+use std::future::Future;
+use std::pin::Pin;
 
 use crate::step::PlanStep;
 
@@ -51,10 +52,11 @@ impl PlanningResult {
     }
 }
 
-#[async_trait]
+pub type BoxPlannerFuture<'a> = Pin<Box<dyn Future<Output = Result<PlanningResult, PlannerError>> + Send + 'a>>;
+
 pub trait Planner: Send + Sync {
     fn name(&self) -> &str;
-    async fn plan_and_execute(&self, goal: &str, context: &str) -> Result<PlanningResult, PlannerError>;
+    fn plan_and_execute<'a>(&'a self, goal: &'a str, context: &'a str) -> BoxPlannerFuture<'a>;
     fn max_iterations(&self) -> u32;
 }
 

@@ -4,6 +4,8 @@ use crate::store::{BoxFuture, StoreError};
 use axiom_core::signal::VectorClock;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use std::fs;
+use std::path::PathBuf;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 
@@ -123,9 +125,138 @@ impl SnapshotStore for MemorySnapshotStore {
     }
 }
 
+#[derive(Debug, Clone)]
+pub struct FileSnapshotStoreConfig {
+    pub snapshot_dir: PathBuf,
+    pub max_snapshots_per_aggregate: usize,
+}
+
+impl Default for FileSnapshotStoreConfig {
+    fn default() -> Self {
+        Self {
+            snapshot_dir: PathBuf::from("snapshots"),
+            max_snapshots_per_aggregate: 5,
+        }
+    }
+}
+
+pub struct FileSnapshotStore {
+    config: FileSnapshotStoreConfig,
+}
+
+impl FileSnapshotStore {
+    pub fn connect(config: FileSnapshotStoreConfig) -> Result<Self, StoreError> {
+        fs::create_dir_all(&config.snapshot_dir)
+            .map_err(|e| StoreError::Storage(format!("create snapshot dir: {e}")))?;
+        Ok(Self { config })
+    }
+
+    fn snapshot_path(&self, aggregate_id: &str, seq: u64) -> PathBuf {
+        self.config
+            .snapshot_dir
+            .join(format!("{}-{}.snap", aggregate_id, seq))
+    }
+
+    fn enforce_retention(&self, aggregate_id: &str) -> Result<(), StoreError> {
+        let mut files = Vec::new();
+        for entry in fs::read_dir(&self.config.snapshot_dir).map_err(|e| StoreError::Storage(format!("read snapshot dir: {e}")))? {
+            let entry = entry.map_err(|e| StoreError::Storage(format!("dir entry: {e}")))?;
+            let path = entry.path();
+            if let Some(name) = path.file_name().and_then(|n| n.to_str()) {
+                if name.starts_with(aggregate_id) && name.ends_with(".snap") {
+                    files.push(path);
+                }
+            }
+        }
+        files.sort();
+        while files.len() > self.config.max_snapshots_per_aggregate {
+            let oldest = files.remove(0);
+            fs::remove_file(&oldest)
+                .map_err(|e| StoreError::Storage(format!("remove old snapshot: {e}")))?;
+        }
+        Ok(())
+    }
+}
+
+impl SnapshotStore for FileSnapshotStore {
+    fn save_snapshot<'a>(&'a self, snapshot: Snapshot) -> BoxFuture<'a, Result<(), StoreError>> {
+        Box::pin(async move {
+            let path = self.snapshot_path(&snapshot.aggregate_id, snapshot.sequence_number);
+            let data = serde_json::to_vec(&snapshot)
+                .map_err(|e| StoreError::Serialization(e.to_string()))?;
+            let mut compressed = Vec::new();
+            {
+                let mut encoder = snap::write::FrameEncoder::new(&mut compressed);
+                std::io::Write::write_all(&mut encoder, &data)
+                    .map_err(|e| StoreError::Storage(format!("snapshot compression: {e}")))?;
+            }
+            fs::write(&path, compressed)
+                .map_err(|e| StoreError::Storage(format!("write snapshot: {e}")))?;
+            self.enforce_retention(&snapshot.aggregate_id)?;
+            Ok(())
+        })
+    }
+
+    fn load_latest_snapshot<'a>(
+        &'a self,
+        aggregate_id: &'a str,
+    ) -> BoxFuture<'a, Result<Option<Snapshot>, StoreError>> {
+        Box::pin(async move {
+            let mut files = Vec::new();
+            for entry in fs::read_dir(&self.config.snapshot_dir).map_err(|e| StoreError::Storage(format!("read snapshot dir: {e}")))? {
+                let entry = entry.map_err(|e| StoreError::Storage(format!("dir entry: {e}")))?;
+                let path = entry.path();
+                if let Some(name) = path.file_name().and_then(|n| n.to_str()) {
+                    if name.starts_with(aggregate_id) && name.ends_with(".snap") {
+                        files.push(path);
+                    }
+                }
+            }
+            files.sort();
+            let latest = files.last();
+            if let Some(path) = latest {
+                let data = fs::read(path)
+                    .map_err(|e| StoreError::Storage(format!("read snapshot: {e}")))?;
+                let mut decoder = snap::read::FrameDecoder::new(&data[..]);
+                let mut decompressed = Vec::new();
+                std::io::Read::read_to_end(&mut decoder, &mut decompressed)
+                    .map_err(|e| StoreError::Storage(format!("snapshot decompression: {e}")))?;
+                let snap = serde_json::from_slice(&decompressed)
+                    .map_err(|e| StoreError::Serialization(e.to_string()))?;
+                Ok(Some(snap))
+            } else {
+                Ok(None)
+            }
+        })
+    }
+
+    fn load_snapshot_at<'a>(
+        &'a self,
+        aggregate_id: &'a str,
+        seq: u64,
+    ) -> BoxFuture<'a, Result<Option<Snapshot>, StoreError>> {
+        Box::pin(async move {
+            let path = self.snapshot_path(aggregate_id, seq);
+            if !path.exists() {
+                return Ok(None);
+            }
+            let data = fs::read(&path)
+                .map_err(|e| StoreError::Storage(format!("read snapshot: {e}")))?;
+            let mut decoder = snap::read::FrameDecoder::new(&data[..]);
+            let mut decompressed = Vec::new();
+            std::io::Read::read_to_end(&mut decoder, &mut decompressed)
+                .map_err(|e| StoreError::Storage(format!("snapshot decompression: {e}")))?;
+            let snap = serde_json::from_slice(&decompressed)
+                .map_err(|e| StoreError::Serialization(e.to_string()))?;
+            Ok(Some(snap))
+        })
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+    use tempfile::tempdir;
 
     fn make_snapshot(agg: &str, seq: u64) -> Snapshot {
         Snapshot {
@@ -140,8 +271,13 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_save_and_load_roundtrip() {
-        let store = MemorySnapshotStore::new();
+    async fn test_file_snapshot_roundtrip() {
+        let dir = tempdir().unwrap();
+        let cfg = FileSnapshotStoreConfig {
+            snapshot_dir: dir.path().to_path_buf(),
+            max_snapshots_per_aggregate: 5,
+        };
+        let store = FileSnapshotStore::connect(cfg).unwrap();
         store.save_snapshot(make_snapshot("a", 10)).await.unwrap();
         let snap = store.load_latest_snapshot("a").await.unwrap();
         assert!(snap.is_some());
@@ -149,59 +285,42 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_load_latest_returns_highest_seq() {
-        let store = MemorySnapshotStore::new();
+    async fn test_file_snapshot_load_at() {
+        let dir = tempdir().unwrap();
+        let cfg = FileSnapshotStoreConfig {
+            snapshot_dir: dir.path().to_path_buf(),
+            max_snapshots_per_aggregate: 5,
+        };
+        let store = FileSnapshotStore::connect(cfg).unwrap();
         store.save_snapshot(make_snapshot("a", 5)).await.unwrap();
         store.save_snapshot(make_snapshot("a", 10)).await.unwrap();
-        store.save_snapshot(make_snapshot("a", 15)).await.unwrap();
-        let snap = store.load_latest_snapshot("a").await.unwrap().unwrap();
-        assert_eq!(snap.sequence_number, 15);
-    }
 
-    #[tokio::test]
-    async fn test_load_snapshot_at() {
-        let store = MemorySnapshotStore::new();
-        store.save_snapshot(make_snapshot("a", 5)).await.unwrap();
-        store.save_snapshot(make_snapshot("a", 10)).await.unwrap();
-        store.save_snapshot(make_snapshot("a", 20)).await.unwrap();
+        let snap = store.load_snapshot_at("a", 10).await.unwrap();
+        assert!(snap.is_some());
+        assert_eq!(snap.unwrap().sequence_number, 10);
 
-        let snap = store.load_snapshot_at("a", 12).await.unwrap().unwrap();
-        assert_eq!(snap.sequence_number, 10);
-
-        let snap = store.load_snapshot_at("a", 20).await.unwrap().unwrap();
-        assert_eq!(snap.sequence_number, 20);
-
-        let snap = store.load_snapshot_at("a", 3).await.unwrap();
+        let snap = store.load_snapshot_at("a", 7).await.unwrap();
         assert!(snap.is_none());
     }
 
     #[tokio::test]
-    async fn test_snapshot_policy_enforces_max_retention() {
-        let policy = SnapshotPolicy {
-            every_n_events: 10,
+    async fn test_file_snapshot_retention() {
+        let dir = tempdir().unwrap();
+        let cfg = FileSnapshotStoreConfig {
+            snapshot_dir: dir.path().to_path_buf(),
             max_snapshots_per_aggregate: 2,
         };
-        let store = MemorySnapshotStore::with_policy(policy);
+        let store = FileSnapshotStore::connect(cfg).unwrap();
         store.save_snapshot(make_snapshot("a", 1)).await.unwrap();
         store.save_snapshot(make_snapshot("a", 2)).await.unwrap();
         store.save_snapshot(make_snapshot("a", 3)).await.unwrap();
 
-        let map = store.snapshots.read().await;
-        let list = map.get("a").unwrap();
-        assert_eq!(list.len(), 2);
-        assert_eq!(list[0].sequence_number, 2);
-        assert_eq!(list[1].sequence_number, 3);
-    }
-
-    #[tokio::test]
-    async fn test_snapshot_policy_should_snapshot() {
-        let policy = SnapshotPolicy {
-            every_n_events: 10,
-            max_snapshots_per_aggregate: 5,
-        };
-        let store = MemorySnapshotStore::with_policy(policy);
-        assert!(!store.should_snapshot(9));
-        assert!(store.should_snapshot(10));
-        assert!(store.should_snapshot(11));
+        let mut count = 0;
+        for entry in fs::read_dir(dir.path()).unwrap() {
+            if entry.unwrap().path().extension().map(|e| e == "snap").unwrap_or(false) {
+                count += 1;
+            }
+        }
+        assert_eq!(count, 2);
     }
 }

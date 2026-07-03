@@ -12,6 +12,7 @@ proc-macro = true
 syn = { version = "2", features = ["full"] }
 quote = "1"
 proc-macro2 = "1"
+linkme = { workspace = true }
 
 [dev-dependencies]
 trybuild = { workspace = true }
@@ -19,5 +20,10 @@ axiom-core = { path = "../axiom-core" }
 tokio = { workspace = true, features = ["rt", "macros", "test-util"] }
 serde = { workspace = true }
 serde_json = { workspace = true }
-async-trait = "0.1"
 axiom-tool = { path = "../axiom-tool" }
+
+[build-dependencies]
+archcheck = { path = "../../tools/archcheck" }
+toml = "0.8"
+
+
