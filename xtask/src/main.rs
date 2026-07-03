@@ -3,6 +3,8 @@ use clap::{Arg, ArgAction, Command};
 use std::path::PathBuf;
 use std::process::Command as ProcessCommand;
 
+mod commands;
+
 fn main() -> Result<()> {
     let matches = Command::new("xtask")
         .about("Architecture governance task runner")
@@ -49,6 +51,34 @@ fn main() -> Result<()> {
                         .value_name("FILE")
                         .default_value(".axiom/state.toml")
                         .help("Output path for state file"),
+                ),
+        )
+        .subcommand(
+            Command::new("precommit")
+                .about("Pre-commit architecture check")
+                .arg(
+                    Arg::new("strict")
+                        .long("strict")
+                        .action(ArgAction::SetTrue)
+                        .help("Strict mode, exit with error if violations found"),
+                )
+                .arg(
+                    Arg::new("fix")
+                        .long("fix")
+                        .action(ArgAction::SetTrue)
+                        .help("Auto-fix violations (not yet implemented)"),
+                )
+                .arg(
+                    Arg::new("install")
+                        .long("install")
+                        .action(ArgAction::SetTrue)
+                        .help("Install git pre-commit hook"),
+                )
+                .arg(
+                    Arg::new("uninstall")
+                        .long("uninstall")
+                        .action(ArgAction::SetTrue)
+                        .help("Uninstall git pre-commit hook"),
                 ),
         )
         .get_matches();
@@ -118,6 +148,20 @@ fn main() -> Result<()> {
             std::fs::write(&state_path, state).context("writing state file")?;
             println!("State written to {}", state_path.display());
             Ok(())
+        }
+        Some(("precommit", args)) => {
+            let strict = args.get_flag("strict");
+            let fix = args.get_flag("fix");
+            let install = args.get_flag("install");
+            let uninstall = args.get_flag("uninstall");
+
+            if install {
+                commands::precommit::install()
+            } else if uninstall {
+                commands::precommit::uninstall()
+            } else {
+                commands::precommit::run(strict, fix)
+            }
         }
         _ => unreachable!(),
     }
