@@ -979,6 +979,9 @@ pub fn capability(attr: TokenStream, item: TokenStream) -> TokenStream {
         "layer" => quote! { ::axiom_core::CapabilityDimension::Layer },
         "tool" => quote! { ::axiom_core::CapabilityDimension::Tool },
         "guard" => quote! { ::axiom_core::CapabilityDimension::Guard },
+        "identity" => quote! { ::axiom_core::CapabilityDimension::Identity },
+        "entropy" => quote! { ::axiom_core::CapabilityDimension::Entropy },
+        "runtime" => quote! { ::axiom_core::CapabilityDimension::Runtime },
         _ => return syn::Error::new_spanned(&input, format!("invalid dimension: {}", dim_str)).to_compile_error().into(),
     };
 

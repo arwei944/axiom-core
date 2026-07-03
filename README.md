@@ -78,7 +78,20 @@ struct WitnessCapability;
 | `#[cell]` | 层标记、`LayerOf`、`WitnessGenerator` |
 | `#[tool]` | `Tool` trait、权限检查、Witness记录 |
 | `#[guard]` | `Guard` trait、检查逻辑、Witness记录 |
-| `#[capability]` | 版本注册、兼容性策略、迁移链关联 |
+| `#[capability]` | 版本注册、兼容性策略、迁移链关联（8个维度） |
+
+### 8大能力维度
+
+| 维度 | 用途 | 典型场景 |
+|------|------|---------|
+| **Witness** | 审计链版本 | 状态转换记录格式 |
+| **Schema** | 信号协议版本 | 消息序列化格式 |
+| **Layer** | 架构层版本 | 层间调用规则 |
+| **Tool** | 工具接口版本 | 工具执行协议 |
+| **Guard** | 约束规则版本 | 权限检查规则 |
+| **Identity** | 身份协议版本 | Agent身份/权限集 |
+| **Entropy** | 熵治理版本 | 阈值策略/治理动作 |
+| **Runtime** | 运行时协议版本 | 监督策略/邮箱配置 |
 
 ## 四层架构
 

@@ -17,16 +17,34 @@ struct ToolCapability;
 #[axiom_core::capability(dim = "guard", version = "1.0.0", layer = "all")]
 struct GuardCapability;
 
+#[axiom_core::capability(dim = "identity", version = "1.0.0")]
+struct IdentityCapability;
+
+#[axiom_core::capability(dim = "entropy", version = "1.0.0")]
+struct EntropyCapability;
+
+#[axiom_core::capability(dim = "runtime", version = "1.0.0")]
+struct RuntimeCapability;
+
 #[test]
 fn test_capability_macro_auto_registration() {
     let caps = CapabilityVersionRegistry::registered_capabilities();
-    assert!(caps.len() >= 5);
+    assert!(caps.len() >= 8);
 
     let witness_caps = CapabilityVersionRegistry::capabilities_by_dimension(CapabilityDimension::Witness);
     assert!(witness_caps.iter().any(|c| c.name == "WitnessCapability"));
 
     let schema_caps = CapabilityVersionRegistry::capabilities_by_dimension(CapabilityDimension::Schema);
     assert!(schema_caps.iter().any(|c| c.name == "SchemaCapability"));
+
+    let identity_caps = CapabilityVersionRegistry::capabilities_by_dimension(CapabilityDimension::Identity);
+    assert!(identity_caps.iter().any(|c| c.name == "IdentityCapability"));
+
+    let entropy_caps = CapabilityVersionRegistry::capabilities_by_dimension(CapabilityDimension::Entropy);
+    assert!(entropy_caps.iter().any(|c| c.name == "EntropyCapability"));
+
+    let runtime_caps = CapabilityVersionRegistry::capabilities_by_dimension(CapabilityDimension::Runtime);
+    assert!(runtime_caps.iter().any(|c| c.name == "RuntimeCapability"));
 }
 
 #[test]

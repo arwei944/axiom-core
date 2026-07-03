@@ -9,6 +9,9 @@ pub enum CapabilityDimension {
     Layer,
     Tool,
     Guard,
+    Identity,
+    Entropy,
+    Runtime,
 }
 
 impl CapabilityDimension {
@@ -19,7 +22,25 @@ impl CapabilityDimension {
             CapabilityDimension::Layer => "layer",
             CapabilityDimension::Tool => "tool",
             CapabilityDimension::Guard => "guard",
+            CapabilityDimension::Identity => "identity",
+            CapabilityDimension::Entropy => "entropy",
+            CapabilityDimension::Runtime => "runtime",
         }
+    }
+}
+
+impl CapabilityDimension {
+    pub fn all() -> [Self; 8] {
+        [
+            CapabilityDimension::Witness,
+            CapabilityDimension::Schema,
+            CapabilityDimension::Layer,
+            CapabilityDimension::Tool,
+            CapabilityDimension::Guard,
+            CapabilityDimension::Identity,
+            CapabilityDimension::Entropy,
+            CapabilityDimension::Runtime,
+        ]
     }
 }
 
@@ -111,15 +132,9 @@ impl CapabilityVersionRegistry {
     }
 
     pub fn auto_check_compatibility() -> Result<()> {
-        let capabilities = Self::registered_capabilities();
+        let _capabilities = Self::registered_capabilities();
         
-        for dim in [
-            CapabilityDimension::Witness,
-            CapabilityDimension::Schema,
-            CapabilityDimension::Layer,
-            CapabilityDimension::Tool,
-            CapabilityDimension::Guard,
-        ] {
+        for dim in CapabilityDimension::all() {
             let dim_caps = Self::capabilities_by_dimension(dim);
             if dim_caps.is_empty() {
                 continue;
