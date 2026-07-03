@@ -1,6 +1,6 @@
 # Versioning Strategy
 
-> **Status**: Draft
+> **Status**: Active
 > **Effective**: v0.1.0
 
 ---
@@ -28,6 +28,7 @@ A change is considered **breaking** if it:
 - Changes the behavior of a public API in a way that could break existing code
 - Removes or changes the format of persisted data (Witness, Event)
 - Changes the protocol format or version requirements
+- Changes the capability dimension version in an incompatible way
 
 ### 1.3 Non-breaking Change Criteria
 
@@ -39,6 +40,7 @@ A change is **non-breaking** if it:
 - Improves documentation
 - Fixes bugs without changing API behavior
 - Adds new features that are opt-in (e.g., feature flags)
+- Adds new capability dimension registrations (compatible versions)
 
 ---
 
@@ -149,14 +151,99 @@ Every witness includes a hash of the previous witness, forming an immutable chai
 
 ---
 
-## 7. Feature Flags
+## 7. Capability Dimension Versioning
 
-### 7.1 Stable vs Unstable
+### 7.1 Overview
+
+Axiom Core manages 8 independent capability dimensions, each with its own versioning:
+
+| Dimension | Purpose | Description |
+|-----------|---------|-------------|
+| **Witness** | Audit chain version | State transition record format |
+| **Schema** | Signal protocol version | Message serialization format |
+| **Layer** | Architecture layer version | Inter-layer call rules |
+| **Tool** | Tool interface version | Tool execution protocol |
+| **Guard** | Constraint rule version | Permission check rules |
+| **Identity** | Identity protocol version | Agent identity/permission set |
+| **Entropy** | Entropy governance version | Threshold policies/governance actions |
+| **Runtime** | Runtime protocol version | Supervision policies/mailbox configuration |
+
+### 7.2 CapabilityDescriptor Structure
+
+```rust
+pub struct CapabilityDescriptor {
+    pub dimension: CapabilityDimension,
+    pub name: &'static str,
+    pub version: Version,
+    pub compatibility: Compatibility,
+    pub applies_to_layer: Option<Layer>,
+    pub migration_chain_start: Option<u16>,
+}
+```
+
+### 7.3 Compatibility Strategies
+
+| Strategy | Description | Example |
+|----------|-------------|---------|
+| **Exact** | Only exact version matches | Locked to specific implementation |
+| **SemVer** | Semantic versioning | Compatible with minor/patch updates |
+| **Forward** | Forward compatible only | Newer versions understand older |
+| **Backward** | Backward compatible only | Older versions understand newer |
+
+### 7.4 Registration
+
+Use the `#[capability]` macro to register capability versions:
+
+```rust
+#[axiom_core::capability(dim = "witness", version = "1.0.0")]
+struct WitnessV1;
+
+#[axiom_core::capability(dim = "identity", version = "1.0.0")]
+struct IdentityCapability;
+
+#[axiom_core::capability(dim = "entropy", version = "1.0.0")]
+struct EntropyCapability;
+
+#[axiom_core::capability(dim = "runtime", version = "1.0.0")]
+struct RuntimeCapability;
+```
+
+### 7.5 Automatic Compatibility Check
+
+The `CapabilityVersionRegistry` automatically checks compatibility at runtime:
+
+```rust
+CapabilityVersionRegistry::auto_check_compatibility()?;
+```
+
+This ensures all registered capabilities are compatible with each other.
+
+### 7.6 Version Query API
+
+```rust
+// Get all registered capabilities
+let caps = CapabilityVersionRegistry::registered_capabilities();
+
+// Get capabilities by dimension
+let witness_caps = CapabilityVersionRegistry::capabilities_by_dimension(CapabilityDimension::Witness);
+
+// Get latest version for a dimension
+let latest = CapabilityVersionRegistry::latest_version_for_dimension(CapabilityDimension::Schema);
+
+// Count capabilities by dimension
+let count = CapabilityVersionRegistry::count_by_dimension(CapabilityDimension::Tool);
+```
+
+---
+
+## 8. Feature Flags
+
+### 8.1 Stable vs Unstable
 
 - **Stable**: Enabled by default, guaranteed backwards-compatible
 - **Unstable**: Disabled by default, may change without warning
 
-### 7.2 Feature Flag List
+### 8.2 Feature Flag List
 
 | Feature | Stability | Description |
 |---------|-----------|-------------|
@@ -165,7 +252,7 @@ Every witness includes a hash of the previous witness, forming an immutable chai
 | `uuid` | Stable | UUID-based ID generation |
 | `unstable` | Unstable | Experimental APIs |
 
-### 7.3 Unstable API Guidelines
+### 8.3 Unstable API Guidelines
 
 - Unstable APIs are prefixed with `#[cfg(feature = "unstable")]`
 - Users must explicitly opt-in with `features = ["unstable"]`
@@ -174,9 +261,9 @@ Every witness includes a hash of the previous witness, forming an immutable chai
 
 ---
 
-## 8. Release Process
+## 9. Release Process
 
-### 8.1 Pre-release Checklist
+### 9.1 Pre-release Checklist
 
 Before any release:
 
@@ -186,8 +273,9 @@ Before any release:
 - [ ] CHANGELOG updated with breaking changes
 - [ ] Migration guides written (if needed)
 - [ ] Version bumped in `Cargo.toml`
+- [ ] Capability versions verified (`CapabilityVersionRegistry::auto_check_compatibility()`)
 
-### 8.2 Release Branching
+### 9.2 Release Branching
 
 - `main`: Development branch
 - `vX.Y`: Release branch for major/minor versions
@@ -195,9 +283,9 @@ Before any release:
 
 ---
 
-## 9. Backwards Compatibility Pledge
+## 10. Backwards Compatibility Pledge
 
-### 9.1 Commitment
+### 10.1 Commitment
 
 We pledge to maintain backwards compatibility for:
 
@@ -205,7 +293,7 @@ We pledge to maintain backwards compatibility for:
 - **Minor releases**: 99% compatible (deprecations allowed)
 - **Major releases**: Breaking changes allowed with migration guide
 
-### 9.2 Exceptions
+### 10.2 Exceptions
 
 Backwards compatibility does not apply to:
 
@@ -213,3 +301,49 @@ Backwards compatibility does not apply to:
 - Unstable features (behind `unstable` feature flag)
 - Internal implementation details
 - Test-only code
+
+---
+
+## 11. Capability Version Migration
+
+### 11.1 Migration Chain
+
+When a capability dimension version changes, a migration chain must be established:
+
+```rust
+#[axiom_core::capability(dim = "schema", version = "1.0.0")]
+struct SchemaV1;
+
+#[axiom_core::capability(dim = "schema", version = "2.0.0", migration_chain_start = 1)]
+struct SchemaV2;
+```
+
+### 11.2 Migration Requirements
+
+- Each version increment must have a corresponding migration function
+- Migration functions must be registered in the migration registry
+- Missing migrations cause `MigrationChainGap` error at startup
+
+---
+
+## 12. Version Compatibility Matrix
+
+### 12.1 Runtime Compatibility
+
+| Runtime | Compatible With |
+|---------|----------------|
+| v0.2.0 | v0.1.x (backwards compatible) |
+| v0.1.x | v0.1.x only |
+
+### 12.2 Capability Dimension Compatibility
+
+| Dimension | v0.1.0 | v0.2.0 |
+|-----------|--------|--------|
+| Witness | 1.0.0 | 1.0.0+ |
+| Schema | 1.0.0 | 1.0.0+ |
+| Layer | 1.0.0 | 1.0.0+ |
+| Tool | 1.0.0 | 1.0.0+ |
+| Guard | 1.0.0 | 1.0.0+ |
+| Identity | - | 1.0.0+ |
+| Entropy | - | 1.0.0+ |
+| Runtime | - | 1.0.0+ |

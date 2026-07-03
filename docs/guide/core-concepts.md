@@ -420,6 +420,7 @@ assert!(ok);
 - **事件日志是真相源**（Source of Truth）。
 - **Lens 是只读视图**，按需从事件日志派生。
 - **渐进式披露**：只暴露当前任务需要的字段。
+- **增量更新**：基于 VectorClock 自动失效缓存，只重新投影变化的部分。
 
 ### 与其他原语的关系
 
@@ -433,9 +434,75 @@ assert!(ok);
    供 LLM / 验证层 / 监督层消费
 ```
 
-Lens 与 `axiom-store`（事件存储 crate）协作：`axiom-store` 负责持久化事件日志与快照，Lens 负责从日志中重建特定视图。`LensId` 是投影的唯一标识，可用于缓存与增量更新。
+Lens 与 `axiom-store`（事件存储 crate）协作：`axiom-store` 负责持久化事件日志与快照，Lens 负责从日志中重建特定视图。
 
-> **提示**：在简单示例（如 `hello_cell`）中不会直接使用 Lens，它主要在持久化与多 Cell 协作场景中发挥作用。详见 `axiom-store` crate 与 `docs/architecture/` 设计文档。
+### 当前状态 (v0.1.0)
+
+> **注意**：Lens 原语目前仅定义了 `LensId` 类型，完整实现在 v0.2.0 中交付。
+
+### v0.2.0 设计目标
+
+#### Lens Trait
+
+```rust
+pub trait Lens: Send + Sync + 'static {
+    type Input;
+    type Output;
+    
+    fn id(&self) -> &LensId;
+    
+    fn project(&self, events: &[Event], input: &Self::Input) -> Self::Output;
+    
+    fn cache_key(&self, input: &Self::Input) -> Option<String> { None }
+    
+    fn depends_on(&self) -> &[LensId] { &[] }
+}
+```
+
+#### LensRegistry 自动注册
+
+使用 `#[lens]` 宏自动注册到全局注册表：
+
+```rust
+#[lens]
+struct OrderHistoryLens;
+
+impl Lens for OrderHistoryLens {
+    type Input = CustomerId;
+    type Output = Vec<OrderSummary>;
+    
+    fn id(&self) -> &LensId { &LensId::new("order-history") }
+    
+    fn project(&self, events: &[Event], customer_id: &CustomerId) -> Vec<OrderSummary> {
+        events
+            .iter()
+            .filter(|e| e.customer_id == *customer_id)
+            .map(OrderSummary::from_event)
+            .collect()
+    }
+}
+```
+
+#### ProjectionCache
+
+Lens 结果自动缓存，基于 VectorClock 失效：
+
+```rust
+let cache = InMemoryProjectionCache::new();
+let result = cache.get_or_compute(lens_id, input, || lens.project(events, input));
+```
+
+### 核心价值
+
+| 价值 | 说明 |
+|------|------|
+| **避免上下文爆炸** | 只投影需要的状态，不塞全部历史 |
+| **Token 预算感知** | 投影结果自动估算 Token 数，超预算时自动摘要 |
+| **权限边界** | 编译期保证一个 Lens 只能看到授权的状态子集 |
+| **时间旅行** | 支持查询任意历史时间点的状态（事件重放） |
+| **可组合** | Lens 可以组合其他 Lens，像函数式编程的透镜组合子 |
+
+详细实现计划请参考 [v0.2.0 开发计划](../plans/v0.2.0-development-plan.md)。
 
 ---
 
@@ -717,7 +784,7 @@ fn handle<'a>(&'a mut self, signal: HelloCommand, ctx: LayeredCellContext<'a, Se
 | **Signal** | 类型化消息 | `Signal`、`SignalEnvelope`、`VectorClock` | `#[derive(SignalPayload)]`、`#[signal(...)]` |
 | **Axiom** | 全局不变量 | `Axiom`、`DynAxiomChain`、`ViolationAction` | `#[axiom]` |
 | **Witness** | 审计哈希链 | `Witness`、`WitnessBuilder`、`TransitionOutcome` | `ctx.emit_witness(...)` |
-| **Lens** | 状态投影 | `LensId`、事件日志（axiom-store） | — |
+| **Lens** | 状态投影 | `LensId`、`Lens`、`ProjectionCache`（v0.2.0） | `#[lens]`（v0.2.0） |
 
 四层架构通过 `Layer` 枚举 + `CanSendTo` sealed trait + `LayeredCellContext` 在**编译期**锁死调用方向，让架构违规根本无法编译。
 
