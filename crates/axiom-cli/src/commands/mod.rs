@@ -11,6 +11,21 @@ use init::install_hooks;
 mod new;
 use new::run_new;
 
+mod new_crate;
+use new_crate::run_new_crate;
+
+mod new_cell;
+use new_cell::run_new_cell;
+
+mod new_signal;
+use new_signal::run_new_signal;
+
+mod new_tool;
+use new_tool::run_new_tool;
+
+mod env_check;
+use env_check::run_env_check;
+
 mod run;
 use run::{run_run, run_dev};
 
@@ -47,6 +62,16 @@ pub struct Cli {
 pub enum Commands {
     /// Create a new axiom project
     New(new::NewArgs),
+    /// Create a new axiom crate with layer constraints
+    NewCrate(new_crate::NewCrateArgs),
+    /// Create a new Cell with layer annotation
+    NewCell(new_cell::NewCellArgs),
+    /// Create a new Signal with layer annotation
+    NewSignal(new_signal::NewSignalArgs),
+    /// Create a new Tool with permission control
+    NewTool(new_tool::NewToolArgs),
+    /// Check development environment before coding
+    EnvCheck,
     /// Run the axiom runtime
     Run(run::RunArgs),
     /// Run the axiom runtime in development mode
@@ -89,6 +114,11 @@ pub struct PreflightArgs {
 pub fn run(cli: &Cli) -> Result<ExitCode, anyhow::Error> {
     match &cli.command {
         Commands::New(args) => run_new(args),
+        Commands::NewCrate(args) => run_new_crate(args),
+        Commands::NewCell(args) => run_new_cell(args),
+        Commands::NewSignal(args) => run_new_signal(args),
+        Commands::NewTool(args) => run_new_tool(args),
+        Commands::EnvCheck => run_env_check(),
         Commands::Run(args) => run_run(args),
         Commands::Dev(args) => run_dev(args),
         Commands::Top(args) => run_top(args),

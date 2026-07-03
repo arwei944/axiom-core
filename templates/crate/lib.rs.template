@@ -1,0 +1,12 @@
+//! Axiom {{name}} crate
+//!
+//! # Architecture Constraints
+//!
+//! This crate is at layer {{layer}} and can only depend on crates at layer >= {{layer}}.
+
+#![warn(missing_docs)]
+#![warn(clippy::all)]
+#![warn(clippy::pedantic)]
+
+pub mod {{module}};
+pub use {{module}}::*;

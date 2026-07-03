@@ -1,0 +1,43 @@
+//! {{name}} - {{layer}} layer Cell
+//!
+//! # Architecture Constraints
+//!
+//! - This Cell can only send signals to: {{allowed_targets}}
+
+use axiom_core::cell::Cell;
+use axiom_core::context::CellContext;
+use axiom_core::error::AxiomError;
+use axiom_core::id::CellId;
+use axiom_core::layer::{{layer_marker}};
+
+#[derive(Debug, Default)]
+pub struct {{name}};
+
+#[async_trait::async_trait]
+impl Cell for {{name}} {
+    type Message = {{name}}Message;
+    type Layer = {{layer_marker}};
+
+    fn id(&self) -> &CellId {
+        static ID: CellId = CellId::new_static("{{snake_name}}");
+        &ID
+    }
+
+    async fn handle(
+        &mut self,
+        msg: Self::Message,
+        ctx: &mut CellContext<'_>,
+    ) -> Result<(), AxiomError> {
+        tracing::info!("{{name}} received: {:?}", msg);
+        Ok(())
+    }
+}
+
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct {{name}}Message {
+    pub payload: serde_json::Value,
+}
+
+impl axiom_core::signal::Signal for {{name}}Message {
+    fn signal_type(&self) -> &str { "{{name}}Message" }
+}
