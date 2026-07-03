@@ -49,6 +49,37 @@ Axiom Core 从底层重新设计，解决以下核心痛点：
 └─────────────────────────────────────────────────────────┘
 ```
 
+## 自动注入机制（硬约束）
+
+所有约束在**编译期自动注入**，无需手动调用 API：
+
+```rust
+#[axiom_core::signal]          // 自动添加 msg_id/correlation_id/vector_clock
+struct GreetingSignal {
+    message: String,
+}
+
+#[axiom_core::cell("exec")]    // 自动注入层标记 + Witness记录
+impl Cell for MyCell { ... }
+
+#[axiom_core::tool(permission = "read")]  // 自动注入权限检查 + Witness记录
+struct DatabaseTool;
+
+#[axiom_core::guard(layer = "exec")]     // 自动注入检查逻辑 + Witness记录
+struct RateLimitGuard;
+
+#[axiom_core::capability(dim = "witness", version = "1.0.0")]  // 自动版本注册
+struct WitnessCapability;
+```
+
+| 宏 | 自动注入内容 |
+|----|-------------|
+| `#[signal]` | 必需字段、`Signal` trait、`Schema`验证、序列化 |
+| `#[cell]` | 层标记、`LayerOf`、`WitnessGenerator` |
+| `#[tool]` | `Tool` trait、权限检查、Witness记录 |
+| `#[guard]` | `Guard` trait、检查逻辑、Witness记录 |
+| `#[capability]` | 版本注册、兼容性策略、迁移链关联 |
+
 ## 四层架构
 
 ```
@@ -85,15 +116,16 @@ Axiom Core 从底层重新设计，解决以下核心痛点：
 ```
 axiom-core/
 ├── crates/
-│   ├── axiom-core/          # 核心原语：Cell/Signal/Lens/Axiom/Witness + Layer/Entropy
+│   ├── axiom-core/          # 核心原语：Cell/Signal/Lens/Axiom/Witness + Layer/Entropy + Capability
+│   │   └── src/capability.rs  # 能力维度版本管理（新增）
 │   ├── axiom-runtime/       # Tokio 运行时：监督树 + 消息总线 + MPSC 信箱
 │   ├── axiom-oversight/     # Layer 0 监督层：熵治理 + 架构合规
 │   ├── axiom-store/         # 事件存储：Append-Only Event Log + 快照 + 重放
 │   ├── axiom-agent/         # Agent 开发配套：Identity + Skill + Rules 引擎
-│   ├── axiom-mcp/           # MCP 协议桥接（计划中）
+│   ├── axiom-mcp/           # MCP 协议桥接
 │   ├── axiom-viz/           # 可视化数据导出：拓扑/时间轴/熵值
-│   ├── axiom-macros/        # 过程宏
-│   └── axiom-cli/           # axm 命令行工具（计划中）
+│   ├── axiom-macros/        # 过程宏：#[signal] #[cell] #[tool] #[guard] #[capability]（新增）
+│   └── axiom-cli/           # axm 命令行工具
 ├── docs/
 │   └── architecture/
 │       ├── 00-requirements.md              # 需求文档

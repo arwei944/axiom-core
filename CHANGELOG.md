@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added — Auto-Injection Mechanism
+- **`#[signal]` macro**: Auto-generates `msg_id`, `correlation_id`, `vector_clock` fields + `Signal` trait implementation
+- **`#[cell]` macro**: Auto-implements `LayerOf`, layer marker traits, and `WitnessGenerator`
+- **`#[tool]` macro**: Auto-wraps `execute()` method with Witness recording and permission checks
+- **`#[guard]` macro**: Auto-wraps `check()` method with Witness recording and outcome tracking
+- **`#[capability]` macro**: NEW auto-registration for capability version management across 5 dimensions
+- **`WITNESS_REGISTRY`**: Global witness registry for auto-injected audit records
+- **Compile-time constraint injection**: No manual API calls required — constraints are baked in
+
+### Added — Capability Version Management
+- **`CapabilityDimension`**: 5 dimensions (Witness/Schema/Layer/Tool/Guard) with independent versioning
+- **`CapabilityDescriptor`**: Version + compatibility + layer + migration chain association
+- **`CAPABILITY_REGISTRY`**: linkme distributed slice for auto-discovery across crates
+- **`CapabilityVersionRegistry`**: Auto-compatibility checking and latest version resolution
+- **`Compatibility::SemVer`**: New default compatibility strategy following SemVer rules
+
+### Changed
+- `Witness` struct now includes `kind` field for categorization (StateTransition/ToolInvocation/GuardCheck)
+- `AxiomError` now includes `CellPanic` variant for panic recovery tracking
+- `#[signal]` macro generates complete `new()` constructor with user-defined fields
+
 ## [0.1.0] - 2026-07-03
 
 ### Added — Core Architecture

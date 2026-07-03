@@ -17,6 +17,7 @@
 #![allow(async_fn_in_trait)]
 
 pub mod axiom;
+pub mod capability;
 pub mod cell;
 pub mod context;
 pub mod entropy;
@@ -31,7 +32,11 @@ pub mod signal;
 pub mod version;
 pub mod witness;
 
-pub use axiom::{Axiom, DynAxiom, DynAxiomChain, ViolationAction};
+pub use axiom::{Axiom, DynAxiom, DynAxiomChain, Guard, ViolationAction};
+pub use capability::{
+    CapabilityDescriptor, CapabilityDimension, CapabilityVersionRegistry, CAPABILITY_REGISTRY,
+    CAPABILITY_VERSION_REGISTRY,
+};
 pub use entropy::{
     CellEntropy, EntropyLevel, EntropyScore, EntropySnapshot, EntropyWeights, CRITICAL_THRESHOLD,
     GREEN_THRESHOLD, RED_THRESHOLD, YELLOW_THRESHOLD,
@@ -41,7 +46,7 @@ pub use id::{AxiomId, CellId, CorrelationId, LensId, MsgId, TraceId, WitnessId};
 pub use layer::Layer;
 pub use registry::{
     count_registered_axioms, registered_axioms, registered_migration_chains,
-    verify_migration_chain_completeness,
+    verify_migration_chain_completeness, WITNESS_REGISTRY,
 };
 pub use schema::{Schema, ValidationResult};
 pub use sealed::{
@@ -54,10 +59,11 @@ pub use version::{
     Version, VersionInfo, Versioned,
 };
 pub use witness::{
-    TransitionOutcome, Witness, WitnessBatch, WitnessBuilder, WitnessHash, WitnessMetrics,
+    TransitionOutcome, Witness, WitnessBatch, WitnessBuilder, WitnessEvent, WitnessGenerator,
+    WitnessHash, WitnessKind, WitnessMetrics,
 };
 
-pub use axiom_macros::{axiom, cell, migration, schema_version, SignalPayload};
+pub use axiom_macros::{axiom, capability, cell, guard, migration, schema_version, signal, SignalPayload, tool};
 pub use linkme;
 
 #[cfg(feature = "unstable")]

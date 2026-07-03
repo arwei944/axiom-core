@@ -156,6 +156,7 @@ pub enum Compatibility {
     NewerMinor,
     OlderMinor,
     Breaking,
+    SemVer,
 }
 
 impl Compatibility {

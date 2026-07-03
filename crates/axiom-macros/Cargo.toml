@@ -19,3 +19,5 @@ axiom-core = { path = "../axiom-core" }
 tokio = { workspace = true, features = ["rt", "macros", "test-util"] }
 serde = { workspace = true }
 serde_json = { workspace = true }
+async-trait = "0.1"
+axiom-tool = { path = "../axiom-tool" }

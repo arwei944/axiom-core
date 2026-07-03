@@ -1,17 +1,39 @@
-//! Distributed registries using linkme for automatic discovery.
-//!
-//! Instead of manually pushing every Cell/Axiom/Migration into registries,
-//! use `#[linkme::distributed_slice]` to collect them at link time. The proc macros
-//! `#[cell]`, `#[axiom]`, `#[migration]` emit the necessary attributes to register
-//! into these slices automatically.
-
 use crate::axiom::DynAxiom;
+use crate::witness::Witness;
+use parking_lot::Mutex;
 
 #[linkme::distributed_slice]
 pub static MIGRATION_REGISTRY: [fn() -> (u16, u16, &'static str, &'static str)] = [..];
 
 #[linkme::distributed_slice]
 pub static AXIOM_REGISTRY: [&'static dyn DynAxiom] = [..];
+
+pub struct WitnessRegistry {
+    witnesses: Mutex<Vec<Witness>>,
+}
+
+impl WitnessRegistry {
+    pub const fn new() -> Self {
+        Self {
+            witnesses: Mutex::new(Vec::new()),
+        }
+    }
+
+    pub fn record(&self, witness: Witness) {
+        self.witnesses.lock().push(witness);
+    }
+
+    pub fn get_recent(&self, limit: usize) -> Vec<Witness> {
+        let guard = self.witnesses.lock();
+        guard.iter().rev().take(limit).cloned().rev().collect()
+    }
+
+    pub fn len(&self) -> usize {
+        self.witnesses.lock().len()
+    }
+}
+
+pub static WITNESS_REGISTRY: WitnessRegistry = WitnessRegistry::new();
 
 pub fn registered_migration_chains() -> Vec<(u16, u16, &'static str, &'static str)> {
     MIGRATION_REGISTRY.iter().map(|f| f()).collect()

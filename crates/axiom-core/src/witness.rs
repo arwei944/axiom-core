@@ -10,13 +10,54 @@
 //! - Signal fingerprint for fast deduplication
 
 use crate::context::{CellContext, OutgoingWitness};
-use crate::id::{CorrelationId, MsgId, TraceId, WitnessId};
+use crate::id::{CellId, CorrelationId, MsgId, TraceId, WitnessId};
+use crate::layer::Layer;
 use crate::signal::VectorClock;
 use crate::version::{SchemaVersion, VersionInfo, Versioned, WitnessSchema};
 use serde::{Deserialize, Serialize};
 
 const MAX_SUMMARY_LEN: usize = 512;
 const MAX_REASON_LEN: usize = 1024;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum WitnessKind {
+    StateTransition,
+    ToolInvocation,
+    GuardCheck,
+    SignalEmission,
+    CellStartup,
+    CellShutdown,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum WitnessEvent {
+    ToolExecuted {
+        tool_name: String,
+        parameters: serde_json::Value,
+        timestamp: u64,
+    },
+    GuardChecked {
+        guard_name: String,
+        signal_type: String,
+        signal_layer: Layer,
+        passed: bool,
+        timestamp: u64,
+    },
+    StateChanged {
+        from: String,
+        to: String,
+        timestamp: u64,
+    },
+    SignalSent {
+        signal_type: String,
+        target_cell: Option<String>,
+        timestamp: u64,
+    },
+}
+
+pub trait WitnessGenerator {
+    fn generate_witness(&self, event: WitnessEvent) -> Witness;
+}
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct WitnessHash(pub [u8; 32]);
@@ -58,6 +99,7 @@ pub struct Witness {
     pub version_info: VersionInfo,
     pub signal_fingerprint: [u8; 32],
     pub payload_size_bytes: usize,
+    pub kind: WitnessKind,
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
@@ -117,6 +159,52 @@ fn truncate(s: &str, max: usize) -> String {
 }
 
 impl Witness {
+    pub fn new(
+        cell_id: CellId,
+        kind: WitnessKind,
+        event: WitnessEvent,
+        layer: Layer,
+    ) -> Self {
+        #[cfg(feature = "uuid")]
+        let witness_id = WitnessId::generate();
+        #[cfg(not(feature = "uuid"))]
+        let witness_id = WitnessId::new(format!(
+            "wit-{}",
+            crate::signal::now_ns()
+        ));
+
+        let event_summary = match &event {
+            WitnessEvent::ToolExecuted { tool_name, .. } => format!("tool {} executed", tool_name),
+            WitnessEvent::GuardChecked { guard_name, passed, .. } => {
+                format!("guard {} check {}", guard_name, if *passed { "passed" } else { "failed" })
+            }
+            WitnessEvent::StateChanged { from, to, .. } => format!("state changed: {} -> {}", from, to),
+            WitnessEvent::SignalSent { signal_type, .. } => format!("signal {} sent", signal_type),
+        };
+
+        Self {
+            witness_id,
+            schema_version: WitnessSchema::schema_version(),
+            cell_id: cell_id.as_str().to_string(),
+            correlation_id: CorrelationId::new("none"),
+            trace_id: None,
+            triggering_msg_id: None,
+            vector_clock: VectorClock::new(),
+            timestamp_ns: crate::signal::now_ns(),
+            prev_hash: None,
+            state_before_hash: None,
+            state_after_hash: None,
+            hash: WitnessHash::zero(),
+            summary: event_summary,
+            outcome: TransitionOutcome::Success,
+            metrics: WitnessMetrics::default(),
+            version_info: VersionInfo::current(),
+            signal_fingerprint: [0u8; 32],
+            payload_size_bytes: 0,
+            kind,
+        }
+    }
+
     #[cfg(feature = "sha2-id")]
     pub fn compute_hash(&self, prev_hash: &Option<WitnessHash>) -> crate::Result<WitnessHash> {
         use sha2::{Digest, Sha256};
@@ -348,6 +436,7 @@ impl WitnessBuilder {
             version_info,
             signal_fingerprint,
             payload_size_bytes: payload_size,
+            kind: WitnessKind::StateTransition,
         };
 
         #[cfg(feature = "sha2-id")]
@@ -455,6 +544,7 @@ mod tests {
             version_info: VersionInfo::current(),
             signal_fingerprint: [0u8; 32],
             payload_size_bytes: 0,
+            kind: WitnessKind::StateTransition,
         };
         let mut w1 = w1;
         w1.hash = w1.compute_hash(&None).unwrap();
@@ -478,6 +568,7 @@ mod tests {
             version_info: VersionInfo::current(),
             signal_fingerprint: [0u8; 32],
             payload_size_bytes: 0,
+            kind: WitnessKind::StateTransition,
         };
         w2.hash = w2.compute_hash(&w2.prev_hash).unwrap();
 
@@ -506,6 +597,7 @@ mod tests {
             version_info: VersionInfo::current(),
             signal_fingerprint: [0u8; 32],
             payload_size_bytes: 0,
+            kind: WitnessKind::StateTransition,
         };
         let mut w1 = w1;
         w1.hash = w1.compute_hash(&None).unwrap();
@@ -529,6 +621,7 @@ mod tests {
             version_info: VersionInfo::current(),
             signal_fingerprint: [1u8; 32],
             payload_size_bytes: 0,
+            kind: WitnessKind::StateTransition,
         };
         w2.hash = w2.compute_hash(&None).unwrap();
 

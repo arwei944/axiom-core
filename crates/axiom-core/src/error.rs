@@ -42,6 +42,9 @@ pub enum AxiomError {
     #[error("Cell {cell_id} crashed: {message}")]
     CellCrashed { cell_id: String, message: String },
 
+    #[error("Cell {cell_id} panicked: {message}")]
+    CellPanic { cell_id: String, message: String },
+
     #[error("Circuit breaker open for cell {cell_id} (failures: {failures})")]
     CircuitBreak { cell_id: String, failures: u32 },
 

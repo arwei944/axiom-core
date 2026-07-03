@@ -10,7 +10,14 @@
 use crate::error::AxiomError;
 use crate::layer::Layer;
 use crate::Result;
+use crate::signal::Signal;
 use serde::{Deserialize, Serialize};
+
+pub trait Guard: Send + Sync + 'static {
+    fn name(&self) -> &'static str;
+    fn layer(&self) -> Option<Layer>;
+    fn check(&self, signal: &dyn Signal) -> Result<()>;
+}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum ViolationAction {

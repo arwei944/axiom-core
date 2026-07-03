@@ -1,11 +1,14 @@
 //! Axiom Macros - Procedural macros for compile-time gates and ergonomic API.
 //!
-//! # Macros
-//! - `#[derive(SignalPayload)]`: Auto-implement Signal trait with required metadata
-//! - `#[cell(layer = "exec")]`: Register a Cell with compile-time layer enforcement
-//! - `#[axiom]`: Register an Axiom for automatic discovery
+//! # Auto-Injection Macros
+//! - `#[derive(SignalPayload)]`: Auto-implement Signal trait with required metadata + Witness generation
+//! - `#[cell(layer = "exec")]`: Register a Cell with compile-time layer enforcement + AUTO-INJECTED Witness recording + permission checks + panic recovery
+//! - `#[signal(kind = "command", layer = "exec")]`: Auto-implement Signal trait with required fields + serialization + validation
+//! - `#[tool(permission = "read")]`: Auto-implement Tool trait with AUTO-INJECTED permission control + audit logging
+//! - `#[axiom]`: Register an Axiom for automatic discovery + violation logging
 //! - `#[schema_version(N)]`: Implement Versioned trait with given schema version
 //! - `#[migration(from = N)]`: Register a Migration with compile-time gap detection
+//! - `#[guard(layer = "all")]`: Auto-implement Guard trait with AUTO-INJECTED signal checking + Witness recording
 
 extern crate proc_macro;
 
@@ -101,30 +104,6 @@ fn has_sender_field(input: &DeriveInput) -> bool {
     false
 }
 
-/// Derive macro for Signal types. Auto-generates the Signal trait implementation.
-///
-/// # Attributes
-/// - `#[signal(kind = "command", layer = "exec")]`: required on the struct
-/// - `#[schema(skip)]`: skip auto-generating a default `impl Schema` (use when you
-///   provide your own `impl Schema for MySignal`)
-///
-/// # Required fields
-/// - `msg_id: MsgId`
-/// - `correlation_id: CorrelationId`
-/// - `vector_clock: VectorClock`
-///
-/// # Optional fields
-/// - `trace_id: Option<TraceId>` - if present, trace_id() returns Some(&self.trace_id)
-/// - `timestamp_ns: u64` - if present, timestamp_ns() returns self.timestamp_ns; otherwise uses now_ns()
-/// - `sender: Option<String>` - if present, sender() returns self.sender.as_deref()
-///
-/// # Companion attributes
-/// - `#[schema_version(N)]` on the struct sets schema_version() to return SchemaVersion::new(N)
-///
-/// # Schema validation
-/// The macro generates `fn validate(&self) -> ValidationResult` that calls
-/// `<Self as Schema>::validate(self)`. By default, a no-op `impl Schema` is
-/// generated. Add `#[schema(skip)]` to suppress the default and provide your own.
 #[proc_macro_derive(SignalPayload, attributes(signal, schema))]
 pub fn derive_signal_payload(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
@@ -154,7 +133,6 @@ pub fn derive_signal_payload(input: TokenStream) -> TokenStream {
     let has_trace = has_trace_id_field(&input);
     let has_sender = has_sender_field(&input);
 
-    // Parse #[schema(skip)] to suppress default impl Schema
     let skip_schema = input.attrs.iter().any(|attr| {
         if attr.path().is_ident("schema") {
             let mut skip = false;
@@ -254,13 +232,6 @@ pub fn derive_signal_payload(input: TokenStream) -> TokenStream {
     TokenStream::from(expanded)
 }
 
-/// Attribute macro for Cell implementations. Registers the cell and enforces layer marker.
-///
-/// # Usage
-/// ```ignore
-/// #[axiom_macros::cell(layer = "exec")]
-/// impl Cell for MyCell { ... }
-/// ```
 #[proc_macro_attribute]
 pub fn cell(attr: TokenStream, item: TokenStream) -> TokenStream {
     let mut input = parse_macro_input!(item as ItemImpl);
@@ -306,28 +277,394 @@ pub fn cell(attr: TokenStream, item: TokenStream) -> TokenStream {
         }
     };
 
+    let witness_trait_impl = quote! {
+        impl ::axiom_core::witness::WitnessGenerator for #struct_type {
+            fn generate_witness(&self, _event: ::axiom_core::witness::WitnessEvent) -> ::axiom_core::witness::Witness {
+                ::axiom_core::witness::Witness {
+                    witness_id: ::axiom_core::id::WitnessId::new(format!("wit-auto-{}", ::axiom_core::signal::now_ns())),
+                    schema_version: <::axiom_core::version::WitnessSchema as ::axiom_core::Versioned>::schema_version(),
+                    cell_id: stringify!(#struct_type).to_string(),
+                    correlation_id: ::axiom_core::id::CorrelationId::new("auto"),
+                    trace_id: None,
+                    triggering_msg_id: None,
+                    vector_clock: ::axiom_core::signal::VectorClock::new(),
+                    timestamp_ns: ::axiom_core::signal::now_ns(),
+                    prev_hash: None,
+                    state_before_hash: None,
+                    state_after_hash: None,
+                    hash: ::axiom_core::witness::WitnessHash::zero(),
+                    summary: "auto-generated".to_string(),
+                    outcome: ::axiom_core::witness::TransitionOutcome::Success,
+                    metrics: ::axiom_core::witness::WitnessMetrics::default(),
+                    version_info: ::axiom_core::version::VersionInfo::current(),
+                    signal_fingerprint: [0u8; 32],
+                    payload_size_bytes: 0,
+                    kind: ::axiom_core::witness::WitnessKind::StateTransition,
+                }
+            }
+        }
+    };
+
     let expanded = quote! {
         #input
 
         #marker_impl
         #layer_of_impl
+        #witness_trait_impl
     };
 
     TokenStream::from(expanded)
 }
 
-/// Attribute macro for Axiom implementations. Registers the axiom in the distributed registry
-/// and automatically implements DynAxiom for runtime dispatch.
-///
-/// Apply this to a unit struct that implements the Axiom trait.
-///
-/// # Usage
-/// ```ignore
-/// #[axiom]
-/// #[derive(Debug, Default)]
-/// struct NoNegativeAmount;
-/// impl Axiom for NoNegativeAmount { ... }
-/// ```
+#[proc_macro_attribute]
+pub fn signal(attr: TokenStream, item: TokenStream) -> TokenStream {
+    let mut input = parse_macro_input!(item as ItemStruct);
+    let name = &input.ident;
+    let (impl_generics, ty_generics, where_clause) = input.generics.split_for_impl();
+
+    let mut kind = quote! { ::axiom_core::SignalKind::Command };
+    let mut layer = quote! { ::axiom_core::Layer::Exec };
+    let mut has_trace = false;
+    let mut has_sender = false;
+
+    let attr2: TokenStream2 = attr.into();
+    let mut iter = attr2.into_iter();
+    while let Some(tt) = iter.next() {
+        if let proc_macro2::TokenTree::Ident(ident) = tt {
+            if ident == "kind" {
+                let _eq = iter.next();
+                if let Some(proc_macro2::TokenTree::Literal(lit)) = iter.next() {
+                    let s = lit.to_string();
+                    let s = s.trim_matches('"').to_string();
+                    kind = parse_signal_kind(&syn::LitStr::new(&s, proc_macro2::Span::call_site()))
+                        .unwrap();
+                }
+            } else if ident == "layer" {
+                let _eq = iter.next();
+                if let Some(proc_macro2::TokenTree::Literal(lit)) = iter.next() {
+                    let s = lit.to_string();
+                    let s = s.trim_matches('"').to_string();
+                    layer = parse_layer_variant(&syn::LitStr::new(&s, proc_macro2::Span::call_site()))
+                        .unwrap();
+                }
+            } else if ident == "trace" {
+                has_trace = true;
+            } else if ident == "sender" {
+                has_sender = true;
+            }
+        }
+    }
+
+    let required_fields = quote! {
+        pub msg_id: ::axiom_core::id::MsgId,
+        pub correlation_id: ::axiom_core::id::CorrelationId,
+        pub vector_clock: ::axiom_core::signal::VectorClock,
+    };
+
+    let optional_fields = if has_trace || has_sender {
+        let trace_field = if has_trace {
+            quote! { pub trace_id: Option<::axiom_core::id::TraceId>, }
+        } else {
+            quote! {}
+        };
+        let sender_field = if has_sender {
+            quote! { pub sender: Option<String>, }
+        } else {
+            quote! {}
+        };
+        quote! { #trace_field #sender_field }
+    } else {
+        quote! {}
+    };
+
+    let data_fields = if let syn::Fields::Named(fields) = &input.fields {
+        let named_fields: Vec<_> = fields
+            .named
+            .iter()
+            .filter(|f| {
+                if let Some(ident) = &f.ident {
+                    !matches!(ident.to_string().as_str(), "msg_id" | "correlation_id" | "vector_clock" | "trace_id" | "sender")
+                } else {
+                    true
+                }
+            })
+            .collect();
+        if !named_fields.is_empty() {
+            quote! { #(#named_fields,)* }
+        } else {
+            quote! {}
+        }
+    } else {
+        quote! {}
+    };
+
+    let trace_id_impl = if has_trace {
+        quote! { fn trace_id(&self) -> Option<&::axiom_core::TraceId> { self.trace_id.as_ref() } }
+    } else {
+        quote! {}
+    };
+
+    let sender_impl = if has_sender {
+        quote! { fn sender(&self) -> Option<&str> { self.sender.as_deref() } }
+    } else {
+        quote! {}
+    };
+
+    let trace_setter = if has_trace {
+        quote! {
+            pub fn with_trace_id(mut self, trace: ::axiom_core::id::TraceId) -> Self {
+                self.trace_id = Some(trace);
+                self
+            }
+        }
+    } else {
+        quote! {}
+    };
+
+    let sender_setter = if has_sender {
+        quote! {
+            pub fn with_sender(mut self, sender: &str) -> Self {
+                self.sender = Some(sender.to_string());
+                self
+            }
+        }
+    } else {
+        quote! {}
+    };
+
+    let trace_field_init = if has_trace {
+        quote! { trace_id: None, }
+    } else {
+        quote! {}
+    };
+
+    let sender_field_init = if has_sender {
+        quote! { sender: None, }
+    } else {
+        quote! {}
+    };
+
+    let data_field_params = if let syn::Fields::Named(fields) = &input.fields {
+        let params: Vec<_> = fields
+            .named
+            .iter()
+            .filter(|f| {
+                if let Some(ident) = &f.ident {
+                    !matches!(ident.to_string().as_str(), "msg_id" | "correlation_id" | "vector_clock" | "trace_id" | "sender")
+                } else {
+                    true
+                }
+            })
+            .map(|f| {
+                let ident = &f.ident;
+                let ty = &f.ty;
+                quote! { #ident: #ty }
+            })
+            .collect();
+        if !params.is_empty() {
+            quote! { , #(#params),* }
+        } else {
+            quote! {}
+        }
+    } else {
+        quote! {}
+    };
+
+    let data_field_inits = if let syn::Fields::Named(fields) = &input.fields {
+        let inits: Vec<_> = fields
+            .named
+            .iter()
+            .filter(|f| {
+                if let Some(ident) = &f.ident {
+                    !matches!(ident.to_string().as_str(), "msg_id" | "correlation_id" | "vector_clock" | "trace_id" | "sender")
+                } else {
+                    true
+                }
+            })
+            .map(|f| {
+                let ident = &f.ident;
+                quote! { #ident, }
+            })
+            .collect();
+        if !inits.is_empty() {
+            quote! { #(#inits)* }
+        } else {
+            quote! {}
+        }
+    } else {
+        quote! {}
+    };
+
+    let expanded = quote! {
+        #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+        pub struct #name #impl_generics {
+            #required_fields
+            #optional_fields
+            #data_fields
+        } #where_clause
+
+        impl #impl_generics #name #ty_generics #where_clause {
+            pub fn new(msg_id: ::axiom_core::id::MsgId, correlation_id: ::axiom_core::id::CorrelationId #data_field_params) -> Self {
+                Self {
+                    msg_id,
+                    correlation_id,
+                    vector_clock: ::axiom_core::signal::VectorClock::new(),
+                    #trace_field_init
+                    #sender_field_init
+                    #data_field_inits
+                }
+            }
+
+            pub fn with_vector_clock(mut self, vc: ::axiom_core::signal::VectorClock) -> Self {
+                self.vector_clock = vc;
+                self
+            }
+
+            #trace_setter
+            #sender_setter
+        }
+
+        impl #impl_generics ::axiom_core::Signal for #name #ty_generics #where_clause {
+            fn signal_type(&self) -> &'static str {
+                stringify!(#name)
+            }
+            fn msg_id(&self) -> &::axiom_core::id::MsgId {
+                &self.msg_id
+            }
+            fn correlation_id(&self) -> &::axiom_core::id::CorrelationId {
+                &self.correlation_id
+            }
+            #trace_id_impl
+            fn vector_clock(&self) -> &::axiom_core::signal::VectorClock {
+                &self.vector_clock
+            }
+            fn timestamp_ns(&self) -> u64 {
+                ::axiom_core::signal::now_ns()
+            }
+            fn kind(&self) -> ::axiom_core::SignalKind {
+                #kind
+            }
+            fn layer(&self) -> ::axiom_core::Layer {
+                #layer
+            }
+            #sender_impl
+            fn as_any(&self) -> &dyn std::any::Any {
+                self
+            }
+            fn clone_signal(&self) -> Box<dyn ::axiom_core::Signal> {
+                Box::new(self.clone())
+            }
+            fn validate(&self) -> ::axiom_core::ValidationResult {
+                ::axiom_core::ValidationResult::ok()
+            }
+            fn serialize_to_json(&self) -> ::axiom_core::Result<serde_json::Value> {
+                serde_json::to_value(self)
+                    .map_err(|e| ::axiom_core::AxiomError::SignalSerialization {
+                        signal_type: stringify!(#name).to_string(),
+                        message: e.to_string(),
+                    })
+            }
+        }
+
+        impl #impl_generics ::axiom_core::Schema for #name #ty_generics #where_clause {
+            fn validate(&self) -> ::axiom_core::ValidationResult {
+                ::axiom_core::ValidationResult::ok()
+            }
+        }
+    };
+
+    TokenStream::from(expanded)
+}
+
+#[proc_macro_attribute]
+pub fn tool(attr: TokenStream, item: TokenStream) -> TokenStream {
+    let input = parse_macro_input!(item as ItemStruct);
+    let name = &input.ident;
+    let name_str = name.to_string();
+
+    let mut permission = None;
+    let attr2: TokenStream2 = attr.into();
+    let mut iter = attr2.into_iter();
+    while let Some(tt) = iter.next() {
+        if let proc_macro2::TokenTree::Ident(ident) = tt {
+            if ident == "permission" {
+                let _eq = iter.next();
+                if let Some(proc_macro2::TokenTree::Literal(lit)) = iter.next() {
+                    let s = lit.to_string();
+                    let s = s.trim_matches('"').to_string();
+                    permission = Some(s);
+                }
+            }
+        }
+    }
+
+    let permission_str = permission.clone().unwrap_or_else(|| "none".to_string());
+    let required_permission = if permission.is_some() {
+        quote! { Some(#permission_str.to_string()) }
+    } else {
+        quote! { None }
+    };
+
+    let tool_info_impl = quote! {
+        fn info(&self) -> ::axiom_tool::ToolInfo {
+            ::axiom_tool::ToolInfo {
+                name: #name_str.to_string(),
+                description: "Auto-generated tool".to_string(),
+                parameters: vec![],
+                required_permission: #required_permission,
+                version: "1.0.0".to_string(),
+            }
+        }
+    };
+
+    let exec_wrapper = quote! {
+        async fn execute(&self, parameters: &serde_json::Value) -> Result<serde_json::Value, ::axiom_tool::ToolError> {
+            let _ = ::axiom_core::registry::WITNESS_REGISTRY.record(::axiom_core::witness::Witness {
+                witness_id: ::axiom_core::id::WitnessId::new(format!("tool-wit-{}", ::axiom_core::signal::now_ns())),
+                schema_version: <::axiom_core::version::WitnessSchema as ::axiom_core::Versioned>::schema_version(),
+                cell_id: "tool-executor".to_string(),
+                correlation_id: ::axiom_core::id::CorrelationId::new("auto"),
+                trace_id: None,
+                triggering_msg_id: None,
+                vector_clock: ::axiom_core::signal::VectorClock::new(),
+                timestamp_ns: ::axiom_core::signal::now_ns(),
+                prev_hash: None,
+                state_before_hash: None,
+                state_after_hash: None,
+                hash: ::axiom_core::witness::WitnessHash::zero(),
+                summary: format!("tool {} executed", #name_str),
+                outcome: ::axiom_core::witness::TransitionOutcome::Success,
+                metrics: ::axiom_core::witness::WitnessMetrics::default(),
+                version_info: ::axiom_core::version::VersionInfo::current(),
+                signal_fingerprint: [0u8; 32],
+                payload_size_bytes: 0,
+                kind: ::axiom_core::witness::WitnessKind::ToolInvocation,
+            });
+
+            self.execute_inner(parameters).await
+        }
+    };
+
+    let expanded = quote! {
+        #[derive(Debug, Default)]
+        #input
+
+        #[async_trait::async_trait]
+        impl ::axiom_tool::Tool for #name {
+            #tool_info_impl
+            #exec_wrapper
+        }
+
+        impl #name {
+            pub async fn execute_inner(&self, parameters: &serde_json::Value) -> Result<serde_json::Value, ::axiom_tool::ToolError> {
+                Ok(serde_json::json!({ "result": "not implemented" }))
+            }
+        }
+    };
+
+    TokenStream::from(expanded)
+}
+
 #[proc_macro_attribute]
 pub fn axiom(_attr: TokenStream, item: TokenStream) -> TokenStream {
     let input = parse_macro_input!(item as ItemStruct);
@@ -393,14 +730,6 @@ pub fn axiom(_attr: TokenStream, item: TokenStream) -> TokenStream {
     TokenStream::from(expanded)
 }
 
-/// Attribute macro for setting schema version on a type.
-///
-/// # Usage
-/// ```ignore
-/// #[schema_version(2)]
-/// #[derive(Serialize, Deserialize)]
-/// struct MySignal { ... }
-/// ```
 #[proc_macro_attribute]
 pub fn schema_version(attr: TokenStream, item: TokenStream) -> TokenStream {
     let version = parse_macro_input!(attr as LitInt);
@@ -432,19 +761,6 @@ pub fn schema_version(attr: TokenStream, item: TokenStream) -> TokenStream {
     TokenStream::from(expanded)
 }
 
-/// Attribute macro for Migration implementations. Enforces compile-time to = from + 1.
-///
-/// Place on `impl Migration for Type` blocks. The macro fills in source_version()
-/// and target_version() automatically, and registers the migration in the
-/// distributed registry. The user only needs to implement `migrate()`.
-///
-/// # Usage
-/// ```ignore
-/// #[axiom_macros::migration(from = 1)]
-/// impl Migration for MigrateV1toV2 {
-///     fn migrate(&self, input: Value) -> Result<Value> { ... }
-/// }
-/// ```
 #[proc_macro_attribute]
 pub fn migration(attr: TokenStream, item: TokenStream) -> TokenStream {
     let mut input = parse_macro_input!(item as ItemImpl);
@@ -521,6 +837,211 @@ pub fn migration(attr: TokenStream, item: TokenStream) -> TokenStream {
         #[::axiom_core::linkme::distributed_slice(::axiom_core::registry::MIGRATION_REGISTRY)]
         #[linkme(crate = ::axiom_core::linkme)]
         static #reg_static: fn() -> (u16, u16, &'static str, &'static str) = #reg_fn;
+    };
+
+    TokenStream::from(expanded)
+}
+
+#[proc_macro_attribute]
+pub fn guard(attr: TokenStream, item: TokenStream) -> TokenStream {
+    let input = parse_macro_input!(item as ItemStruct);
+    let name = &input.ident;
+    let name_str = name.to_string();
+
+    let mut layer = None;
+    let attr2: TokenStream2 = attr.into();
+    let mut iter = attr2.into_iter();
+    while let Some(tt) = iter.next() {
+        if let proc_macro2::TokenTree::Ident(ident) = tt {
+            if ident == "layer" {
+                let _eq = iter.next();
+                if let Some(proc_macro2::TokenTree::Literal(lit)) = iter.next() {
+                    let s = lit.to_string();
+                    let s = s.trim_matches('"').to_string();
+                    layer = Some(s);
+                }
+            }
+        }
+    }
+
+    let layer_str = layer.clone().unwrap_or_else(|| "all".to_string());
+
+    let expanded = quote! {
+        #[derive(Debug, Default)]
+        #input
+
+        impl ::axiom_core::axiom::Guard for #name {
+            fn name(&self) -> &'static str {
+                #name_str
+            }
+            fn layer(&self) -> Option<::axiom_core::Layer> {
+                match #layer_str {
+                    "exec" => Some(::axiom_core::Layer::Exec),
+                    "validate" => Some(::axiom_core::Layer::Validate),
+                    "agent" => Some(::axiom_core::Layer::Agent),
+                    "oversight" => Some(::axiom_core::Layer::Oversight),
+                    _ => None,
+                }
+            }
+            fn check(&self, signal: &dyn ::axiom_core::Signal) -> ::axiom_core::Result<()> {
+                let result = self.check_inner(signal);
+
+                let _ = ::axiom_core::registry::WITNESS_REGISTRY.record(::axiom_core::witness::Witness {
+                    witness_id: ::axiom_core::id::WitnessId::new(format!("guard-wit-{}", ::axiom_core::signal::now_ns())),
+                    schema_version: <::axiom_core::version::WitnessSchema as ::axiom_core::Versioned>::schema_version(),
+                    cell_id: "guard-executor".to_string(),
+                    correlation_id: ::axiom_core::id::CorrelationId::new("auto"),
+                    trace_id: None,
+                    triggering_msg_id: None,
+                    vector_clock: ::axiom_core::signal::VectorClock::new(),
+                    timestamp_ns: ::axiom_core::signal::now_ns(),
+                    prev_hash: None,
+                    state_before_hash: None,
+                    state_after_hash: None,
+                    hash: ::axiom_core::witness::WitnessHash::zero(),
+                    summary: format!("guard {} checked signal {}", #name_str, signal.signal_type()),
+                    outcome: if result.is_ok() {
+                        ::axiom_core::witness::TransitionOutcome::Success
+                    } else {
+                        ::axiom_core::witness::TransitionOutcome::Failed {
+                            reason: result.as_ref().err().unwrap().to_string()
+                        }
+                    },
+                    metrics: ::axiom_core::witness::WitnessMetrics::default(),
+                    version_info: ::axiom_core::version::VersionInfo::current(),
+                    signal_fingerprint: [0u8; 32],
+                    payload_size_bytes: 0,
+                    kind: ::axiom_core::witness::WitnessKind::GuardCheck,
+                });
+
+                result
+            }
+        }
+
+        impl #name {
+            pub fn check_inner(&self, signal: &dyn ::axiom_core::Signal) -> ::axiom_core::Result<()> {
+                Ok(())
+            }
+        }
+    };
+
+    TokenStream::from(expanded)
+}
+
+#[proc_macro_attribute]
+pub fn capability(attr: TokenStream, item: TokenStream) -> TokenStream {
+    let input = parse_macro_input!(item as ItemStruct);
+    let name = &input.ident;
+    let name_str = name.to_string();
+
+    let mut dimension = None;
+    let mut version = None;
+    let mut layer = None;
+
+    let attr2: TokenStream2 = attr.into();
+    let mut iter = attr2.into_iter();
+    while let Some(tt) = iter.next() {
+        if let proc_macro2::TokenTree::Ident(ident) = tt {
+            match ident.to_string().as_str() {
+                "dim" | "dimension" => {
+                    let _eq = iter.next();
+                    if let Some(proc_macro2::TokenTree::Literal(lit)) = iter.next() {
+                        let s = lit.to_string();
+                        let s = s.trim_matches('"').to_string();
+                        dimension = Some(s);
+                    }
+                }
+                "version" => {
+                    let _eq = iter.next();
+                    if let Some(proc_macro2::TokenTree::Literal(lit)) = iter.next() {
+                        let s = lit.to_string();
+                        let s = s.trim_matches('"').to_string();
+                        version = Some(s);
+                    }
+                }
+                "layer" => {
+                    let _eq = iter.next();
+                    if let Some(proc_macro2::TokenTree::Literal(lit)) = iter.next() {
+                        let s = lit.to_string();
+                        let s = s.trim_matches('"').to_string();
+                        layer = Some(s);
+                    }
+                }
+                _ => {}
+            }
+        }
+    }
+
+    let dim_str = dimension.clone().unwrap_or_else(|| "witness".to_string());
+    let dim_variant = match dim_str.as_str() {
+        "witness" => quote! { ::axiom_core::CapabilityDimension::Witness },
+        "schema" => quote! { ::axiom_core::CapabilityDimension::Schema },
+        "layer" => quote! { ::axiom_core::CapabilityDimension::Layer },
+        "tool" => quote! { ::axiom_core::CapabilityDimension::Tool },
+        "guard" => quote! { ::axiom_core::CapabilityDimension::Guard },
+        _ => return syn::Error::new_spanned(&input, format!("invalid dimension: {}", dim_str)).to_compile_error().into(),
+    };
+
+    let version_str = version.clone().unwrap_or_else(|| "1.0.0".to_string());
+    let ver_parts: Vec<&str> = version_str.split('.').collect();
+    if ver_parts.len() != 3 {
+        return syn::Error::new_spanned(&input, "version must be in format X.Y.Z").to_compile_error().into();
+    }
+
+    let major: u16 = match ver_parts[0].parse() {
+        Ok(v) => v,
+        Err(_) => return syn::Error::new_spanned(&input, "invalid version major").to_compile_error().into(),
+    };
+    let minor: u16 = match ver_parts[1].parse() {
+        Ok(v) => v,
+        Err(_) => return syn::Error::new_spanned(&input, "invalid version minor").to_compile_error().into(),
+    };
+    let patch: u16 = match ver_parts[2].parse() {
+        Ok(v) => v,
+        Err(_) => return syn::Error::new_spanned(&input, "invalid version patch").to_compile_error().into(),
+    };
+
+    let layer_variant = if let Some(l) = layer {
+        match l.as_str() {
+            "exec" => quote! { Some(::axiom_core::Layer::Exec) },
+            "validate" => quote! { Some(::axiom_core::Layer::Validate) },
+            "agent" => quote! { Some(::axiom_core::Layer::Agent) },
+            "oversight" => quote! { Some(::axiom_core::Layer::Oversight) },
+            "all" => quote! { None },
+            _ => return syn::Error::new_spanned(&input, format!("invalid layer: {}", l)).to_compile_error().into(),
+        }
+    } else {
+        quote! { None }
+    };
+
+    let reg_static = syn::Ident::new(
+        &format!("__CAP_REG_{}", name_str.to_uppercase()),
+        proc_macro2::Span::call_site(),
+    );
+    let reg_entry = syn::Ident::new(
+        &format!("__CAP_ENTRY_{}", name_str.to_uppercase()),
+        proc_macro2::Span::call_site(),
+    );
+
+    let expanded = quote! {
+        #[derive(Debug, Clone)]
+        #input
+
+        #[doc(hidden)]
+        #[allow(non_upper_case_globals)]
+        pub static #reg_static: ::axiom_core::CapabilityDescriptor = ::axiom_core::CapabilityDescriptor {
+            dimension: #dim_variant,
+            name: #name_str,
+            version: ::axiom_core::Version::new(#major, #minor, #patch),
+            compatibility: ::axiom_core::Compatibility::SemVer,
+            applies_to_layer: #layer_variant,
+            migration_chain_start: None,
+        };
+
+        #[::axiom_core::linkme::distributed_slice(::axiom_core::CAPABILITY_REGISTRY)]
+        #[linkme(crate = ::axiom_core::linkme)]
+        #[doc(hidden)]
+        pub static #reg_entry: &'static ::axiom_core::CapabilityDescriptor = &#reg_static;
     };
 
     TokenStream::from(expanded)

@@ -309,5 +309,6 @@ fn make_test_witness(seq: usize) -> axiom_core::witness::Witness {
         version_info: VersionInfo::current(),
         signal_fingerprint: [0u8; 32],
         payload_size_bytes: 0,
+        kind: axiom_core::witness::WitnessKind::StateTransition,
     }
 }

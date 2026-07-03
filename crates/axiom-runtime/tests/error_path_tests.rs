@@ -12,7 +12,7 @@ use axiom_core::id::{CorrelationId, MsgId, WitnessId};
 use axiom_core::layer::Layer;
 use axiom_core::signal::{SignalEnvelope, SignalKind, VectorClock};
 use axiom_core::version::VersionInfo;
-use axiom_core::witness::{TransitionOutcome, Witness, WitnessHash, WitnessMetrics};
+use axiom_core::witness::{TransitionOutcome, Witness, WitnessHash, WitnessKind, WitnessMetrics};
 use axiom_runtime::bus::BusInterceptor;
 use axiom_runtime::guardian::ArchitectureGuardian;
 use std::sync::Arc;
@@ -359,6 +359,7 @@ fn make_witness(
         version_info: VersionInfo::current(),
         signal_fingerprint: [0u8; 32],
         payload_size_bytes: 0,
+        kind: WitnessKind::StateTransition,
     };
     w
 }
