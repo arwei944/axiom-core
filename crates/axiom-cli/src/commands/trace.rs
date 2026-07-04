@@ -1,6 +1,6 @@
 use std::process::ExitCode;
 
-use anyhow::{Context, Result};
+use anyhow::Result;
 use clap::Args;
 
 #[derive(Args)]

@@ -318,7 +318,7 @@ pub fn cell(attr: TokenStream, item: TokenStream) -> TokenStream {
 
 #[proc_macro_attribute]
 pub fn signal(attr: TokenStream, item: TokenStream) -> TokenStream {
-    let mut input = parse_macro_input!(item as ItemStruct);
+    let input = parse_macro_input!(item as ItemStruct);
     let name = &input.ident;
     let (impl_generics, ty_generics, where_clause) = input.generics.split_for_impl();
 
@@ -934,7 +934,7 @@ pub fn lens(attr: TokenStream, item: TokenStream) -> TokenStream {
     let name_str = name.to_string();
 
     let mut lens_id = None;
-    let mut aggregate = None;
+    let mut _aggregate = None;
     let mut depends_on = Vec::new();
     let mut cache = true;
     let mut capability_version = "1.0.0".to_string();
@@ -957,7 +957,7 @@ pub fn lens(attr: TokenStream, item: TokenStream) -> TokenStream {
                     if let Some(proc_macro2::TokenTree::Literal(lit)) = iter.next() {
                         let s = lit.to_string();
                         let s = s.trim_matches('"').to_string();
-                        aggregate = Some(s);
+                        _aggregate = Some(s);
                     }
                 }
                 "depends_on" => {
@@ -965,7 +965,7 @@ pub fn lens(attr: TokenStream, item: TokenStream) -> TokenStream {
                     if let Some(proc_macro2::TokenTree::Punct(p)) = iter.next() {
                         if p.as_char() == '[' {
                             let mut deps = Vec::new();
-                            while let Some(tt2) = iter.next() {
+                            for tt2 in iter.by_ref() {
                                 if let proc_macro2::TokenTree::Literal(lit) = tt2 {
                                     let s = lit.to_string();
                                     let s = s.trim_matches('"').to_string();
@@ -999,7 +999,7 @@ pub fn lens(attr: TokenStream, item: TokenStream) -> TokenStream {
         }
     }
 
-    let id_str = lens_id.unwrap_or_else(|| {
+    let _id_str = lens_id.unwrap_or_else(|| {
         let kebab: String = name_str
             .chars()
             .enumerate()
@@ -1031,7 +1031,7 @@ pub fn lens(attr: TokenStream, item: TokenStream) -> TokenStream {
         quote! {}
     };
 
-    let depends_on_impl = if !depends_on.is_empty() {
+    let _depends_on_impl = if !depends_on.is_empty() {
         quote! {
             fn depends_on(&self) -> &[::axiom_core::id::LensId] {
                 #deps_static
@@ -1042,7 +1042,7 @@ pub fn lens(attr: TokenStream, item: TokenStream) -> TokenStream {
         quote! {}
     };
 
-    let cache_key_impl = if cache {
+    let _cache_key_impl = if cache {
         quote! {
             fn cache_key(&self, input: &Self::Input) -> Option<String> {
                 serde_json::to_string(input).ok()
@@ -1052,7 +1052,7 @@ pub fn lens(attr: TokenStream, item: TokenStream) -> TokenStream {
         quote! {}
     };
 
-    let reg_static = syn::Ident::new(
+    let _reg_static = syn::Ident::new(
         &format!("__LENS_REG_{}", name_str.to_uppercase()),
         proc_macro2::Span::call_site(),
     );

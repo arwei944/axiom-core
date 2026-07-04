@@ -7,18 +7,13 @@ use crate::sqlite::{SqliteStore, SqliteStoreConfig};
 use crate::store::EventStore;
 use std::sync::Arc;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub enum StoreConfig {
+    #[default]
     Memory,
     #[cfg(feature = "sqlite")]
     Sqlite(SqliteStoreConfig),
     File(FileStoreConfig),
-}
-
-impl Default for StoreConfig {
-    fn default() -> Self {
-        StoreConfig::Memory
-    }
 }
 
 pub enum StoreFactory {

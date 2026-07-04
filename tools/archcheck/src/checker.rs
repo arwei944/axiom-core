@@ -81,7 +81,7 @@ pub fn check_dependencies(
 ) -> Vec<Violation> {
     let mut violations = Vec::new();
 
-    for (dep_name, _) in &manifest.dependencies {
+    for dep_name in manifest.dependencies.keys() {
         if dep_name.starts_with("axiom-") {
             violations.extend(check_internal_dep(arch, &manifest.name, dep_name));
         } else {
@@ -99,7 +99,7 @@ pub fn check_build_dependencies(
 ) -> Vec<Violation> {
     let mut violations = Vec::new();
 
-    for (dep_name, _) in &manifest.build_dependencies {
+    for dep_name in manifest.build_dependencies.keys() {
         if dep_name.starts_with("axiom-") {
             violations.extend(check_internal_dep(arch, &manifest.name, dep_name));
         } else {
@@ -117,7 +117,7 @@ pub fn check_dev_dependencies(
 ) -> Vec<Violation> {
     let mut violations = Vec::new();
 
-    for (dep_name, _) in &manifest.dev_dependencies {
+    for dep_name in manifest.dev_dependencies.keys() {
         if dep_name.starts_with("axiom-") {
             continue;
         }

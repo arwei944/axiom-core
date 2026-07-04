@@ -36,14 +36,14 @@ pub struct SyncState {
 }
 
 pub struct EventSync {
-    local: NodeId,
+    _local: NodeId,
     state: Arc<RwLock<SyncState>>,
 }
 
 impl EventSync {
     pub fn new(local: NodeId) -> Self {
         Self {
-            local,
+            _local: local,
             state: Arc::new(RwLock::new(SyncState::default())),
         }
     }

@@ -245,11 +245,11 @@ fn fetch_cell_status(cell_id: &str) -> Result<CellStatusData> {
     })
 }
 
-fn restart_cell(cell_id: &str, force: bool) -> Result<String> {
+fn restart_cell(cell_id: &str, _force: bool) -> Result<String> {
     Ok(format!("\x1B[32m✓ Cell '{}' restarted successfully\x1B[0m", cell_id))
 }
 
-fn stop_cell(cell_id: &str, force: bool) -> Result<String> {
+fn stop_cell(cell_id: &str, _force: bool) -> Result<String> {
     Ok(format!("\x1B[33m✓ Cell '{}' stopped\x1B[0m", cell_id))
 }
 

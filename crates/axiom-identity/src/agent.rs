@@ -4,7 +4,6 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 use parking_lot::RwLock;
-use serde::{Deserialize, Serialize};
 
 use crate::identity::{AgentIdentity, DisclosureLevel, IdentityError};
 use crate::skill::{Skill, SkillContext, SkillState};
@@ -47,7 +46,7 @@ impl AgentPersona {
 
     pub fn list_skills(&self) -> Vec<Skill> {
         let mut skills: Vec<Skill> = self.skills.read().values().cloned().collect();
-        skills.sort_by(|a, b| b.priority.cmp(&a.priority));
+        skills.sort_by_key(|b| std::cmp::Reverse(b.priority));
         skills
     }
 
@@ -83,11 +82,9 @@ impl AgentPersona {
                     skill.deactivate();
                     active.retain(|s| s != id);
                 }
-            } else if skill.can_activate(&context) {
-                if skill.activate(&context) {
-                    newly_activated.push(id.clone());
-                    active.push(id.clone());
-                }
+            } else if skill.can_activate(&context) && skill.activate(&context) {
+                newly_activated.push(id.clone());
+                active.push(id.clone());
             }
         }
 

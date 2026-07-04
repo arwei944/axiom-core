@@ -101,8 +101,10 @@ fn render_causal_chain(data: &CausalData, full: bool) -> String {
             link.entity_type
         ));
         output.push_str(&format!("  Time: {}\n", link.timestamp));
-        if full && link.details.is_some() {
-            output.push_str(&format!("  Details: {}\n", link.details.as_ref().unwrap()));
+        if full {
+            if let Some(details) = &link.details {
+                output.push_str(&format!("  Details: {}\n", details));
+            }
         }
         output.push('\n');
     }
@@ -119,8 +121,10 @@ fn render_causal_chain(data: &CausalData, full: bool) -> String {
             link.entity_type
         ));
         output.push_str(&format!("  Time: {}\n", link.timestamp));
-        if full && link.details.is_some() {
-            output.push_str(&format!("  Details: {}\n", link.details.as_ref().unwrap()));
+        if full {
+            if let Some(details) = &link.details {
+                output.push_str(&format!("  Details: {}\n", details));
+            }
         }
         output.push('\n');
     }

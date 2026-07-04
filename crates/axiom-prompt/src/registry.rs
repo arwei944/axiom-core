@@ -23,7 +23,7 @@ impl TemplateRegistry {
         let versions = self
             .templates
             .entry(template.name.clone())
-            .or_insert_with(HashMap::new);
+            .or_default();
 
         if versions.contains_key(&template.version) {
             return Err(PromptError::VersionConflict(format!(

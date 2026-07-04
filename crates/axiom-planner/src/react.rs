@@ -175,7 +175,6 @@ impl Planner for ReActPlanner {
                 steps.push(step);
             }
 
-            let duration = start.elapsed().as_millis() as u64;
             Ok(PlanningResult::failure(steps, "Max iterations reached without final answer"))
         })
     }

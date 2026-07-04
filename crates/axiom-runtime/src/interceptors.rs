@@ -114,13 +114,14 @@ impl BusInterceptor for LoopDetectInterceptor {
     }
 }
 
+#[allow(dead_code)]
 pub struct CapabilityVersionInterceptor {
     validator: ConstraintValidator,
 }
 
 impl CapabilityVersionInterceptor {
-    pub fn new(validator: ConstraintValidator) -> Self {
-        Self { validator }
+    pub fn new(inner: ConstraintValidator) -> Self {
+        Self { validator: inner }
     }
 }
 

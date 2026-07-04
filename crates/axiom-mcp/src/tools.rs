@@ -70,6 +70,12 @@ pub struct CellListTool {
     runtime: Arc<dyn RuntimeAccessor>,
 }
 
+impl Default for ToolRegistry {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl CellListTool {
     pub fn new(runtime: Arc<dyn RuntimeAccessor>) -> Self {
         Self { runtime }

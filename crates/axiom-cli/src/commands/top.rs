@@ -61,7 +61,7 @@ struct TopApp {
     entropy: f64,
     messages_processed: u64,
     uptime_seconds: u64,
-    layer_filter: Option<String>,
+    _layer_filter: Option<String>,
 }
 
 struct CellStatus {
@@ -121,7 +121,7 @@ impl TopApp {
             entropy: 45.6,
             messages_processed: 1275,
             uptime_seconds: 180,
-            layer_filter: None,
+            _layer_filter: None,
         }
     }
 

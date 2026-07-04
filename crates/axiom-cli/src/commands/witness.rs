@@ -165,7 +165,7 @@ fn fetch_witnesses(cell_id: &str, limit: usize) -> Result<Vec<WitnessData>> {
     Ok(witnesses)
 }
 
-fn verify_witness_chain(cell_id: Option<&str>) -> Result<VerificationResult> {
+fn verify_witness_chain(_cell_id: Option<&str>) -> Result<VerificationResult> {
     Ok(VerificationResult {
         all_valid: true,
         total_witnesses: 100,

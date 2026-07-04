@@ -303,11 +303,11 @@ fn parse_steps_from_text(text: &str, max_steps: usize) -> Vec<PlanStep> {
     for line in text.lines() {
         let trimmed = line.trim();
         if let Some((num_str, rest)) = trimmed.split_once('.') {
-            if let Ok(num) = num_str.trim().parse::<usize>() {
+            if let Ok(_num) = num_str.trim().parse::<usize>() {
                 let description = rest.trim().to_string();
                 if !description.is_empty() {
                     let mut step = PlanStep::new(steps.len(), description);
-                    if steps.len() > 0 {
+                    if !steps.is_empty() {
                         step.dependencies = vec![steps.len() - 1];
                     }
                     steps.push(step);

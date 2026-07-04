@@ -10,13 +10,13 @@
 //!
 //! SignalEnvelope provides type-erased wrapping for the message bus.
 
+use crate::clock::global_clock;
 use crate::id::{CorrelationId, MsgId, TraceId};
 use crate::layer::Layer;
 use crate::schema::ValidationResult;
 use crate::version::SchemaVersion;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use std::time::{SystemTime, UNIX_EPOCH};
 
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct VectorClock(pub HashMap<String, u64>);
@@ -201,16 +201,13 @@ impl SignalEnvelope {
     }
 
     pub fn is_fresh(&self, max_age_ns: u64) -> bool {
-        let now = now_ns();
+        let now = global_clock().now_ns();
         now.saturating_sub(self.timestamp_ns) <= max_age_ns
     }
 }
 
 pub fn now_ns() -> u64 {
-    SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .unwrap_or_default()
-        .as_nanos() as u64
+    global_clock().now_ns()
 }
 
 #[cfg(test)]

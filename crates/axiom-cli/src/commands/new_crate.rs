@@ -360,7 +360,7 @@ fn update_architecture_toml(crate_name: &str, layer: usize) -> Result<()> {
     let insert_line = format!("{} = {}\n", crate_name, layer);
 
     // Find the [crate-layers] section and add the new crate
-    if !content.contains(&format!("{}", crate_name)) {
+    if !content.contains(&crate_name.to_string()) {
         content = content
             .replace("[crate-layers]", &format!("[crate-layers]\n{}", insert_line));
     }

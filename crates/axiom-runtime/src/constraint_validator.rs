@@ -6,7 +6,6 @@
 
 use crate::bus::InterceptDecision;
 use axiom_core::capability::CapabilityDimension;
-use axiom_core::error::AxiomError;
 use axiom_core::signal::SignalEnvelope;
 
 #[derive(Debug, Clone, Default)]
@@ -55,12 +54,12 @@ impl ConstraintValidator {
         }
         let latest = registered
             .iter()
-            .max_by_key(|c| c.version.clone())
+            .max_by_key(|c| c.version)
             .unwrap();
         if !latest.is_compatible_with(&axiom_core::capability::CapabilityDescriptor {
             dimension: dimension.clone(),
             name: "requested",
-            version: requested_version.clone(),
+            version: *requested_version,
             compatibility: axiom_core::version::Compatibility::SemVer,
             applies_to_layer: None,
             migration_chain_start: None,

@@ -5,7 +5,7 @@ use tokio::sync::{broadcast, watch};
 use tokio::time::{interval, Duration};
 use tracing::debug;
 
-use crate::cluster::{ClusterConfig, ClusterError, ClusterView};
+use crate::cluster::{ClusterError, ClusterView};
 use crate::node::{NodeId, NodeInfo, NodeState};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

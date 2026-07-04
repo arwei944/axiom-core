@@ -2,11 +2,10 @@
 
 use crate::event::Event;
 use crate::store::{BoxFuture, EventReceiver, EventStore, StoreError};
-use serde_json::Value;
 use std::collections::HashMap;
 use std::fs::{self, File, OpenOptions};
-use std::io::{BufRead, BufReader, BufWriter, Write};
-use std::path::{Path, PathBuf};
+use std::io::{BufRead, BufReader, Write};
+use std::path::PathBuf;
 use std::sync::Arc;
 use tokio::sync::broadcast;
 
@@ -44,7 +43,7 @@ impl FileStore {
         fs::create_dir_all(&config.data_dir)
             .map_err(|e| StoreError::Storage(format!("create data dir: {e}")))?;
 
-        let mut store = Self {
+        let store = Self {
             config: config.clone(),
             current_file: Arc::new(parking_lot::Mutex::new(None)),
             current_path: Arc::new(parking_lot::Mutex::new(PathBuf::new())),

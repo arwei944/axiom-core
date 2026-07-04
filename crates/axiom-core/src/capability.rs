@@ -127,7 +127,7 @@ impl CapabilityVersionRegistry {
         CAPABILITY_REGISTRY
             .iter()
             .filter(|c| c.dimension == dim)
-            .map(|c| c.version.clone())
+            .map(|c| c.version)
             .max()
     }
 
@@ -142,15 +142,15 @@ impl CapabilityVersionRegistry {
 
             let latest = dim_caps
                 .iter()
-                .max_by_key(|c| c.version.clone())
+                .max_by_key(|c| c.version)
                 .unwrap();
 
             for cap in &dim_caps {
                 if !cap.is_compatible_with(latest) {
                     return Err(crate::AxiomError::VersionMismatch {
-                        compatibility: cap.compatibility.clone(),
-                        required: latest.version.clone(),
-                        found: cap.version.clone(),
+                        compatibility: cap.compatibility,
+                        required: latest.version,
+                        found: cap.version,
                     });
                 }
             }

@@ -31,6 +31,16 @@ impl WitnessRegistry {
     pub fn len(&self) -> usize {
         self.witnesses.lock().len()
     }
+
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+}
+
+impl Default for WitnessRegistry {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 pub static WITNESS_REGISTRY: WitnessRegistry = WitnessRegistry::new();

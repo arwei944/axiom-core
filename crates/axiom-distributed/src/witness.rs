@@ -34,12 +34,12 @@ impl DistributedWitnessStore {
 }
 
 pub struct WitnessSync {
-    local: NodeId,
+    _local: NodeId,
 }
 
 impl WitnessSync {
     pub fn new(local: NodeId) -> Self {
-        Self { local }
+        Self { _local: local }
     }
 
     pub fn validate_chain(&self, witnesses: &[Witness]) -> Result<()> {

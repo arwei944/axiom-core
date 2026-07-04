@@ -23,7 +23,10 @@ pub struct SystemClock;
 
 impl Clock for SystemClock {
     fn now_ns(&self) -> u64 {
-        crate::signal::now_ns()
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_nanos() as u64
     }
 }
 
@@ -114,4 +117,24 @@ mod tests {
         clock.advance(1);
         assert_eq!(clock.now_ns(), u64::MAX);
     }
+}
+
+// === Global clock singleton ===
+
+use std::sync::OnceLock;
+
+static GLOBAL_CLOCK: OnceLock<parking_lot::Mutex<Arc<dyn Clock>>> = OnceLock::new();
+
+fn global_clock_lock() -> &'static parking_lot::Mutex<Arc<dyn Clock>> {
+    GLOBAL_CLOCK.get_or_init(|| Mutex::new(Arc::new(SystemClock)))
+}
+
+/// Return the global clock instance.
+pub fn global_clock() -> Arc<dyn Clock> {
+    global_clock_lock().lock().clone()
+}
+
+/// Replace the global clock instance. Intended for tests only.
+pub fn set_global_clock(clock: Arc<dyn Clock>) {
+    *global_clock_lock().lock() = clock;
 }

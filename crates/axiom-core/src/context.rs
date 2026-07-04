@@ -9,11 +9,12 @@
 //! at COMPILE TIME. ExecCellContext can only send to Exec. AgentCellContext
 //! can send to Agent and Validate. Etc.
 
+use crate::clock::global_clock;
 use crate::id::{CellId, CorrelationId, LensId, MsgId, TraceId};
 use crate::layer::Layer;
 use crate::lens::{LensAccessor, LensEvent, LensRegistry, Projection};
 use crate::sealed::{CanSendTo, LayerMarker};
-use crate::signal::{now_ns, Signal, SignalEnvelope, VectorClock};
+use crate::signal::{Signal, SignalEnvelope, VectorClock};
 use crate::version::SchemaVersion;
 use crate::witness::{TransitionOutcome, Witness, WitnessBuilder, WitnessHash};
 use serde::{de::DeserializeOwned, Serialize};
@@ -269,7 +270,7 @@ impl<'a> CellContext<'a> {
 
     pub fn spawn(&mut self, target_layer: Layer) -> crate::Result<CellId> {
         self.spawn_requests.push(CellSpawnRequest { target_layer });
-        Ok(CellId::new(format!("spawn-{}", now_ns())))
+        Ok(CellId::new(format!("spawn-{}", global_clock().now_ns())))
     }
 
     pub fn as_layered<L: LayerMarker>(&'a mut self) -> LayeredCellContext<'a, L> {

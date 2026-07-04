@@ -331,10 +331,10 @@ impl WitnessReplay {
         let mut state = S::default();
 
         for w in witnesses {
-            if let Ok(event) = serde_json::from_value::<axiom_core::WitnessEvent>(
+            if let Ok(_event) = serde_json::from_value::<axiom_core::WitnessEvent>(
                 serde_json::to_value(&w.summary).unwrap_or_default(),
             ) {
-                if let Err(err) = state.apply_event("witness", &serde_json::to_value(&w).unwrap_or_default()) {
+                if let Err(err) = state.apply_event("witness", &serde_json::to_value(w).unwrap_or_default()) {
                     tracing::warn!(witness_id = ?w.witness_id, error = ?err, "witness replay apply_event failed");
                 }
             }
@@ -364,7 +364,7 @@ impl WitnessReplay {
         let mut state = S::default();
 
         for w in &witnesses {
-            if let Err(err) = state.apply_event("witness", &serde_json::to_value(&w).unwrap_or_default()) {
+            if let Err(err) = state.apply_event("witness", &serde_json::to_value(w).unwrap_or_default()) {
                 tracing::warn!(witness_id = ?w.witness_id, error = ?err, "witness replay apply_event failed");
             }
         }

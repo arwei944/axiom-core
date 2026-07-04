@@ -140,7 +140,7 @@ async fn main() {
 
         consumer_handles.push(tokio::spawn(async move {
             while Instant::now() < deadline {
-                if let Some(_) = mb.pop().await {
+                if mb.pop().await.is_some() {
                     received.fetch_add(1, Ordering::Relaxed);
                 } else {
                     tokio::task::yield_now().await;

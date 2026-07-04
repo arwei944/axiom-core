@@ -9,6 +9,7 @@
 //! - VersionInfo for replay compatibility
 //! - Signal fingerprint for fast deduplication
 
+use crate::clock::global_clock;
 use crate::context::{CellContext, OutgoingWitness};
 use crate::id::{CellId, CorrelationId, MsgId, TraceId, WitnessId};
 use crate::layer::Layer;
@@ -175,14 +176,14 @@ impl Witness {
         cell_id: CellId,
         kind: WitnessKind,
         event: WitnessEvent,
-        layer: Layer,
+        _layer: Layer,
     ) -> Self {
         #[cfg(feature = "uuid")]
         let witness_id = WitnessId::generate();
         #[cfg(not(feature = "uuid"))]
         let witness_id = WitnessId::new(format!(
             "wit-{}",
-            crate::signal::now_ns()
+            global_clock().now_ns()
         ));
 
         let event_summary = match &event {
@@ -205,7 +206,7 @@ impl Witness {
             trace_id: None,
             triggering_msg_id: None,
             vector_clock: VectorClock::new(),
-            timestamp_ns: crate::signal::now_ns(),
+            timestamp_ns: global_clock().now_ns(),
             prev_hash: None,
             state_before_hash: None,
             state_after_hash: None,
@@ -401,7 +402,7 @@ impl WitnessBuilder {
             .unwrap_or_else(|| CorrelationId::new("none"));
         let trace = ctx.current_trace.clone();
         let triggering = ctx.current_msg_id.clone();
-        let timestamp = crate::signal::now_ns();
+        let timestamp = global_clock().now_ns();
         let vc = ctx.vector_clock.clone();
         let cell_id = ctx.cell_id.as_str().to_string();
         let version_info = VersionInfo::current();

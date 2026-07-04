@@ -137,7 +137,6 @@ echo "✅ 预提交架构检查通过"
 
     println!("✅ 预提交钩子已安装: {}", hook_file);
     println!("   现在每次 git commit 前会自动运行架构检查");
-    println!("");
     println!("💡 如需跳过检查（紧急情况），使用: git commit --no-verify");
 
     Ok(())

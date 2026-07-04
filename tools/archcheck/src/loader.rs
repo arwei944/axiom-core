@@ -50,7 +50,7 @@ impl Architecture {
                     .filter_map(|(k, v)| v.as_integer().map(|i| (k.clone(), i as usize)))
                     .collect()
             })
-            .ok_or_else(|| LoaderError::MissingSection("crate-layers"))?;
+            .ok_or(LoaderError::MissingSection("crate-layers"))?;
 
         let forbidden_deps = Self::parse_reason_map(parsed.get("forbidden-deps"))?;
         let audited_deps = Self::parse_reason_map(parsed.get("audited-deps"))?;
@@ -59,7 +59,7 @@ impl Architecture {
             .get("dev-dependencies-audit")
             .and_then(|v| v.get("enabled"))
             .and_then(|v| v.as_bool())
-            .ok_or_else(|| LoaderError::MissingDevDepAuditFlag)?;
+            .ok_or(LoaderError::MissingDevDepAuditFlag)?;
 
         let proc_macro_exemptions = Self::parse_exemptions(parsed.get("proc-macro-exemptions"))?;
         let reverse_dependency_exemptions =

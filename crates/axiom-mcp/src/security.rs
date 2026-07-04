@@ -9,18 +9,13 @@ use serde_json::Value;
 
 use crate::protocol::McpError;
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub enum PermissionLevel {
+    #[default]
     None,
     Read,
     Write,
     Admin,
-}
-
-impl Default for PermissionLevel {
-    fn default() -> Self {
-        PermissionLevel::None
-    }
 }
 
 #[derive(Debug, Clone)]
@@ -106,6 +101,12 @@ impl ApprovalManager {
     }
 }
 
+impl Default for ApprovalManager {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 pub struct SecurityManager {
     permissions: Arc<RwLock<HashMap<String, ToolPermission>>>,
     approval_manager: Arc<ApprovalManager>,
@@ -176,6 +177,12 @@ impl SecurityManager {
 
     pub fn approval_manager(&self) -> Arc<ApprovalManager> {
         self.approval_manager.clone()
+    }
+}
+
+impl Default for SecurityManager {
+    fn default() -> Self {
+        Self::new()
     }
 }
 

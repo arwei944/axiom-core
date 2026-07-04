@@ -35,7 +35,7 @@ pub trait Lens: Send + Sync + 'static {
         self.project(&filtered, input)
     }
 
-    fn cache_key(&self, input: &Self::Input) -> Option<String> {
+    fn cache_key(&self, _input: &Self::Input) -> Option<String> {
         None
     }
 
@@ -43,11 +43,11 @@ pub trait Lens: Send + Sync + 'static {
         &[]
     }
 
-    fn token_estimate(&self, output: &Self::Output) -> Option<usize> {
+    fn token_estimate(&self, _output: &Self::Output) -> Option<usize> {
         None
     }
 
-    fn summary(&self, output: &Self::Output) -> Option<String> {
+    fn summary(&self, _output: &Self::Output) -> Option<String> {
         None
     }
 }
@@ -57,7 +57,7 @@ pub trait Projectable: Send + Sync + 'static {
 
     fn project_value(&self, events: &[LensEvent], input: &serde_json::Value) -> serde_json::Value;
 
-    fn cache_key_value(&self, input: &serde_json::Value) -> Option<String> {
+    fn cache_key_value(&self, _input: &serde_json::Value) -> Option<String> {
         None
     }
 
@@ -65,11 +65,11 @@ pub trait Projectable: Send + Sync + 'static {
         &[]
     }
 
-    fn token_estimate_value(&self, output: &serde_json::Value) -> Option<usize> {
+    fn token_estimate_value(&self, _output: &serde_json::Value) -> Option<usize> {
         None
     }
 
-    fn summary_value(&self, output: &serde_json::Value) -> Option<String> {
+    fn summary_value(&self, _output: &serde_json::Value) -> Option<String> {
         None
     }
 
@@ -315,6 +315,12 @@ impl InMemoryProjectionCache {
     pub fn with_max_size(mut self, max_size_bytes: usize) -> Self {
         self.max_size_bytes = max_size_bytes;
         self
+    }
+}
+
+impl Default for InMemoryProjectionCache {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
@@ -575,6 +581,12 @@ impl IncrementalProjectionCache {
         self.enforce_limits();
 
         projection
+    }
+}
+
+impl Default for IncrementalProjectionCache {
+    fn default() -> Self {
+        Self::new()
     }
 }
 

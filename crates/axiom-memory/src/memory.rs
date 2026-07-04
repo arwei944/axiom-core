@@ -4,9 +4,8 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 use parking_lot::RwLock;
-use serde_json::Value;
 
-use crate::item::{estimate_tokens, MemoryItem, MemoryItemType};
+use crate::item::{MemoryItem, MemoryItemType};
 
 #[derive(Debug, thiserror::Error)]
 pub enum MemoryError {

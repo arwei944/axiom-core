@@ -156,7 +156,7 @@ impl EntropyScore {
         let dup = self.duplicate_messages as f64 * weights.duplicate_messages;
         let ssv = self.stale_state_violations as f64 * weights.stale_state_violations;
         self.value = dm + rbg + av + cr + cb + to + dup + ssv;
-        self.last_updated_ns = crate::signal::now_ns();
+        self.last_updated_ns = crate::clock::global_clock().now_ns();
         self.value
     }
 
@@ -237,7 +237,7 @@ impl EntropyScore {
         self.timeouts = 0;
         self.duplicate_messages = 0;
         self.stale_state_violations = 0;
-        self.last_updated_ns = crate::signal::now_ns();
+        self.last_updated_ns = crate::clock::global_clock().now_ns();
     }
 
     pub fn level(&self) -> EntropyLevel {

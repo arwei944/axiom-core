@@ -159,7 +159,7 @@ impl AgentIdentity {
             for trait_ in &self.traits {
                 prompt.push_str(&format!("- {}\n", trait_));
             }
-            prompt.push_str("\n");
+            prompt.push('\n');
         }
 
         prompt.push_str(&format!("Communication style: {} tone.\n", self.tone));

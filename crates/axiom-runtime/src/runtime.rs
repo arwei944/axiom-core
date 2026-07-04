@@ -21,7 +21,7 @@ use axiom_core::id::{CellId, CorrelationId, MsgId};
 use axiom_core::layer::Layer;
 use axiom_core::signal::{now_ns, SignalEnvelope, SignalKind, VectorClock};
 
-use crate::bus::{BusInterceptor, InterceptDecision, MessageBus};
+use crate::bus::MessageBus;
 use crate::constraint_validator::{ConstraintValidator, ValidationContext};
 use crate::entropy_gov::{EntropyEvent, EntropyGovernorCell, GovernanceAction};
 use crate::entropy_interceptors::{EmergencyInterceptor, ThrottleInterceptor};
@@ -390,7 +390,7 @@ impl AxiomRuntime {
                 ))
                 .await;
             self.bus
-                .register_interceptor(Arc::new(crate::interceptors::GuardInterceptor::default()))
+                .register_interceptor(Arc::new(crate::interceptors::GuardInterceptor))
                 .await;
         }
 
