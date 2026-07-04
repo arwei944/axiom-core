@@ -1,6 +1,6 @@
-use axiom_core::{
-    CapabilityDimension, CapabilityVersionRegistry, CAPABILITY_VERSION_REGISTRY, Version,
-};
+#![allow(dead_code)]
+
+use axiom_core::{CapabilityDimension, CapabilityVersionRegistry, Version};
 
 #[axiom_core::capability(dim = "witness", version = "1.0.0")]
 struct WitnessCapability;
@@ -31,19 +31,24 @@ fn test_capability_macro_auto_registration() {
     let caps = CapabilityVersionRegistry::registered_capabilities();
     assert!(caps.len() >= 8);
 
-    let witness_caps = CapabilityVersionRegistry::capabilities_by_dimension(CapabilityDimension::Witness);
+    let witness_caps =
+        CapabilityVersionRegistry::capabilities_by_dimension(CapabilityDimension::Witness);
     assert!(witness_caps.iter().any(|c| c.name == "WitnessCapability"));
 
-    let schema_caps = CapabilityVersionRegistry::capabilities_by_dimension(CapabilityDimension::Schema);
+    let schema_caps =
+        CapabilityVersionRegistry::capabilities_by_dimension(CapabilityDimension::Schema);
     assert!(schema_caps.iter().any(|c| c.name == "SchemaCapability"));
 
-    let identity_caps = CapabilityVersionRegistry::capabilities_by_dimension(CapabilityDimension::Identity);
+    let identity_caps =
+        CapabilityVersionRegistry::capabilities_by_dimension(CapabilityDimension::Identity);
     assert!(identity_caps.iter().any(|c| c.name == "IdentityCapability"));
 
-    let entropy_caps = CapabilityVersionRegistry::capabilities_by_dimension(CapabilityDimension::Entropy);
+    let entropy_caps =
+        CapabilityVersionRegistry::capabilities_by_dimension(CapabilityDimension::Entropy);
     assert!(entropy_caps.iter().any(|c| c.name == "EntropyCapability"));
 
-    let runtime_caps = CapabilityVersionRegistry::capabilities_by_dimension(CapabilityDimension::Runtime);
+    let runtime_caps =
+        CapabilityVersionRegistry::capabilities_by_dimension(CapabilityDimension::Runtime);
     assert!(runtime_caps.iter().any(|c| c.name == "RuntimeCapability"));
 }
 
@@ -60,20 +65,28 @@ fn test_capability_version_parsing() {
 #[test]
 fn test_capability_layer_association() {
     let caps = CapabilityVersionRegistry::registered_capabilities();
-    let exec_layer_cap = caps.iter().find(|c| c.name == "ExecLayerCapability").unwrap();
+    let exec_layer_cap = caps
+        .iter()
+        .find(|c| c.name == "ExecLayerCapability")
+        .unwrap();
     let guard_cap = caps.iter().find(|c| c.name == "GuardCapability").unwrap();
 
-    assert_eq!(exec_layer_cap.applies_to_layer, Some(axiom_core::Layer::Exec));
+    assert_eq!(
+        exec_layer_cap.applies_to_layer,
+        Some(axiom_core::Layer::Exec)
+    );
     assert_eq!(guard_cap.applies_to_layer, None);
 }
 
 #[test]
 fn test_latest_version_for_dimension() {
-    let witness_version = CapabilityVersionRegistry::latest_version_for_dimension(CapabilityDimension::Witness);
+    let witness_version =
+        CapabilityVersionRegistry::latest_version_for_dimension(CapabilityDimension::Witness);
     assert!(witness_version.is_some());
     assert_eq!(witness_version.unwrap(), Version::new(1, 0, 0));
 
-    let schema_version = CapabilityVersionRegistry::latest_version_for_dimension(CapabilityDimension::Schema);
+    let schema_version =
+        CapabilityVersionRegistry::latest_version_for_dimension(CapabilityDimension::Schema);
     assert!(schema_version.is_some());
     assert_eq!(schema_version.unwrap(), Version::new(2, 1, 0));
 }

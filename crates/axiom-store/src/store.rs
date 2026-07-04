@@ -29,6 +29,8 @@ pub enum StoreError {
     },
     #[error("Witness chain broken: {0}")]
     WitnessChainBroken(String),
+    #[error("Internal error: {message}")]
+    Internal { message: String },
 }
 
 pub type EventSender = broadcast::Sender<Arc<Event>>;

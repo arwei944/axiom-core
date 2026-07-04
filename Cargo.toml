@@ -24,7 +24,7 @@ members = [
 resolver = "2"
 
 [workspace.package]
-version = "0.1.0"
+version = "0.3.0"
 edition = "2021"
 license = "MIT"
 repository = "https://github.com/arwei944/axiom-core"
@@ -51,8 +51,11 @@ regex = "1"
 parking_lot = "0.12"
 dashmap = "5"
 schemars = "0.8"
+bincode = "1"
 prometheus = "0.13"
 axum = "0.7"
+proptest = "1"
+loom = "0.7"
 
 axiom-core = { path = "crates/axiom-core" }
 axiom-runtime = { path = "crates/axiom-runtime" }

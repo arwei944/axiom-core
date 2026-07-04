@@ -56,12 +56,8 @@ fn bench_bus_register_publish(c: &mut Criterion) {
             let bus = MessageBus::new();
             let mailbox = Arc::new(Mailbox::new(1024));
             rt.block_on(async {
-                bus.register_cell(
-                    &axiom_core::id::CellId::new("dst"),
-                    mailbox,
-                    Layer::Exec,
-                )
-                .await;
+                bus.register_cell(&axiom_core::id::CellId::new("dst"), mailbox, Layer::Exec)
+                    .await;
                 let env = make_signal("Bench", "src", "dst");
                 let _ = bus.publish(env).await;
             });
@@ -75,12 +71,8 @@ fn bench_bus_publish_only(c: &mut Criterion) {
     let bus = MessageBus::new();
     let mailbox = Arc::new(Mailbox::new(1024));
     rt.block_on(async {
-        bus.register_cell(
-            &axiom_core::id::CellId::new("dst"),
-            mailbox,
-            Layer::Exec,
-        )
-        .await;
+        bus.register_cell(&axiom_core::id::CellId::new("dst"), mailbox, Layer::Exec)
+            .await;
     });
 
     c.bench_function("bus_publish_only", |b| {

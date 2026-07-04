@@ -45,9 +45,8 @@ pub struct CellContext<'a> {
 }
 
 #[derive(Debug, Clone)]
-#[allow(dead_code)]
 pub(crate) struct CellSpawnRequest {
-    pub target_layer: Layer,
+    pub _target_layer: Layer,
 }
 
 impl<'a> CellContext<'a> {
@@ -185,7 +184,11 @@ impl<'a> CellContext<'a> {
         self.emit_internal(signal, Some(target_cell), target_layer)
     }
 
-    pub(crate) fn emit_event<S: Signal>(&mut self, signal: S, target_layer: Layer) -> crate::Result<()> {
+    pub(crate) fn emit_event<S: Signal>(
+        &mut self,
+        signal: S,
+        target_layer: Layer,
+    ) -> crate::Result<()> {
         if !self.layer.can_send_to(target_layer) {
             return Err(crate::AxiomError::LayerViolation {
                 from: self.layer,
@@ -269,7 +272,9 @@ impl<'a> CellContext<'a> {
     }
 
     pub fn spawn(&mut self, target_layer: Layer) -> crate::Result<CellId> {
-        self.spawn_requests.push(CellSpawnRequest { target_layer });
+        self.spawn_requests.push(CellSpawnRequest {
+            _target_layer: target_layer,
+        });
         Ok(CellId::new(format!("spawn-{}", global_clock().now_ns())))
     }
 
@@ -368,10 +373,7 @@ impl<'a, L: LayerMarker> LayeredCellContext<'a, L> {
         self.inner.send(signal, target_cell, Target::LAYER)
     }
 
-    pub fn emit_to<Target: LayerMarker, S: Signal>(
-        &mut self,
-        signal: S,
-    ) -> crate::Result<()>
+    pub fn emit_to<Target: LayerMarker, S: Signal>(&mut self, signal: S) -> crate::Result<()>
     where
         L: CanSendTo<Target>,
     {
@@ -428,14 +430,18 @@ impl<'a, L: LayerMarker> LayeredCellContext<'a, L> {
         I: Serialize + Send + Sync + 'static,
         O: DeserializeOwned + Send + Sync + 'static,
     {
-        let projectable = LensRegistry::get_by_id(&LensId::new(lens_id))
-            .ok_or_else(|| crate::AxiomError::LensNotFound { lens_id: lens_id.to_string() })?;
+        let projectable = LensRegistry::get_by_id(&LensId::new(lens_id)).ok_or_else(|| {
+            crate::AxiomError::LensNotFound {
+                lens_id: lens_id.to_string(),
+            }
+        })?;
 
         let lens_accessor = LensAccessor::new(projectable);
-        lens_accessor.project::<I, O>(events, input)
-            .map_err(|e| crate::AxiomError::LensProjectionError { 
+        lens_accessor.project::<I, O>(events, input).map_err(|e| {
+            crate::AxiomError::LensProjectionError {
                 lens_id: lens_id.to_string(),
                 message: e.to_string(),
-            })
+            }
+        })
     }
 }

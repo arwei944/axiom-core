@@ -23,10 +23,7 @@ pub fn run_new(args: &NewArgs) -> Result<std::process::ExitCode> {
     let project_path = PathBuf::from(&args.name);
 
     if project_path.exists() {
-        return Err(anyhow::anyhow!(
-            "Directory '{}' already exists",
-            args.name
-        ));
+        return Err(anyhow::anyhow!("Directory '{}' already exists", args.name));
     }
 
     println!("Creating axiom project '{}'...", args.name);
@@ -50,8 +47,7 @@ pub fn run_new(args: &NewArgs) -> Result<std::process::ExitCode> {
 }
 
 fn create_project_structure(project_path: &Path, minimal: bool) -> Result<()> {
-    fs::create_dir_all(project_path)
-        .context("Failed to create project directory")?;
+    fs::create_dir_all(project_path).context("Failed to create project directory")?;
 
     fs::create_dir_all(project_path.join("src/cells"))
         .context("Failed to create cells directory")?;
@@ -62,8 +58,7 @@ fn create_project_structure(project_path: &Path, minimal: bool) -> Result<()> {
     fs::create_dir_all(project_path.join("src/axioms"))
         .context("Failed to create axioms directory")?;
 
-    fs::create_dir_all(project_path.join(".axiom"))
-        .context("Failed to create .axiom directory")?;
+    fs::create_dir_all(project_path.join(".axiom")).context("Failed to create .axiom directory")?;
 
     if !minimal {
         fs::create_dir_all(project_path.join("tests"))
@@ -101,8 +96,8 @@ tokio = {{ version = "1.0", features = ["full"] }}
         name
     );
 
-    let mut file = File::create(project_path.join("Cargo.toml"))
-        .context("Failed to create Cargo.toml")?;
+    let mut file =
+        File::create(project_path.join("Cargo.toml")).context("Failed to create Cargo.toml")?;
     file.write_all(content.as_bytes())
         .context("Failed to write Cargo.toml")?;
 
@@ -140,8 +135,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 }
 "#;
 
-    let mut file = File::create(project_path.join("src/main.rs"))
-        .context("Failed to create main.rs")?;
+    let mut file =
+        File::create(project_path.join("src/main.rs")).context("Failed to create main.rs")?;
     file.write_all(content.as_bytes())
         .context("Failed to write main.rs")?;
 
@@ -306,8 +301,8 @@ Cargo.lock
 .axiom/.constraints.lock
 "#;
 
-    let mut file = File::create(project_path.join(".gitignore"))
-        .context("Failed to create .gitignore")?;
+    let mut file =
+        File::create(project_path.join(".gitignore")).context("Failed to create .gitignore")?;
     file.write_all(gitignore_content.as_bytes())
         .context("Failed to write .gitignore")?;
 

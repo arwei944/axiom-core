@@ -322,11 +322,10 @@ mod tests {
             ValidationResult::ok()
         }
         fn serialize_to_json(&self) -> crate::Result<serde_json::Value> {
-            serde_json::to_value(self)
-                .map_err(|e| crate::AxiomError::SignalSerialization {
-                    signal_type: "TestSignal".into(),
-                    message: e.to_string(),
-                })
+            serde_json::to_value(self).map_err(|e| crate::AxiomError::SignalSerialization {
+                signal_type: "TestSignal".into(),
+                message: e.to_string(),
+            })
         }
     }
 

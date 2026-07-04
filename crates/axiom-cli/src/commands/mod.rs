@@ -27,7 +27,7 @@ mod env_check;
 use env_check::run_env_check;
 
 mod run;
-use run::{run_run, run_dev};
+use run::{run_dev, run_run};
 
 mod top;
 use top::run_top;

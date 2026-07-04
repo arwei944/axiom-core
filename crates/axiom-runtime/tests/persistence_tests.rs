@@ -116,10 +116,14 @@ async fn test_witness_to_event_serialization() {
     let store = Arc::new(MemoryStore::new());
 
     let cid = CorrelationId::new("test-123");
-    let e = EventBuilder::new("user-1", "UserCreated", serde_json::json!({
-        "name": "Alice",
-        "email": "alice@example.com"
-    }))
+    let e = EventBuilder::new(
+        "user-1",
+        "UserCreated",
+        serde_json::json!({
+            "name": "Alice",
+            "email": "alice@example.com"
+        }),
+    )
     .correlation_id(cid.clone())
     .cell_id("user-service")
     .build();
@@ -135,10 +139,7 @@ async fn test_witness_to_event_serialization() {
 
 #[tokio::test]
 async fn test_snapshot_policy_enforces_retention() {
-    let policy = axiom_store::snapshot::SnapshotPolicy {
-        every_n_events: 10,
-        max_snapshots_per_aggregate: 2,
-    };
+    let policy = axiom_store::snapshot::SnapshotPolicy::EveryN { n: 10 };
     let snapshot_store = Arc::new(MemorySnapshotStore::with_policy(policy));
 
     for i in 0..5 {

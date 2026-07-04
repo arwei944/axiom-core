@@ -1,8 +1,7 @@
 #[cfg(test)]
 mod tests {
     use axiom_viz::{
-        CellFlowRecord, CellFlowSnapshot, EntropyData, Timeline, TimelineEntry, TopologyGraph,
-        VizSnapshot,
+        CellFlowRecord, CellFlowSnapshot, EntropyData, Timeline, TopologyGraph, VizSnapshot,
     };
 
     #[test]

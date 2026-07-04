@@ -9,6 +9,7 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 
+use axiom_core::codec::{JsonCodec, SignalCodec};
 use axiom_core::error::AxiomError;
 use axiom_core::id::CellId;
 use axiom_core::layer::Layer;
@@ -72,8 +73,7 @@ impl Default for RoutingTable {
 
 struct CellEntry {
     mailbox: Arc<Mailbox>,
-    #[allow(dead_code)]
-    layer: Layer,
+    _layer: Layer,
 }
 
 pub struct MessageBus {
@@ -82,6 +82,7 @@ pub struct MessageBus {
     interceptors: RwLock<Vec<Arc<dyn BusInterceptor>>>,
     rejected_count: std::sync::atomic::AtomicU64,
     delivered_count: std::sync::atomic::AtomicU64,
+    codec: Arc<dyn SignalCodec>,
 }
 
 impl MessageBus {
@@ -92,7 +93,27 @@ impl MessageBus {
             interceptors: RwLock::new(Vec::new()),
             rejected_count: std::sync::atomic::AtomicU64::new(0),
             delivered_count: std::sync::atomic::AtomicU64::new(0),
+            codec: Arc::new(JsonCodec),
         }
+    }
+
+    pub fn with_codec(codec: Arc<dyn SignalCodec>) -> Self {
+        Self {
+            codec,
+            ..Self::new()
+        }
+    }
+
+    pub fn codec(&self) -> &dyn SignalCodec {
+        self.codec.as_ref()
+    }
+
+    pub fn encode_envelope(&self, envelope: &SignalEnvelope) -> Result<Vec<u8>, AxiomError> {
+        self.codec.encode(envelope)
+    }
+
+    pub fn decode_envelope(&self, data: &[u8]) -> Result<SignalEnvelope, AxiomError> {
+        self.codec.decode(data)
     }
 
     pub async fn register_interceptor(&self, interceptor: Arc<dyn BusInterceptor>) {
@@ -101,10 +122,13 @@ impl MessageBus {
 
     pub async fn register_cell(&self, cell_id: &CellId, mailbox: Arc<Mailbox>, layer: Layer) {
         let id_str = cell_id.as_str().to_string();
-        self.cells
-            .write()
-            .await
-            .insert(id_str.clone(), CellEntry { mailbox, layer });
+        self.cells.write().await.insert(
+            id_str.clone(),
+            CellEntry {
+                mailbox,
+                _layer: layer,
+            },
+        );
         self.routing.write().await.register_cell(&id_str, layer);
     }
 
@@ -272,5 +296,25 @@ mod tests {
         let mut env = make_env(Layer::Exec, Layer::Exec, None);
         env.hop_count = 9;
         assert!(bus.publish(env).await.is_err());
+    }
+
+    #[test]
+    fn test_bus_codec_json_round_trip() {
+        let bus = MessageBus::new();
+        let env = make_env(Layer::Exec, Layer::Exec, None);
+        let data = bus.encode_envelope(&env).unwrap();
+        let decoded = bus.decode_envelope(&data).unwrap();
+        assert_eq!(env, decoded);
+    }
+
+    #[cfg(feature = "bincode-codec")]
+    #[test]
+    fn test_bus_codec_bincode_round_trip() {
+        let codec = Arc::new(axiom_core::codec::BincodeCodec::default());
+        let bus = MessageBus::with_codec(codec);
+        let env = make_env(Layer::Exec, Layer::Exec, None);
+        let data = bus.encode_envelope(&env).unwrap();
+        let decoded = bus.decode_envelope(&data).unwrap();
+        assert_eq!(env, decoded);
     }
 }

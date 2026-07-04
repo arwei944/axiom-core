@@ -2,7 +2,7 @@
 
 use axiom_core::id::LensId;
 use axiom_core::lens::{
-    IncrementalProjectionCache, InMemoryProjectionCache, Lens, LensAccessor, LensEvent,
+    InMemoryProjectionCache, IncrementalProjectionCache, Lens, LensAccessor, LensEvent,
     LensRegistry, Projection, ProjectionCache,
 };
 use axiom_core::signal::VectorClock;
@@ -233,7 +233,9 @@ fn lens_accessor_provides_type_safe_api() {
     let events = create_test_events("customer-1", 2);
     let input = CustomerId("customer-1".to_string());
 
-    let projection = accessor.project::<CustomerId, Vec<OrderSummary>>(&events, &input).unwrap();
+    let projection = accessor
+        .project::<CustomerId, Vec<OrderSummary>>(&events, &input)
+        .unwrap();
 
     assert_eq!(projection.lens_id.as_str(), "customer-");
     let result: Vec<OrderSummary> = projection.downcast().unwrap();

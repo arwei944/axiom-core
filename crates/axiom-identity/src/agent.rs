@@ -146,7 +146,10 @@ impl AgentPersona {
                 prompt.push_str("\nAvailable capabilities:\n");
                 for skill in &all_skills {
                     if skill.state != SkillState::Disabled {
-                        prompt.push_str(&format!("- {} (priority: {})\n", skill.name, skill.priority));
+                        prompt.push_str(&format!(
+                            "- {} (priority: {})\n",
+                            skill.name, skill.priority
+                        ));
                     }
                 }
             }

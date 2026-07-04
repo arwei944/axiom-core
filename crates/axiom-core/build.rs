@@ -57,4 +57,3 @@ fn parse_rustc_version(output: &str) -> Option<(u32, u32, u32)> {
         .ok()?;
     Some((major, minor, patch))
 }
-

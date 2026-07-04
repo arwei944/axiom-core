@@ -52,7 +52,8 @@ impl PlanningResult {
     }
 }
 
-pub type BoxPlannerFuture<'a> = Pin<Box<dyn Future<Output = Result<PlanningResult, PlannerError>> + Send + 'a>>;
+pub type BoxPlannerFuture<'a> =
+    Pin<Box<dyn Future<Output = Result<PlanningResult, PlannerError>> + Send + 'a>>;
 
 pub trait Planner: Send + Sync {
     fn name(&self) -> &str;

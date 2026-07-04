@@ -11,6 +11,9 @@ pub struct EntropyArgs {
 }
 
 pub fn run_entropy(_args: &EntropyArgs) -> Result<ExitCode> {
-    println!("{}", serde_json::json!({"mode":"entropy","system_entropy":0.0,"cell_entropies":[]}));
+    println!(
+        "{}",
+        serde_json::json!({"mode":"entropy","system_entropy":0.0,"cell_entropies":[]})
+    );
     Ok(ExitCode::SUCCESS)
 }

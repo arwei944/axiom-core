@@ -195,17 +195,11 @@ impl PromptTemplate {
     }
 
     pub fn required_variables(&self) -> Vec<&TemplateVariable> {
-        self.variables
-            .iter()
-            .filter(|v| v.required)
-            .collect()
+        self.variables.iter().filter(|v| v.required).collect()
     }
 
     pub fn optional_variables(&self) -> Vec<&TemplateVariable> {
-        self.variables
-            .iter()
-            .filter(|v| !v.required)
-            .collect()
+        self.variables.iter().filter(|v| !v.required).collect()
     }
 
     pub fn compose(

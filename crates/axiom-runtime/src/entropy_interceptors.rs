@@ -35,7 +35,9 @@ impl ThrottleInterceptor {
     }
 
     pub fn set_factor(&self, cell_id: &str, factor: f64) {
-        self.factors.write().insert(cell_id.to_string(), factor.clamp(0.0, 1.0));
+        self.factors
+            .write()
+            .insert(cell_id.to_string(), factor.clamp(0.0, 1.0));
     }
 
     pub fn clear_factor(&self, cell_id: &str) {
@@ -164,7 +166,10 @@ mod tests {
         let interceptor = ThrottleInterceptor::new(factors);
 
         let env = make_env(Some("target-cell"), Layer::Exec);
-        assert!(matches!(interceptor.intercept(&env), InterceptDecision::Allow));
+        assert!(matches!(
+            interceptor.intercept(&env),
+            InterceptDecision::Allow
+        ));
     }
 
     #[test]
@@ -174,7 +179,10 @@ mod tests {
         let interceptor = ThrottleInterceptor::new(factors);
 
         let env = make_env(Some("target-cell"), Layer::Exec);
-        assert!(matches!(interceptor.intercept(&env), InterceptDecision::Allow));
+        assert!(matches!(
+            interceptor.intercept(&env),
+            InterceptDecision::Allow
+        ));
     }
 
     #[test]
@@ -185,9 +193,18 @@ mod tests {
 
         let env = make_env(Some("target-cell"), Layer::Exec);
 
-        assert!(matches!(interceptor.intercept(&env), InterceptDecision::Allow));
-        assert!(matches!(interceptor.intercept(&env), InterceptDecision::Reject { .. }));
-        assert!(matches!(interceptor.intercept(&env), InterceptDecision::Allow));
+        assert!(matches!(
+            interceptor.intercept(&env),
+            InterceptDecision::Allow
+        ));
+        assert!(matches!(
+            interceptor.intercept(&env),
+            InterceptDecision::Reject { .. }
+        ));
+        assert!(matches!(
+            interceptor.intercept(&env),
+            InterceptDecision::Allow
+        ));
     }
 
     #[test]
@@ -197,7 +214,10 @@ mod tests {
         let interceptor = ThrottleInterceptor::new(factors);
 
         let env = make_env(Some("other-cell"), Layer::Exec);
-        assert!(matches!(interceptor.intercept(&env), InterceptDecision::Allow));
+        assert!(matches!(
+            interceptor.intercept(&env),
+            InterceptDecision::Allow
+        ));
     }
 
     #[test]
@@ -207,7 +227,10 @@ mod tests {
         let interceptor = ThrottleInterceptor::new(factors);
 
         let env = make_env(None, Layer::Exec);
-        assert!(matches!(interceptor.intercept(&env), InterceptDecision::Allow));
+        assert!(matches!(
+            interceptor.intercept(&env),
+            InterceptDecision::Allow
+        ));
     }
 
     #[test]
@@ -217,7 +240,10 @@ mod tests {
         let interceptor = ThrottleInterceptor::new(factors);
 
         let env = make_env(Some("target-cell"), Layer::Exec);
-        assert!(matches!(interceptor.intercept(&env), InterceptDecision::Allow));
+        assert!(matches!(
+            interceptor.intercept(&env),
+            InterceptDecision::Allow
+        ));
 
         let factors2 = Arc::new(RwLock::new(HashMap::new()));
         factors2.write().insert("target-cell".to_string(), -0.5);
@@ -228,8 +254,14 @@ mod tests {
         while count < 99 && matches!(interceptor2.intercept(&env2), InterceptDecision::Allow) {
             count += 1;
         }
-        assert_eq!(count, 99, "factor -0.5 clamped to 0.0, threshold=100, should allow 99 messages");
-        assert!(matches!(interceptor2.intercept(&env2), InterceptDecision::Reject { .. }));
+        assert_eq!(
+            count, 99,
+            "factor -0.5 clamped to 0.0, threshold=100, should allow 99 messages"
+        );
+        assert!(matches!(
+            interceptor2.intercept(&env2),
+            InterceptDecision::Reject { .. }
+        ));
     }
 
     #[test]
@@ -262,7 +294,10 @@ mod tests {
         let interceptor = EmergencyInterceptor::new(enabled);
 
         let env = make_env(Some("target-cell"), Layer::Exec);
-        assert!(matches!(interceptor.intercept(&env), InterceptDecision::Allow));
+        assert!(matches!(
+            interceptor.intercept(&env),
+            InterceptDecision::Allow
+        ));
     }
 
     #[test]
@@ -271,7 +306,10 @@ mod tests {
         let interceptor = EmergencyInterceptor::new(enabled);
 
         let env = make_env(Some("target-cell"), Layer::Exec);
-        assert!(matches!(interceptor.intercept(&env), InterceptDecision::Reject { .. }));
+        assert!(matches!(
+            interceptor.intercept(&env),
+            InterceptDecision::Reject { .. }
+        ));
     }
 
     #[test]
@@ -280,7 +318,10 @@ mod tests {
         let interceptor = EmergencyInterceptor::new(enabled);
 
         let env = make_env(Some("target-cell"), Layer::Oversight);
-        assert!(matches!(interceptor.intercept(&env), InterceptDecision::Allow));
+        assert!(matches!(
+            interceptor.intercept(&env),
+            InterceptDecision::Allow
+        ));
     }
 
     #[test]

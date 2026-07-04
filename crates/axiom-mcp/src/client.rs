@@ -16,8 +16,7 @@ pub struct McpClient {
 
 impl McpClient {
     pub fn new(base_url: &str) -> Result<Self, McpError> {
-        let url = Url::parse(base_url)
-            .map_err(|e| McpError::Connection(e.to_string()))?;
+        let url = Url::parse(base_url).map_err(|e| McpError::Connection(e.to_string()))?;
 
         let client = ReqwestClient::new();
 
@@ -33,16 +32,21 @@ impl McpClient {
             return Ok(cap);
         }
 
-        let url = self.base_url.join("capabilities")
+        let url = self
+            .base_url
+            .join("capabilities")
             .map_err(|e| McpError::Connection(e.to_string()))?;
 
-        let response = self.client.post(url)
+        let response = self
+            .client
+            .post(url)
             .header("Content-Type", "application/json")
             .send()
             .await
             .map_err(|e| McpError::Connection(e.to_string()))?;
 
-        let response: McpResponse = response.json()
+        let response: McpResponse = response
+            .json()
             .await
             .map_err(|e| McpError::Serialization(e.to_string()))?;
 
@@ -56,24 +60,33 @@ impl McpClient {
         }
     }
 
-    pub async fn call_tool(&self, tool_name: &str, arguments: &serde_json::Value) -> Result<serde_json::Value, McpError> {
+    pub async fn call_tool(
+        &self,
+        tool_name: &str,
+        arguments: &serde_json::Value,
+    ) -> Result<serde_json::Value, McpError> {
         let tool_call = crate::protocol::McpToolCall {
             tool_name: tool_name.to_string(),
             arguments: arguments.clone(),
             id: uuid::Uuid::new_v4().to_string(),
         };
 
-        let url = self.base_url.join("tool")
+        let url = self
+            .base_url
+            .join("tool")
             .map_err(|e| McpError::Connection(e.to_string()))?;
 
-        let response = self.client.post(url)
+        let response = self
+            .client
+            .post(url)
             .header("Content-Type", "application/json")
             .json(&McpRequest::ToolCall(tool_call))
             .send()
             .await
             .map_err(|e| McpError::Connection(e.to_string()))?;
 
-        let response: McpResponse = response.json()
+        let response: McpResponse = response
+            .json()
             .await
             .map_err(|e| McpError::Serialization(e.to_string()))?;
 
@@ -93,17 +106,22 @@ impl McpClient {
     }
 
     pub async fn shutdown(&self) -> Result<(), McpError> {
-        let url = self.base_url.join("shutdown")
+        let url = self
+            .base_url
+            .join("shutdown")
             .map_err(|e| McpError::Connection(e.to_string()))?;
 
-        let response = self.client.post(url)
+        let response = self
+            .client
+            .post(url)
             .header("Content-Type", "application/json")
             .json(&McpRequest::Shutdown)
             .send()
             .await
             .map_err(|e| McpError::Connection(e.to_string()))?;
 
-        let response: McpResponse = response.json()
+        let response: McpResponse = response
+            .json()
             .await
             .map_err(|e| McpError::Serialization(e.to_string()))?;
 

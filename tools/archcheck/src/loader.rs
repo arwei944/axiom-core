@@ -75,7 +75,9 @@ impl Architecture {
         })
     }
 
-    fn parse_reason_map(value: Option<&toml::Value>) -> Result<HashMap<String, String>, LoaderError> {
+    fn parse_reason_map(
+        value: Option<&toml::Value>,
+    ) -> Result<HashMap<String, String>, LoaderError> {
         let table = match value {
             Some(toml::Value::Table(t)) => t,
             _ => return Ok(HashMap::new()),
@@ -106,8 +108,18 @@ impl Architecture {
                         .collect::<Vec<_>>()
                 })
                 .unwrap_or_default();
-            let reason = v.get("reason").and_then(|x| x.as_str()).unwrap_or("").to_string();
-            map.insert(k.clone(), ProcMacroExemption { allowed_deps: allowed, reason });
+            let reason = v
+                .get("reason")
+                .and_then(|x| x.as_str())
+                .unwrap_or("")
+                .to_string();
+            map.insert(
+                k.clone(),
+                ProcMacroExemption {
+                    allowed_deps: allowed,
+                    reason,
+                },
+            );
         }
         Ok(map)
     }

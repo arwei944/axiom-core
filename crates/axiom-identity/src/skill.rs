@@ -46,21 +46,18 @@ impl ActivationCondition {
             ActivationCondition::Never => false,
             ActivationCondition::KeywordTrigger(keywords) => {
                 let context_text = context.text.to_lowercase();
-                keywords.iter().any(|k| context_text.contains(&k.to_lowercase()))
+                keywords
+                    .iter()
+                    .any(|k| context_text.contains(&k.to_lowercase()))
             }
-            ActivationCondition::ContextMatch(pattern) => {
-                context.text.to_lowercase().contains(&pattern.to_lowercase())
-            }
+            ActivationCondition::ContextMatch(pattern) => context
+                .text
+                .to_lowercase()
+                .contains(&pattern.to_lowercase()),
             ActivationCondition::UserRequest => context.user_requested,
-            ActivationCondition::Schedule(_schedule) => {
-                false
-            }
-            ActivationCondition::And(conditions) => {
-                conditions.iter().all(|c| c.evaluate(context))
-            }
-            ActivationCondition::Or(conditions) => {
-                conditions.iter().any(|c| c.evaluate(context))
-            }
+            ActivationCondition::Schedule(_schedule) => false,
+            ActivationCondition::And(conditions) => conditions.iter().all(|c| c.evaluate(context)),
+            ActivationCondition::Or(conditions) => conditions.iter().any(|c| c.evaluate(context)),
             ActivationCondition::Not(condition) => !condition.evaluate(context),
         }
     }

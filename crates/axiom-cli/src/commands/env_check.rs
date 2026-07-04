@@ -27,16 +27,14 @@ pub fn run_env_check() -> Result<ExitCode> {
 
 fn check_rust_version() -> bool {
     print!("Checking Rust version... ");
-    
-    let output = match Command::new("rustc")
-        .arg("--version")
-        .output() {
-            Ok(o) => o,
-            Err(_) => {
-                println!("❌ Rust not found");
-                return false;
-            }
-        };
+
+    let output = match Command::new("rustc").arg("--version").output() {
+        Ok(o) => o,
+        Err(_) => {
+            println!("❌ Rust not found");
+            return false;
+        }
+    };
 
     if !output.status.success() {
         println!("❌ Rust command failed");
@@ -44,10 +42,7 @@ fn check_rust_version() -> bool {
     }
 
     let version_str = String::from_utf8_lossy(&output.stdout);
-    let version = version_str
-        .split_whitespace()
-        .nth(1)
-        .unwrap_or("0.0.0");
+    let version = version_str.split_whitespace().nth(1).unwrap_or("0.0.0");
 
     let parts: Vec<&str> = version.split('.').collect();
     if parts.len() >= 2 {
@@ -66,17 +61,14 @@ fn check_rust_version() -> bool {
 
 fn check_rustfmt() -> bool {
     print!("Checking rustfmt... ");
-    
-    let output = match Command::new("cargo")
-        .arg("fmt")
-        .arg("--version")
-        .output() {
-            Ok(o) => o,
-            Err(_) => {
-                println!("❌ not found (run: rustup component add rustfmt)");
-                return false;
-            }
-        };
+
+    let output = match Command::new("cargo").arg("fmt").arg("--version").output() {
+        Ok(o) => o,
+        Err(_) => {
+            println!("❌ not found (run: rustup component add rustfmt)");
+            return false;
+        }
+    };
 
     if output.status.success() {
         println!("✅ installed");
@@ -89,17 +81,18 @@ fn check_rustfmt() -> bool {
 
 fn check_clippy() -> bool {
     print!("Checking clippy... ");
-    
+
     let output = match Command::new("cargo")
         .arg("clippy")
         .arg("--version")
-        .output() {
-            Ok(o) => o,
-            Err(_) => {
-                println!("❌ not found (run: rustup component add clippy)");
-                return false;
-            }
-        };
+        .output()
+    {
+        Ok(o) => o,
+        Err(_) => {
+            println!("❌ not found (run: rustup component add clippy)");
+            return false;
+        }
+    };
 
     if output.status.success() {
         println!("✅ installed");
@@ -112,17 +105,18 @@ fn check_clippy() -> bool {
 
 fn check_git_hooks() -> bool {
     print!("Checking git hooks... ");
-    
+
     let output = match Command::new("git")
         .arg("config")
         .arg("core.hooksPath")
-        .output() {
-            Ok(o) => o,
-            Err(_) => {
-                println!("❌ not a git repository");
-                return false;
-            }
-        };
+        .output()
+    {
+        Ok(o) => o,
+        Err(_) => {
+            println!("❌ not a git repository");
+            return false;
+        }
+    };
 
     if output.status.success() {
         let hooks_path = String::from_utf8_lossy(&output.stdout).to_string();
@@ -141,18 +135,19 @@ fn check_git_hooks() -> bool {
 
 fn check_dependencies() -> bool {
     print!("Checking dependencies... ");
-    
+
     let output = match Command::new("cargo")
         .arg("check")
         .arg("--workspace")
         .arg("--quiet")
-        .output() {
-            Ok(o) => o,
-            Err(_) => {
-                println!("❌ cargo check failed");
-                return false;
-            }
-        };
+        .output()
+    {
+        Ok(o) => o,
+        Err(_) => {
+            println!("❌ cargo check failed");
+            return false;
+        }
+    };
 
     if output.status.success() {
         println!("✅ up to date");
@@ -165,7 +160,7 @@ fn check_dependencies() -> bool {
 
 fn check_env_vars() -> bool {
     print!("Checking environment variables... ");
-    
+
     let required_vars = ["AXIOM_ENV"];
     let mut all_set = true;
 

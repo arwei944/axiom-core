@@ -32,11 +32,7 @@ pub trait MetricsRegistry: Send + Sync {
     fn register_gauge(&mut self, desc: MetricDesc) -> Box<dyn GaugeTrait>;
 
     /// Register or get a histogram.
-    fn register_histogram(
-        &mut self,
-        desc: MetricDesc,
-        buckets: &[f64],
-    ) -> Box<dyn HistogramTrait>;
+    fn register_histogram(&mut self, desc: MetricDesc, buckets: &[f64]) -> Box<dyn HistogramTrait>;
 
     /// Encode all metrics to a string (e.g., Prometheus text format).
     fn encode(&self) -> String;
@@ -177,11 +173,7 @@ impl MetricsRegistry for PrometheusRegistry {
         Box::new(PrometheusGauge { inner: gauge })
     }
 
-    fn register_histogram(
-        &mut self,
-        desc: MetricDesc,
-        buckets: &[f64],
-    ) -> Box<dyn HistogramTrait> {
+    fn register_histogram(&mut self, desc: MetricDesc, buckets: &[f64]) -> Box<dyn HistogramTrait> {
         let key = desc.name.clone();
         let opts = HistogramOpts::new(desc.name, desc.help).buckets(buckets.to_vec());
         let histogram = prometheus::Histogram::with_opts(opts).expect("valid histogram opts");
@@ -279,6 +271,92 @@ impl HistogramTrait for PrometheusHistogram {
 }
 
 // ---------------------------------------------------------------------------
+// Core metric descriptors
+// ---------------------------------------------------------------------------
+
+/// Message processing counter.
+pub fn message_total() -> MetricDesc {
+    MetricDesc {
+        name: "axiom_messages_total".to_string(),
+        help: "Total number of messages processed by the runtime".to_string(),
+        metric_type: MetricType::Counter,
+        labels: vec![
+            "layer".to_string(),
+            "signal_type".to_string(),
+            "status".to_string(),
+        ],
+    }
+}
+
+/// Message processing duration histogram.
+pub fn message_duration_seconds() -> MetricDesc {
+    MetricDesc {
+        name: "axiom_message_duration_seconds".to_string(),
+        help: "Message processing duration in seconds".to_string(),
+        metric_type: MetricType::Histogram,
+        labels: vec!["layer".to_string(), "cell_id".to_string()],
+    }
+}
+
+/// Cell restart counter.
+pub fn cell_restarts_total() -> MetricDesc {
+    MetricDesc {
+        name: "axiom_cell_restarts_total".to_string(),
+        help: "Total number of cell restarts".to_string(),
+        metric_type: MetricType::Counter,
+        labels: vec!["cell_id".to_string(), "layer".to_string()],
+    }
+}
+
+/// Current entropy score gauge.
+pub fn entropy_score() -> MetricDesc {
+    MetricDesc {
+        name: "axiom_entropy_score".to_string(),
+        help: "Current entropy score".to_string(),
+        metric_type: MetricType::Gauge,
+        labels: vec!["cell_id".to_string()],
+    }
+}
+
+/// Witness chain error counter.
+pub fn witness_chain_errors() -> MetricDesc {
+    MetricDesc {
+        name: "axiom_witness_chain_errors_total".to_string(),
+        help: "Total number of witness chain errors".to_string(),
+        metric_type: MetricType::Counter,
+        labels: vec!["cell_id".to_string()],
+    }
+}
+
+/// Dead letter queue counter.
+pub fn dead_letters_total() -> MetricDesc {
+    MetricDesc {
+        name: "axiom_dead_letters_total".to_string(),
+        help: "Total number of dead letters".to_string(),
+        metric_type: MetricType::Counter,
+        labels: vec!["signal_type".to_string()],
+    }
+}
+
+/// Active cells gauge.
+pub fn active_cells() -> MetricDesc {
+    MetricDesc {
+        name: "axiom_active_cells".to_string(),
+        help: "Number of currently active cells".to_string(),
+        metric_type: MetricType::Gauge,
+        labels: vec!["layer".to_string()],
+    }
+}
+
+/// Initialize core metrics in the given registry.
+pub fn init_core_metrics(_registry: &mut dyn MetricsRegistry) {
+    #[cfg(feature = "metrics")]
+    {
+        let _ = _registry;
+    }
+}
+
+// ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
 
@@ -348,87 +426,5 @@ mod tests {
         assert!(encoded.contains("test_counter"));
         assert!(encoded.contains("test_gauge"));
         assert!(!registry.describe().is_empty());
-    }
-}
-
-// ---------------------------------------------------------------------------
-// Core metric descriptors
-// ---------------------------------------------------------------------------
-
-/// Message processing counter.
-pub fn message_total() -> MetricDesc {
-    MetricDesc {
-        name: "axiom_messages_total".to_string(),
-        help: "Total number of messages processed by the runtime".to_string(),
-        metric_type: MetricType::Counter,
-        labels: vec!["layer".to_string(), "signal_type".to_string(), "status".to_string()],
-    }
-}
-
-/// Message processing duration histogram.
-pub fn message_duration_seconds() -> MetricDesc {
-    MetricDesc {
-        name: "axiom_message_duration_seconds".to_string(),
-        help: "Message processing duration in seconds".to_string(),
-        metric_type: MetricType::Histogram,
-        labels: vec!["layer".to_string(), "cell_id".to_string()],
-    }
-}
-
-/// Cell restart counter.
-pub fn cell_restarts_total() -> MetricDesc {
-    MetricDesc {
-        name: "axiom_cell_restarts_total".to_string(),
-        help: "Total number of cell restarts".to_string(),
-        metric_type: MetricType::Counter,
-        labels: vec!["cell_id".to_string(), "layer".to_string()],
-    }
-}
-
-/// Current entropy score gauge.
-pub fn entropy_score() -> MetricDesc {
-    MetricDesc {
-        name: "axiom_entropy_score".to_string(),
-        help: "Current entropy score".to_string(),
-        metric_type: MetricType::Gauge,
-        labels: vec!["cell_id".to_string()],
-    }
-}
-
-/// Witness chain error counter.
-pub fn witness_chain_errors() -> MetricDesc {
-    MetricDesc {
-        name: "axiom_witness_chain_errors_total".to_string(),
-        help: "Total number of witness chain errors".to_string(),
-        metric_type: MetricType::Counter,
-        labels: vec!["cell_id".to_string()],
-    }
-}
-
-/// Dead letter queue counter.
-pub fn dead_letters_total() -> MetricDesc {
-    MetricDesc {
-        name: "axiom_dead_letters_total".to_string(),
-        help: "Total number of dead letters".to_string(),
-        metric_type: MetricType::Counter,
-        labels: vec!["signal_type".to_string()],
-    }
-}
-
-/// Active cells gauge.
-pub fn active_cells() -> MetricDesc {
-    MetricDesc {
-        name: "axiom_active_cells".to_string(),
-        help: "Number of currently active cells".to_string(),
-        metric_type: MetricType::Gauge,
-        labels: vec!["layer".to_string()],
-    }
-}
-
-/// Initialize core metrics in the given registry.
-pub fn init_core_metrics(_registry: &mut dyn MetricsRegistry) {
-    #[cfg(feature = "metrics")]
-    {
-        let _ = _registry;
     }
 }

@@ -115,7 +115,9 @@ impl CapabilityVersionRegistry {
         CAPABILITY_REGISTRY.iter().copied().collect()
     }
 
-    pub fn capabilities_by_dimension(dim: CapabilityDimension) -> Vec<&'static CapabilityDescriptor> {
+    pub fn capabilities_by_dimension(
+        dim: CapabilityDimension,
+    ) -> Vec<&'static CapabilityDescriptor> {
         CAPABILITY_REGISTRY
             .iter()
             .filter(|c| c.dimension == dim)
@@ -133,17 +135,21 @@ impl CapabilityVersionRegistry {
 
     pub fn auto_check_compatibility() -> Result<()> {
         let _capabilities = Self::registered_capabilities();
-        
+
         for dim in CapabilityDimension::all() {
-            let dim_caps = Self::capabilities_by_dimension(dim);
+            let dim_caps = Self::capabilities_by_dimension(dim.clone());
             if dim_caps.is_empty() {
                 continue;
             }
 
-            let latest = dim_caps
-                .iter()
-                .max_by_key(|c| c.version)
-                .unwrap();
+            let Some(latest) = dim_caps.iter().max_by_key(|c| c.version) else {
+                return Err(crate::AxiomError::Internal {
+                    message: format!(
+                        "dim_caps is non-empty but max_by_key returned None for dimension {:?}",
+                        dim
+                    ),
+                });
+            };
 
             for cap in &dim_caps {
                 if !cap.is_compatible_with(latest) {

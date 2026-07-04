@@ -9,7 +9,7 @@ use axiom_core::{AxiomError, SchemaVersion};
 fn test_layer_violation_exec_to_agent_runtime() {
     let cell_id = CellId::new("exec-layer-cell");
     let mut ctx = axiom_core::context::CellContext::new(&cell_id, Layer::Exec);
-    
+
     let envelope = SignalEnvelope {
         msg_id: MsgId::generate(),
         correlation_id: CorrelationId::generate(),
@@ -27,11 +27,11 @@ fn test_layer_violation_exec_to_agent_runtime() {
         parent_msg_id: None,
         hop_count: 0,
     };
-    
+
     ctx.begin_processing(&envelope);
-    
+
     let signal = TestSignal::new("hello");
-    
+
     let result = ctx.reply(&envelope, signal);
     assert!(result.is_ok());
 }
@@ -40,7 +40,7 @@ fn test_layer_violation_exec_to_agent_runtime() {
 fn test_witness_chain_break() {
     let cell_id = CellId::new("witness-chain-test");
     let mut ctx = axiom_core::context::CellContext::new(&cell_id, Layer::Exec);
-    
+
     let envelope = SignalEnvelope {
         msg_id: MsgId::generate(),
         correlation_id: CorrelationId::generate(),
@@ -58,12 +58,12 @@ fn test_witness_chain_break() {
         parent_msg_id: None,
         hop_count: 0,
     };
-    
+
     ctx.begin_processing(&envelope);
-    
+
     let result = ctx.emit_success("broken chain test");
     assert!(result.is_ok());
-    
+
     let (_outgoing, witnesses) = ctx.end_processing();
     assert!(!witnesses.is_empty());
 }
@@ -71,7 +71,7 @@ fn test_witness_chain_break() {
 #[test]
 fn test_signal_validation_failure() {
     let signal = BadSignal::new("bad");
-    
+
     let result = signal.validate();
     assert!(result.has_errors());
 }
@@ -80,7 +80,7 @@ fn test_signal_validation_failure() {
 fn test_cell_crash_recovery() {
     let cell_id = CellId::new("crash-recovery-test");
     let mut ctx = axiom_core::context::CellContext::new(&cell_id, Layer::Exec);
-    
+
     let envelope = SignalEnvelope {
         msg_id: MsgId::generate(),
         correlation_id: CorrelationId::generate(),
@@ -98,12 +98,12 @@ fn test_cell_crash_recovery() {
         parent_msg_id: None,
         hop_count: 0,
     };
-    
+
     ctx.begin_processing(&envelope);
-    
+
     let result = ctx.emit_failure("cell crashed", "test crash");
     assert!(result.is_ok());
-    
+
     let (_outgoing, witnesses) = ctx.end_processing();
     assert!(!witnesses.is_empty());
 }
@@ -112,10 +112,10 @@ fn test_cell_crash_recovery() {
 fn test_entropy_increases_on_errors() {
     let mut score = EntropyScore::new();
     assert!(score.is_green());
-    
+
     score.record_axiom_violation();
     score.record_cell_restart();
-    
+
     assert!(score.value > 0.0);
 }
 
@@ -139,13 +139,27 @@ impl TestSignal {
 }
 
 impl Signal for TestSignal {
-    fn signal_type(&self) -> &'static str { "test" }
-    fn msg_id(&self) -> &MsgId { &self.msg_id }
-    fn correlation_id(&self) -> &CorrelationId { &self.correlation_id }
-    fn vector_clock(&self) -> &VectorClock { &self.vector_clock }
-    fn timestamp_ns(&self) -> u64 { 0 }
-    fn kind(&self) -> SignalKind { SignalKind::Command }
-    fn layer(&self) -> Layer { Layer::Exec }
+    fn signal_type(&self) -> &'static str {
+        "test"
+    }
+    fn msg_id(&self) -> &MsgId {
+        &self.msg_id
+    }
+    fn correlation_id(&self) -> &CorrelationId {
+        &self.correlation_id
+    }
+    fn vector_clock(&self) -> &VectorClock {
+        &self.vector_clock
+    }
+    fn timestamp_ns(&self) -> u64 {
+        0
+    }
+    fn kind(&self) -> SignalKind {
+        SignalKind::Command
+    }
+    fn layer(&self) -> Layer {
+        Layer::Exec
+    }
     fn validate(&self) -> ValidationResult {
         ValidationResult::ok()
     }
@@ -183,15 +197,32 @@ impl BadSignal {
 }
 
 impl Signal for BadSignal {
-    fn signal_type(&self) -> &'static str { "bad" }
-    fn msg_id(&self) -> &MsgId { &self.msg_id }
-    fn correlation_id(&self) -> &CorrelationId { &self.correlation_id }
-    fn vector_clock(&self) -> &VectorClock { &self.vector_clock }
-    fn timestamp_ns(&self) -> u64 { 0 }
-    fn kind(&self) -> SignalKind { SignalKind::Command }
-    fn layer(&self) -> Layer { Layer::Exec }
+    fn signal_type(&self) -> &'static str {
+        "bad"
+    }
+    fn msg_id(&self) -> &MsgId {
+        &self.msg_id
+    }
+    fn correlation_id(&self) -> &CorrelationId {
+        &self.correlation_id
+    }
+    fn vector_clock(&self) -> &VectorClock {
+        &self.vector_clock
+    }
+    fn timestamp_ns(&self) -> u64 {
+        0
+    }
+    fn kind(&self) -> SignalKind {
+        SignalKind::Command
+    }
+    fn layer(&self) -> Layer {
+        Layer::Exec
+    }
     fn validate(&self) -> ValidationResult {
-        ValidationResult::from_errors(vec![ValidationError::error("value", "intentional validation failure")])
+        ValidationResult::from_errors(vec![ValidationError::error(
+            "value",
+            "intentional validation failure",
+        )])
     }
     fn serialize_to_json(&self) -> axiom_core::Result<serde_json::Value> {
         Err(AxiomError::SignalSerialization {

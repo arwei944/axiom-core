@@ -63,10 +63,10 @@ async fn test_token_budget() {
     assert_eq!(response.usage.total_tokens, 30);
     assert_eq!(client.remaining_budget(), 70);
 
-    let response = client.complete("test").await.unwrap();
+    let _response = client.complete("test").await.unwrap();
     assert_eq!(client.remaining_budget(), 40);
 
-    let response = client.complete("test").await.unwrap();
+    let _response = client.complete("test").await.unwrap();
     assert_eq!(client.remaining_budget(), 10);
 
     let result = client.complete("test").await;

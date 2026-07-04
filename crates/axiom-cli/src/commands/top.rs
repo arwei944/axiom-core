@@ -38,7 +38,9 @@ pub fn run_top(args: &TopArgs) -> Result<ExitCode> {
     }
 
     let runtime = tokio::runtime::Runtime::new().context("Failed to create tokio runtime")?;
-    runtime.block_on(run_tui(args)).context("TUI runtime error")?;
+    runtime
+        .block_on(run_tui(args))
+        .context("TUI runtime error")?;
 
     Ok(ExitCode::SUCCESS)
 }

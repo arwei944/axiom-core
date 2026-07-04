@@ -3,7 +3,7 @@
 use std::net::SocketAddr;
 use std::sync::Arc;
 
-use axum::{extract::State, routing::post, Json, Router, serve};
+use axum::{extract::State, routing::post, serve, Json, Router};
 use tokio::net::TcpListener;
 
 use crate::protocol::{McpCapability, McpError, McpRequest, McpResponse};
@@ -31,7 +31,10 @@ impl McpServer {
         };
 
         Self {
-            state: McpServerState { registry, capability },
+            state: McpServerState {
+                registry,
+                capability,
+            },
             addr,
         }
     }
@@ -65,10 +68,15 @@ async fn tool_handler(
     Json(request): Json<McpRequest>,
 ) -> Json<McpResponse> {
     let McpRequest::ToolCall(tool_call) = request else {
-        return Json(McpResponse::Error(McpError::InvalidRequest("expected ToolCall request".into()).into()));
+        return Json(McpResponse::Error(
+            McpError::InvalidRequest("expected ToolCall request".into()).into(),
+        ));
     };
 
-    let result = state.registry.execute(&tool_call.tool_name, &tool_call.arguments).await;
+    let result = state
+        .registry
+        .execute(&tool_call.tool_name, &tool_call.arguments)
+        .await;
 
     Json(McpResponse::ToolResult(crate::protocol::McpToolResult {
         id: tool_call.id,

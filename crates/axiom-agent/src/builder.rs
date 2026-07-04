@@ -73,10 +73,7 @@ impl AgentBuilder {
     }
 
     /// Set the disclosure level.
-    pub fn with_disclosure_level(
-        mut self,
-        level: axiom_identity::DisclosureLevel,
-    ) -> Self {
+    pub fn with_disclosure_level(mut self, level: axiom_identity::DisclosureLevel) -> Self {
         self.config.disclosure_level = level;
         self
     }
@@ -147,8 +144,7 @@ impl AgentBuilder {
     /// Add a skill to the agent persona.
     pub fn with_skill(mut self, skill: axiom_identity::Skill) -> Self {
         if self.persona.is_none() {
-            let identity =
-                axiom_identity::AgentIdentity::new(&self.id, &self.id);
+            let identity = axiom_identity::AgentIdentity::new(&self.id, &self.id);
             self.persona = Some(axiom_identity::AgentPersona::new(identity));
         }
         if let Some(persona) = &self.persona {
@@ -235,8 +231,8 @@ mod tests {
 
     #[test]
     fn test_builder_with_identity() {
-        let identity = axiom_identity::AgentIdentity::new("id-1", "TestBot")
-            .with_description("A test bot");
+        let identity =
+            axiom_identity::AgentIdentity::new("id-1", "TestBot").with_description("A test bot");
 
         let agent = AgentBuilder::new("test")
             .with_llm(axiom_llm::LlmClient::mock())

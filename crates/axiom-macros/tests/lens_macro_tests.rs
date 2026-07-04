@@ -4,7 +4,6 @@ use axiom_core::id::LensId;
 use axiom_core::lens::{InMemoryProjectionCache, Lens, LensEvent, LensRegistry, ProjectionCache};
 use axiom_core::signal::VectorClock;
 use serde::{Deserialize, Serialize};
-use std::sync::LazyLock;
 
 // ============================================================
 // Test lenses using #[lens] macro
@@ -41,11 +40,7 @@ impl Lens for TestLensInput {
 }
 
 impl TestLensInput {
-    pub fn project_inner(
-        &self,
-        events: &[LensEvent],
-        _input: &Self,
-    ) -> Vec<String> {
+    pub fn project_inner(&self, events: &[LensEvent], _input: &Self) -> Vec<String> {
         events
             .iter()
             .filter(|e| e.event_type == "TestEvent")
@@ -85,11 +80,7 @@ impl Lens for AggregateLensInput {
 }
 
 impl AggregateLensInput {
-    pub fn project_inner(
-        &self,
-        events: &[LensEvent],
-        _input: &Self,
-    ) -> Vec<String> {
+    pub fn project_inner(&self, events: &[LensEvent], _input: &Self) -> Vec<String> {
         events
             .iter()
             .filter(|e| e.aggregate_id == self.aggregate_id)
@@ -147,7 +138,7 @@ fn lens_macro_registers_in_global_registry() {
     // We can verify by querying the registry
     let lens_id = LensId::from("test-lens");
     let found = LensRegistry::get_by_id(&lens_id);
-    
+
     // Note: In a test environment with #[lens] macro, this would return Some
     // For now, we just verify the API works
     let _ = found;

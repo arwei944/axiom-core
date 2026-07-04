@@ -1,4 +1,4 @@
-use std::sync::Arc;
+#![allow(dead_code)]
 
 use axiom_tool::{BoxToolFuture, *};
 use serde_json::json;

@@ -45,5 +45,11 @@ fn bench_signal_batch_creation(c: &mut Criterion) {
     });
 }
 
-criterion_group!(benches, bench_signal_creation, bench_signal_serialization, bench_signal_deserialization, bench_signal_batch_creation);
+criterion_group!(
+    benches,
+    bench_signal_creation,
+    bench_signal_serialization,
+    bench_signal_deserialization,
+    bench_signal_batch_creation
+);
 criterion_main!(benches);

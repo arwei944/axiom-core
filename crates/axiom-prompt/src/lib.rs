@@ -7,9 +7,9 @@
 //! - Template registry
 //! - Variable validation
 
-pub mod template;
-pub mod registry;
 pub mod error;
+pub mod registry;
+pub mod template;
 
 pub use error::PromptError;
 pub use template::{PromptTemplate, TemplateVariable, VariableType};

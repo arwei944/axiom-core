@@ -27,7 +27,10 @@ async fn test_layer_violation_exec_to_agent_rejected() {
     let decision = guardian.intercept(&env);
 
     assert!(
-        matches!(decision, axiom_runtime::bus::InterceptDecision::Reject { .. }),
+        matches!(
+            decision,
+            axiom_runtime::bus::InterceptDecision::Reject { .. }
+        ),
         "Exec -> Agent should be rejected by ArchitectureGuardian"
     );
 }
@@ -81,7 +84,10 @@ async fn test_layer_violation_exec_to_validate_rejected() {
     let decision = guardian.intercept(&env);
 
     assert!(
-        matches!(decision, axiom_runtime::bus::InterceptDecision::Reject { .. }),
+        matches!(
+            decision,
+            axiom_runtime::bus::InterceptDecision::Reject { .. }
+        ),
         "Exec -> Validate should be rejected"
     );
 }
@@ -91,8 +97,8 @@ async fn test_layer_violation_exec_to_validate_rejected() {
 #[test]
 fn test_witness_chain_valid_chain_passes() {
     let w1 = make_witness("cell-a", 1, None, "first");
-    let w2 = make_witness("cell-a", 2, Some(w1.hash.clone()), "second");
-    let w3 = make_witness("cell-a", 3, Some(w2.hash.clone()), "third");
+    let w2 = make_witness("cell-a", 2, Some(w1.hash), "second");
+    let w3 = make_witness("cell-a", 3, Some(w2.hash), "third");
 
     let chain = vec![w1, w2, w3];
     assert!(
@@ -152,12 +158,7 @@ fn test_dlq_capacity_limit_drops_oldest() {
     let dlq = DeadLetterQueue::new(3);
 
     for i in 0..5 {
-        let env = make_env(
-            &format!("src-{}", i),
-            "dst",
-            Layer::Exec,
-            Layer::Exec,
-        );
+        let env = make_env(&format!("src-{}", i), "dst", Layer::Exec, Layer::Exec);
         dlq.enqueue(env, &format!("failure-{}", i));
     }
 
@@ -183,13 +184,22 @@ async fn test_supervisor_restart_with_exponential_backoff() {
         .await;
 
     let d1 = supervisor.record_panic("crashy-cell").await;
-    assert!(matches!(d1, SupervisionDecision::Restart { backoff_ms: 100 }));
+    assert!(matches!(
+        d1,
+        SupervisionDecision::Restart { backoff_ms: 100 }
+    ));
 
     let d2 = supervisor.record_panic("crashy-cell").await;
-    assert!(matches!(d2, SupervisionDecision::Restart { backoff_ms: 200 }));
+    assert!(matches!(
+        d2,
+        SupervisionDecision::Restart { backoff_ms: 200 }
+    ));
 
     let d3 = supervisor.record_panic("crashy-cell").await;
-    assert!(matches!(d3, SupervisionDecision::Restart { backoff_ms: 400 }));
+    assert!(matches!(
+        d3,
+        SupervisionDecision::Restart { backoff_ms: 400 }
+    ));
 
     let d4 = supervisor.record_panic("crashy-cell").await;
     assert!(matches!(d4, SupervisionDecision::Stop));
@@ -302,8 +312,8 @@ async fn test_mailbox_drain_clears_all() {
     assert_eq!(drained.len(), 5);
     assert_eq!(mailbox.len().await, 0);
 
-    for i in 0..5 {
-        assert_eq!(drained[i].signal_type, format!("msg-{}", i));
+    for (i, env) in drained.iter().enumerate().take(5) {
+        assert_eq!(env.signal_type, format!("msg-{}", i));
     }
 }
 
@@ -334,19 +344,14 @@ fn make_env(
     }
 }
 
-fn make_witness(
-    cell_id: &str,
-    seq: u64,
-    prev_hash: Option<WitnessHash>,
-    summary: &str,
-) -> Witness {
-    let mut w = Witness {
-        witness_id: WitnessId::new(&format!("wit-{}", seq)),
+fn make_witness(cell_id: &str, seq: u64, prev_hash: Option<WitnessHash>, summary: &str) -> Witness {
+    let w = Witness {
+        witness_id: WitnessId::new(format!("wit-{}", seq)),
         schema_version: axiom_core::version::SchemaVersion::new(1),
         cell_id: cell_id.to_string(),
         correlation_id: CorrelationId::new("test-corr"),
         trace_id: None,
-        triggering_msg_id: Some(MsgId::new(&format!("msg-{}", seq))),
+        triggering_msg_id: Some(MsgId::new(format!("msg-{}", seq))),
         vector_clock: VectorClock::new(),
         timestamp_ns: seq * 1000,
         prev_hash,

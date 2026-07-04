@@ -33,9 +33,7 @@ async fn test_react_with_tools() {
         }
 
         fn execute<'a>(&'a self, _params: &'a serde_json::Value) -> axiom_tool::BoxToolFuture<'a> {
-            Box::pin(async move {
-                Ok(serde_json::json!({ "result": "found info" }))
-            })
+            Box::pin(async move { Ok(serde_json::json!({ "result": "found info" })) })
         }
     }
 
@@ -58,9 +56,7 @@ async fn test_react_with_tools() {
 async fn test_plan_execute_basic() {
     let planner = PlanAndExecutePlanner::new().with_max_iterations(5);
 
-    let result = planner
-        .plan_and_execute("Test goal", "Test context")
-        .await;
+    let result = planner.plan_and_execute("Test goal", "Test context").await;
 
     assert!(result.is_ok());
     let result = result.unwrap();

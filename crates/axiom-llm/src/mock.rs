@@ -4,7 +4,9 @@ use std::sync::Arc;
 
 use parking_lot::RwLock;
 
-use crate::types::{ChatMessage, ChatResponse, CompletionResponse, LlmError, MessageRole, TokenUsage};
+use crate::types::{
+    ChatMessage, ChatResponse, CompletionResponse, LlmError, MessageRole, TokenUsage,
+};
 
 pub struct MockProvider {
     completion_response: Arc<RwLock<String>>,
@@ -62,7 +64,10 @@ impl MockProvider {
 }
 
 impl super::LlmProvider for MockProvider {
-    fn complete<'a>(&'a self, _prompt: &'a str) -> crate::BoxLlmFuture<'a, Result<CompletionResponse, LlmError>> {
+    fn complete<'a>(
+        &'a self,
+        _prompt: &'a str,
+    ) -> crate::BoxLlmFuture<'a, Result<CompletionResponse, LlmError>> {
         Box::pin(async move {
             self.check_fail()?;
 
@@ -78,7 +83,10 @@ impl super::LlmProvider for MockProvider {
         })
     }
 
-    fn chat<'a>(&'a self, _messages: &'a [ChatMessage]) -> crate::BoxLlmFuture<'a, Result<ChatResponse, LlmError>> {
+    fn chat<'a>(
+        &'a self,
+        _messages: &'a [ChatMessage],
+    ) -> crate::BoxLlmFuture<'a, Result<ChatResponse, LlmError>> {
         Box::pin(async move {
             self.check_fail()?;
 

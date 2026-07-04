@@ -4,12 +4,9 @@ use std::collections::HashMap;
 
 #[test]
 fn test_template_render_simple() {
-    let template = PromptTemplate::new(
-        "greeting",
-        "Hello, {{name}}! Welcome to {{place}}.",
-    )
-    .with_variable(TemplateVariable::new("name", VariableType::String))
-    .with_variable(TemplateVariable::new("place", VariableType::String));
+    let template = PromptTemplate::new("greeting", "Hello, {{name}}! Welcome to {{place}}.")
+        .with_variable(TemplateVariable::new("name", VariableType::String))
+        .with_variable(TemplateVariable::new("place", VariableType::String));
 
     let mut values = HashMap::new();
     values.insert("name".to_string(), json!("Alice"));
@@ -21,11 +18,8 @@ fn test_template_render_simple() {
 
 #[test]
 fn test_template_missing_variable() {
-    let template = PromptTemplate::new(
-        "test",
-        "Hello, {{name}}!",
-    )
-    .with_variable(TemplateVariable::new("name", VariableType::String));
+    let template = PromptTemplate::new("test", "Hello, {{name}}!")
+        .with_variable(TemplateVariable::new("name", VariableType::String));
 
     let values = HashMap::new();
     let result = template.render(&values);
@@ -39,13 +33,8 @@ fn test_template_missing_variable() {
 
 #[test]
 fn test_template_default_value() {
-    let template = PromptTemplate::new(
-        "greeting",
-        "Hello, {{name}}!",
-    )
-    .with_variable(
-        TemplateVariable::new("name", VariableType::String)
-            .with_default(json!("World")),
+    let template = PromptTemplate::new("greeting", "Hello, {{name}}!").with_variable(
+        TemplateVariable::new("name", VariableType::String).with_default(json!("World")),
     );
 
     let values = HashMap::new();
@@ -55,11 +44,8 @@ fn test_template_default_value() {
 
 #[test]
 fn test_template_type_validation() {
-    let template = PromptTemplate::new(
-        "test",
-        "Count: {{count}}",
-    )
-    .with_variable(TemplateVariable::new("count", VariableType::Number));
+    let template = PromptTemplate::new("test", "Count: {{count}}")
+        .with_variable(TemplateVariable::new("count", VariableType::Number));
 
     let mut values = HashMap::new();
     values.insert("count".to_string(), json!("not a number"));
@@ -71,11 +57,8 @@ fn test_template_type_validation() {
 
 #[test]
 fn test_template_number_variable() {
-    let template = PromptTemplate::new(
-        "math",
-        "Result: {{value}}",
-    )
-    .with_variable(TemplateVariable::new("value", VariableType::Number));
+    let template = PromptTemplate::new("math", "Result: {{value}}")
+        .with_variable(TemplateVariable::new("value", VariableType::Number));
 
     let mut values = HashMap::new();
     values.insert("value".to_string(), json!(42));
@@ -86,11 +69,8 @@ fn test_template_number_variable() {
 
 #[test]
 fn test_template_boolean_variable() {
-    let template = PromptTemplate::new(
-        "flag",
-        "Enabled: {{enabled}}",
-    )
-    .with_variable(TemplateVariable::new("enabled", VariableType::Boolean));
+    let template = PromptTemplate::new("flag", "Enabled: {{enabled}}")
+        .with_variable(TemplateVariable::new("enabled", VariableType::Boolean));
 
     let mut values = HashMap::new();
     values.insert("enabled".to_string(), json!(true));
@@ -101,11 +81,8 @@ fn test_template_boolean_variable() {
 
 #[test]
 fn test_template_list_variable() {
-    let template = PromptTemplate::new(
-        "items",
-        "Items: {{items}}",
-    )
-    .with_variable(TemplateVariable::new("items", VariableType::List));
+    let template = PromptTemplate::new("items", "Items: {{items}}")
+        .with_variable(TemplateVariable::new("items", VariableType::List));
 
     let mut values = HashMap::new();
     values.insert("items".to_string(), json!(["a", "b", "c"]));
@@ -146,11 +123,8 @@ fn test_template_composition() {
     )
     .with_section("body");
 
-    let body = PromptTemplate::new(
-        "body",
-        "Task: {{task}}",
-    )
-    .with_variable(TemplateVariable::new("task", VariableType::String));
+    let body = PromptTemplate::new("body", "Task: {{task}}")
+        .with_variable(TemplateVariable::new("task", VariableType::String));
 
     let composed = system.compose(&body, "body").unwrap();
 
@@ -158,7 +132,10 @@ fn test_template_composition() {
     values.insert("task".to_string(), json!("write code"));
 
     let result = composed.render(&values).unwrap();
-    assert_eq!(result, "You are a helpful assistant.\nTask: write code\nEnd instructions.");
+    assert_eq!(
+        result,
+        "You are a helpful assistant.\nTask: write code\nEnd instructions."
+    );
 }
 
 #[test]
@@ -252,16 +229,15 @@ fn test_registry_not_found() {
 
 #[test]
 fn test_template_with_description() {
-    let template =
-        PromptTemplate::new("test", "content").with_description("A test template");
+    let template = PromptTemplate::new("test", "content").with_description("A test template");
 
     assert_eq!(template.description.as_deref(), Some("A test template"));
 }
 
 #[test]
 fn test_variable_with_description() {
-    let var = TemplateVariable::new("name", VariableType::String)
-        .with_description("The user's name");
+    let var =
+        TemplateVariable::new("name", VariableType::String).with_description("The user's name");
 
     assert_eq!(var.description.as_deref(), Some("The user's name"));
 }
@@ -329,13 +305,8 @@ fn test_variable_type_strings() {
 
 #[test]
 fn test_render_with_defaults() {
-    let template = PromptTemplate::new(
-        "greeting",
-        "Hello, {{name}}!",
-    )
-    .with_variable(
-        TemplateVariable::new("name", VariableType::String)
-            .with_default(json!("World")),
+    let template = PromptTemplate::new("greeting", "Hello, {{name}}!").with_variable(
+        TemplateVariable::new("name", VariableType::String).with_default(json!("World")),
     );
 
     let result = template.render_with_defaults().unwrap();

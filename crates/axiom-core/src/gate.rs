@@ -56,7 +56,10 @@ impl Architecture {
             .as_table()?
             .iter()
             .filter_map(|(k, v)| {
-                let allowed = v.get("allowed_deps")?.as_array()?.iter()
+                let allowed = v
+                    .get("allowed_deps")?
+                    .as_array()?
+                    .iter()
                     .filter_map(|d| d.as_str().map(|s| s.to_string()))
                     .collect::<Vec<_>>();
                 Some((k.clone(), allowed))
@@ -68,7 +71,10 @@ impl Architecture {
             .as_table()?
             .iter()
             .filter_map(|(k, v)| {
-                let allowed = v.get("allowed_deps")?.as_array()?.iter()
+                let allowed = v
+                    .get("allowed_deps")?
+                    .as_array()?
+                    .iter()
                     .filter_map(|d| d.as_str().map(|s| s.to_string()))
                     .collect::<Vec<_>>();
                 Some((k.clone(), allowed))
@@ -85,25 +91,30 @@ impl Architecture {
     }
 }
 
-fn architecture() -> &'static Architecture {
+fn architecture() -> Result<&'static Architecture, crate::AxiomError> {
     static ARCH: OnceLock<Architecture> = OnceLock::new();
     ARCH.get_or_init(|| {
-        Architecture::from_toml(ARCHITECTURE_TOML).expect("failed to parse .axiom/architecture.toml")
-    })
+        Architecture::from_toml(ARCHITECTURE_TOML)
+            .expect("failed to parse .axiom/architecture.toml")
+    });
+    Ok(ARCH.get().expect("architecture initialized"))
 }
 
 /// Find layer index for a crate by name.
 pub fn crate_level(name: &str) -> Option<usize> {
-    architecture()
-        .crate_layers
-        .iter()
-        .find(|(n, _)| n == name)
-        .map(|(_, l)| *l)
+    architecture().ok().and_then(|arch| {
+        arch.crate_layers
+            .iter()
+            .find(|(n, _)| n == name)
+            .map(|(_, l)| *l)
+    })
 }
 
 /// Return all registered crates and their layer indices.
 pub fn crate_layers() -> &'static [(String, usize)] {
-    &architecture().crate_layers
+    architecture()
+        .map(|arch| arch.crate_layers.as_slice())
+        .unwrap_or(&[])
 }
 
 /// Verify local dependency direction. Returns list of violation messages.
@@ -112,11 +123,16 @@ pub fn verify_dependencies(crate_name: &str, deps: &[String]) -> Vec<String> {
         Some(l) => l,
         None => return Vec::new(),
     };
-    let arch = architecture();
+    let arch = match architecture() {
+        Ok(a) => a,
+        Err(_) => return Vec::new(),
+    };
     let mut violations = Vec::new();
     for dep in deps {
         if dep == "axiom-macros" {
-            let is_exempt = arch.proc_macro_exemptions.iter()
+            let is_exempt = arch
+                .proc_macro_exemptions
+                .iter()
                 .any(|(k, v)| k == crate_name && v.contains(dep));
             if is_exempt {
                 continue;
@@ -124,7 +140,9 @@ pub fn verify_dependencies(crate_name: &str, deps: &[String]) -> Vec<String> {
         }
         if let Some(dep_level) = crate_level(dep) {
             if dep_level < level {
-                let is_exempt = arch.reverse_dependency_exemptions.iter()
+                let is_exempt = arch
+                    .reverse_dependency_exemptions
+                    .iter()
                     .any(|(k, v)| k == crate_name && v.contains(dep));
                 if is_exempt {
                     continue;
@@ -140,7 +158,7 @@ pub fn verify_dependencies(crate_name: &str, deps: &[String]) -> Vec<String> {
 
 /// Audit a single third-party dependency. Returns Err(reason) if forbidden/unaudited.
 pub fn audit_dependency(dep: &str) -> Result<(), String> {
-    let arch = architecture();
+    let arch = architecture().map_err(|e| e.to_string())?;
     if arch.forbidden_deps.contains(&dep.to_string()) {
         return Err(format!("forbidden dependency '{dep}' (R-004)"));
     }
@@ -156,7 +174,12 @@ mod tests {
 
     #[test]
     fn test_layer_order_is_dag() {
-        let layers = architecture().crate_layers.iter().map(|(_, l)| l).collect::<Vec<_>>();
+        let layers = architecture()
+            .unwrap()
+            .crate_layers
+            .iter()
+            .map(|(_, l)| l)
+            .collect::<Vec<_>>();
         assert!(!layers.is_empty(), "crate layers should not be empty");
     }
 

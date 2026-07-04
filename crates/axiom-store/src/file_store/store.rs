@@ -1,6 +1,7 @@
-//! Append-only file-based event store implementation.
+//! File-based event store implementation.
 
 use crate::event::Event;
+use crate::file_store::FileStoreConfig;
 use crate::store::{BoxFuture, EventReceiver, EventStore, StoreError};
 use std::collections::HashMap;
 use std::fs::{self, File, OpenOptions};
@@ -8,25 +9,6 @@ use std::io::{BufRead, BufReader, Write};
 use std::path::PathBuf;
 use std::sync::Arc;
 use tokio::sync::broadcast;
-
-#[derive(Debug, Clone)]
-pub struct FileStoreConfig {
-    pub data_dir: PathBuf,
-    pub max_file_size_bytes: u64,
-    pub max_files: usize,
-    pub index_file: PathBuf,
-}
-
-impl Default for FileStoreConfig {
-    fn default() -> Self {
-        Self {
-            data_dir: PathBuf::from("events"),
-            max_file_size_bytes: 50 * 1024 * 1024,
-            max_files: 20,
-            index_file: PathBuf::from("events/event_index.json"),
-        }
-    }
-}
 
 pub struct FileStore {
     config: FileStoreConfig,
@@ -62,8 +44,7 @@ impl FileStore {
         if self.config.index_file.exists() {
             let data = fs::read(&self.config.index_file)
                 .map_err(|e| StoreError::Storage(format!("read index: {e}")))?;
-            let index: HashMap<String, usize> =
-                serde_json::from_slice(&data).unwrap_or_default();
+            let index: HashMap<String, usize> = serde_json::from_slice(&data).unwrap_or_default();
             *self.event_index.write() = index;
         }
         Ok(())
@@ -71,8 +52,8 @@ impl FileStore {
 
     async fn persist_index(&self) -> Result<(), StoreError> {
         let index = self.event_index.read();
-        let data = serde_json::to_vec(&*index)
-            .map_err(|e| StoreError::Serialization(e.to_string()))?;
+        let data =
+            serde_json::to_vec(&*index).map_err(|e| StoreError::Serialization(e.to_string()))?;
         fs::write(&self.config.index_file, data)
             .map_err(|e| StoreError::Storage(format!("write index: {e}")))?;
         Ok(())
@@ -88,7 +69,9 @@ impl FileStore {
 
     async fn roll_file(&self) -> Result<(), StoreError> {
         let mut files = Vec::new();
-        for entry in fs::read_dir(&self.config.data_dir).map_err(|e| StoreError::Storage(format!("read data dir: {e}")))? {
+        for entry in fs::read_dir(&self.config.data_dir)
+            .map_err(|e| StoreError::Storage(format!("read data dir: {e}")))?
+        {
             let entry = entry.map_err(|e| StoreError::Storage(format!("dir entry: {e}")))?;
             let path = entry.path();
             if path.extension().map(|e| e == "log").unwrap_or(false) {
@@ -134,13 +117,29 @@ impl FileStore {
             *self.current_path.lock() = path.clone();
             *file_guard = Some(file);
         }
-        let file = file_guard.as_mut().unwrap();
-        let line = serde_json::to_string(event)
-            .map_err(|e| StoreError::Serialization(e.to_string()))?;
-        writeln!(file, "{}", line)
-            .map_err(|e| StoreError::Storage(format!("write event: {e}")))?;
+        let file = file_guard.as_mut().ok_or_else(|| StoreError::Internal {
+            message: "file guard not initialized".into(),
+        })?;
+        let line =
+            serde_json::to_string(event).map_err(|e| StoreError::Serialization(e.to_string()))?;
+        writeln!(file, "{}", line).map_err(|e| StoreError::Storage(format!("write event: {e}")))?;
         *self.current_size.write() += line.len() as u64 + 1;
         Ok(())
+    }
+
+    fn list_log_files(&self) -> Result<Vec<PathBuf>, StoreError> {
+        let mut files = Vec::new();
+        for entry in fs::read_dir(&self.config.data_dir)
+            .map_err(|e| StoreError::Storage(format!("read data dir: {e}")))?
+        {
+            let entry = entry.map_err(|e| StoreError::Storage(format!("dir entry: {e}")))?;
+            let path = entry.path();
+            if path.extension().map(|e| e == "log").unwrap_or(false) {
+                files.push(path);
+            }
+        }
+        files.sort();
+        Ok(files)
     }
 }
 
@@ -195,7 +194,9 @@ impl EventStore for FileStore {
                 };
                 event.sequence_number = seq;
                 self.write_event(&event)?;
-                self.event_index.write().insert(event.event_id.clone(), seq as usize);
+                self.event_index
+                    .write()
+                    .insert(event.event_id.clone(), seq as usize);
                 seqs.push(seq);
                 let arc_event = Arc::new(event.clone());
                 let _ = self.sender.send(arc_event);
@@ -210,18 +211,10 @@ impl EventStore for FileStore {
     fn read<'a>(&'a self, aggregate_id: &'a str) -> BoxFuture<'a, Result<Vec<Event>, StoreError>> {
         Box::pin(async move {
             let mut out = Vec::new();
-            let mut files = Vec::new();
-            for entry in fs::read_dir(&self.config.data_dir).map_err(|e| StoreError::Storage(format!("read data dir: {e}")))? {
-                let entry = entry.map_err(|e| StoreError::Storage(format!("dir entry: {e}")))?;
-                let path = entry.path();
-                if path.extension().map(|e| e == "log").unwrap_or(false) {
-                    files.push(path);
-                }
-            }
-            files.sort();
-
+            let files = self.list_log_files()?;
             for file_path in files {
-                let file = File::open(&file_path).map_err(|e| StoreError::Storage(format!("open log: {e}")))?;
+                let file = File::open(&file_path)
+                    .map_err(|e| StoreError::Storage(format!("open log: {e}")))?;
                 let reader = BufReader::new(file);
                 for line in reader.lines() {
                     let line = line.map_err(|e| StoreError::Storage(format!("read line: {e}")))?;
@@ -243,18 +236,10 @@ impl EventStore for FileStore {
     fn read_all<'a>(&'a self) -> BoxFuture<'a, Result<Vec<Event>, StoreError>> {
         Box::pin(async move {
             let mut out = Vec::new();
-            let mut files = Vec::new();
-            for entry in fs::read_dir(&self.config.data_dir).map_err(|e| StoreError::Storage(format!("read data dir: {e}")))? {
-                let entry = entry.map_err(|e| StoreError::Storage(format!("dir entry: {e}")))?;
-                let path = entry.path();
-                if path.extension().map(|e| e == "log").unwrap_or(false) {
-                    files.push(path);
-                }
-            }
-            files.sort();
-
+            let files = self.list_log_files()?;
             for file_path in files {
-                let file = File::open(&file_path).map_err(|e| StoreError::Storage(format!("open log: {e}")))?;
+                let file = File::open(&file_path)
+                    .map_err(|e| StoreError::Storage(format!("open log: {e}")))?;
                 let reader = BufReader::new(file);
                 for line in reader.lines() {
                     let line = line.map_err(|e| StoreError::Storage(format!("read line: {e}")))?;
@@ -274,18 +259,10 @@ impl EventStore for FileStore {
     fn read_after<'a>(&'a self, after_ns: u64) -> BoxFuture<'a, Result<Vec<Event>, StoreError>> {
         Box::pin(async move {
             let mut out = Vec::new();
-            let mut files = Vec::new();
-            for entry in fs::read_dir(&self.config.data_dir).map_err(|e| StoreError::Storage(format!("read data dir: {e}")))? {
-                let entry = entry.map_err(|e| StoreError::Storage(format!("dir entry: {e}")))?;
-                let path = entry.path();
-                if path.extension().map(|e| e == "log").unwrap_or(false) {
-                    files.push(path);
-                }
-            }
-            files.sort();
-
+            let files = self.list_log_files()?;
             for file_path in files {
-                let file = File::open(&file_path).map_err(|e| StoreError::Storage(format!("open log: {e}")))?;
+                let file = File::open(&file_path)
+                    .map_err(|e| StoreError::Storage(format!("open log: {e}")))?;
                 let reader = BufReader::new(file);
                 for line in reader.lines() {
                     let line = line.map_err(|e| StoreError::Storage(format!("read line: {e}")))?;
@@ -310,18 +287,10 @@ impl EventStore for FileStore {
     ) -> BoxFuture<'a, Result<Vec<Event>, StoreError>> {
         Box::pin(async move {
             let mut out = Vec::new();
-            let mut files = Vec::new();
-            for entry in fs::read_dir(&self.config.data_dir).map_err(|e| StoreError::Storage(format!("read data dir: {e}")))? {
-                let entry = entry.map_err(|e| StoreError::Storage(format!("dir entry: {e}")))?;
-                let path = entry.path();
-                if path.extension().map(|e| e == "log").unwrap_or(false) {
-                    files.push(path);
-                }
-            }
-            files.sort();
-
+            let files = self.list_log_files()?;
             for file_path in files {
-                let file = File::open(&file_path).map_err(|e| StoreError::Storage(format!("open log: {e}")))?;
+                let file = File::open(&file_path)
+                    .map_err(|e| StoreError::Storage(format!("open log: {e}")))?;
                 let reader = BufReader::new(file);
                 for line in reader.lines() {
                     let line = line.map_err(|e| StoreError::Storage(format!("read line: {e}")))?;
@@ -348,18 +317,10 @@ impl EventStore for FileStore {
     ) -> BoxFuture<'a, Result<Vec<Event>, StoreError>> {
         Box::pin(async move {
             let mut out = Vec::new();
-            let mut files = Vec::new();
-            for entry in fs::read_dir(&self.config.data_dir).map_err(|e| StoreError::Storage(format!("read data dir: {e}")))? {
-                let entry = entry.map_err(|e| StoreError::Storage(format!("dir entry: {e}")))?;
-                let path = entry.path();
-                if path.extension().map(|e| e == "log").unwrap_or(false) {
-                    files.push(path);
-                }
-            }
-            files.sort();
-
+            let files = self.list_log_files()?;
             for file_path in files {
-                let file = File::open(&file_path).map_err(|e| StoreError::Storage(format!("open log: {e}")))?;
+                let file = File::open(&file_path)
+                    .map_err(|e| StoreError::Storage(format!("open log: {e}")))?;
                 let reader = BufReader::new(file);
                 for line in reader.lines() {
                     let line = line.map_err(|e| StoreError::Storage(format!("read line: {e}")))?;
@@ -387,18 +348,10 @@ impl EventStore for FileStore {
     ) -> BoxFuture<'a, Result<Vec<Event>, StoreError>> {
         Box::pin(async move {
             let mut out = Vec::new();
-            let mut files = Vec::new();
-            for entry in fs::read_dir(&self.config.data_dir).map_err(|e| StoreError::Storage(format!("read data dir: {e}")))? {
-                let entry = entry.map_err(|e| StoreError::Storage(format!("dir entry: {e}")))?;
-                let path = entry.path();
-                if path.extension().map(|e| e == "log").unwrap_or(false) {
-                    files.push(path);
-                }
-            }
-            files.sort();
-
+            let files = self.list_log_files()?;
             for file_path in files {
-                let file = File::open(&file_path).map_err(|e| StoreError::Storage(format!("open log: {e}")))?;
+                let file = File::open(&file_path)
+                    .map_err(|e| StoreError::Storage(format!("open log: {e}")))?;
                 let reader = BufReader::new(file);
                 for line in reader.lines() {
                     let line = line.map_err(|e| StoreError::Storage(format!("read line: {e}")))?;
@@ -423,18 +376,10 @@ impl EventStore for FileStore {
     ) -> BoxFuture<'a, Result<Vec<Event>, StoreError>> {
         Box::pin(async move {
             let mut out = Vec::new();
-            let mut files = Vec::new();
-            for entry in fs::read_dir(&self.config.data_dir).map_err(|e| StoreError::Storage(format!("read data dir: {e}")))? {
-                let entry = entry.map_err(|e| StoreError::Storage(format!("dir entry: {e}")))?;
-                let path = entry.path();
-                if path.extension().map(|e| e == "log").unwrap_or(false) {
-                    files.push(path);
-                }
-            }
-            files.sort();
-
+            let files = self.list_log_files()?;
             for file_path in files {
-                let file = File::open(&file_path).map_err(|e| StoreError::Storage(format!("open log: {e}")))?;
+                let file = File::open(&file_path)
+                    .map_err(|e| StoreError::Storage(format!("open log: {e}")))?;
                 let reader = BufReader::new(file);
                 for line in reader.lines() {
                     let line = line.map_err(|e| StoreError::Storage(format!("read line: {e}")))?;
@@ -460,18 +405,10 @@ impl EventStore for FileStore {
     ) -> BoxFuture<'a, Result<Vec<Event>, StoreError>> {
         Box::pin(async move {
             let mut out = Vec::new();
-            let mut files = Vec::new();
-            for entry in fs::read_dir(&self.config.data_dir).map_err(|e| StoreError::Storage(format!("read data dir: {e}")))? {
-                let entry = entry.map_err(|e| StoreError::Storage(format!("dir entry: {e}")))?;
-                let path = entry.path();
-                if path.extension().map(|e| e == "log").unwrap_or(false) {
-                    files.push(path);
-                }
-            }
-            files.sort();
-
+            let files = self.list_log_files()?;
             for file_path in files {
-                let file = File::open(&file_path).map_err(|e| StoreError::Storage(format!("open log: {e}")))?;
+                let file = File::open(&file_path)
+                    .map_err(|e| StoreError::Storage(format!("open log: {e}")))?;
                 let reader = BufReader::new(file);
                 for line in reader.lines() {
                     let line = line.map_err(|e| StoreError::Storage(format!("read line: {e}")))?;
@@ -506,10 +443,12 @@ mod tests {
     use std::sync::OnceLock;
     use tempfile::tempdir;
 
+    #[allow(dead_code, deprecated)]
     static DIR: OnceLock<PathBuf> = OnceLock::new();
 
+    #[allow(dead_code, deprecated)]
     fn test_dir() -> PathBuf {
-        DIR.get_or_init(|| tempdir().unwrap().into_path()).clone()
+        DIR.get_or_init(|| tempdir().unwrap().keep()).clone()
     }
 
     #[tokio::test]

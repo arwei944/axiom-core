@@ -11,11 +11,11 @@ use std::sync::Arc;
 use axiom_core::id::{CorrelationId, MsgId};
 use axiom_core::layer::Layer;
 use axiom_core::signal::{SignalKind, VectorClock};
-use parking_lot::{Mutex, RwLock};
+use parking_lot::RwLock;
 
 use axiom_runtime::bus::{BusInterceptor, InterceptDecision};
-use axiom_runtime::entropy_interceptors::{EmergencyInterceptor, ThrottleInterceptor};
 use axiom_runtime::entropy_gov::{EntropyEvent, EntropyGovernorCell, GovernanceAction};
+use axiom_runtime::entropy_interceptors::{EmergencyInterceptor, ThrottleInterceptor};
 
 fn make_env(target_cell: &str, source_layer: Layer) -> axiom_core::signal::SignalEnvelope {
     axiom_core::signal::SignalEnvelope {
@@ -52,13 +52,23 @@ async fn test_governance_throttle_flow() {
     });
 
     let action = governor.take_action();
-    if let GovernanceAction::Throttle { target_cell, factor } = action {
+    if let GovernanceAction::Throttle {
+        target_cell,
+        factor,
+    } = action
+    {
         throttle_state.write().insert(target_cell.unwrap(), factor);
 
         let env = make_env("hot-cell", Layer::Exec);
 
-        assert!(matches!(interceptor.intercept(&env), InterceptDecision::Allow));
-        assert!(matches!(interceptor.intercept(&env), InterceptDecision::Reject { .. }));
+        assert!(matches!(
+            interceptor.intercept(&env),
+            InterceptDecision::Allow
+        ));
+        assert!(matches!(
+            interceptor.intercept(&env),
+            InterceptDecision::Reject { .. }
+        ));
     }
 }
 
@@ -98,16 +108,30 @@ async fn test_governance_clear_throttle() {
     let throttle_state = Arc::new(RwLock::new(HashMap::new()));
     let interceptor = ThrottleInterceptor::new(throttle_state.clone());
 
-    throttle_state.write().insert("target-cell".to_string(), 0.5);
+    throttle_state
+        .write()
+        .insert("target-cell".to_string(), 0.5);
 
     let env = make_env("target-cell", Layer::Exec);
-    assert!(matches!(interceptor.intercept(&env), InterceptDecision::Allow));
-    assert!(matches!(interceptor.intercept(&env), InterceptDecision::Reject { .. }));
+    assert!(matches!(
+        interceptor.intercept(&env),
+        InterceptDecision::Allow
+    ));
+    assert!(matches!(
+        interceptor.intercept(&env),
+        InterceptDecision::Reject { .. }
+    ));
 
     throttle_state.write().clear();
 
-    assert!(matches!(interceptor.intercept(&env), InterceptDecision::Allow));
-    assert!(matches!(interceptor.intercept(&env), InterceptDecision::Allow));
+    assert!(matches!(
+        interceptor.intercept(&env),
+        InterceptDecision::Allow
+    ));
+    assert!(matches!(
+        interceptor.intercept(&env),
+        InterceptDecision::Allow
+    ));
 }
 
 #[tokio::test]
@@ -123,7 +147,10 @@ async fn test_governance_emergency_toggle_off() {
 
     *emergency_mode.write() = false;
 
-    assert!(matches!(interceptor.intercept(&env), InterceptDecision::Allow));
+    assert!(matches!(
+        interceptor.intercept(&env),
+        InterceptDecision::Allow
+    ));
 }
 
 #[tokio::test]
@@ -140,6 +167,12 @@ async fn test_governance_no_action_allows_all() {
     assert!(matches!(action, GovernanceAction::None));
 
     let env = make_env("target-cell", Layer::Exec);
-    assert!(matches!(throttle_interceptor.intercept(&env), axiom_runtime::bus::InterceptDecision::Allow));
-    assert!(matches!(emergency_interceptor.intercept(&env), axiom_runtime::bus::InterceptDecision::Allow));
+    assert!(matches!(
+        throttle_interceptor.intercept(&env),
+        axiom_runtime::bus::InterceptDecision::Allow
+    ));
+    assert!(matches!(
+        emergency_interceptor.intercept(&env),
+        axiom_runtime::bus::InterceptDecision::Allow
+    ));
 }

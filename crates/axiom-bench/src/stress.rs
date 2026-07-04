@@ -4,8 +4,8 @@
 //!   cargo run --bin stress -- --duration 60 --cells 10 --rate 1000
 //!   cargo run --bin stress -- --duration 300 --cells 50 --rate 5000
 
-use std::sync::Arc;
 use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 use axiom_core::id::{CorrelationId, MsgId};
@@ -93,7 +93,10 @@ async fn main() {
     println!("  Duration:   {}s", args.duration_secs);
     println!("  Cells:      {}", args.num_cells);
     println!("  Rate/cell:  {} msg/s", args.msg_rate_per_sec);
-    println!("  Total rate: {} msg/s", args.num_cells * args.msg_rate_per_sec as usize);
+    println!(
+        "  Total rate: {} msg/s",
+        args.num_cells * args.msg_rate_per_sec as usize
+    );
     println!();
 
     // Create mailboxes for each cell
@@ -208,12 +211,24 @@ async fn main() {
     println!("  Messages sent:  {}", sent);
     println!("  Messages recv:  {}", received);
     println!("  Errors:         {}", errors);
-    println!("  Throughput:     {:.0} msg/s", sent as f64 / elapsed.as_secs_f64());
-    println!("  Avg latency:    {:.2}µs", elapsed.as_secs_f64() * 1_000_000.0 / sent as f64);
-    println!("  Loss rate:      {:.4}%", (sent - received) as f64 / sent as f64 * 100.0);
+    println!(
+        "  Throughput:     {:.0} msg/s",
+        sent as f64 / elapsed.as_secs_f64()
+    );
+    println!(
+        "  Avg latency:    {:.2}µs",
+        elapsed.as_secs_f64() * 1_000_000.0 / sent as f64
+    );
+    println!(
+        "  Loss rate:      {:.4}%",
+        (sent - received) as f64 / sent as f64 * 100.0
+    );
 
     if errors > 0 {
-        println!("  ⚠ {} errors occurred (mailbox overflow expected under high load)", errors);
+        println!(
+            "  ⚠ {} errors occurred (mailbox overflow expected under high load)",
+            errors
+        );
     }
 
     if received == sent {

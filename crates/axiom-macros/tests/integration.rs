@@ -51,11 +51,10 @@ impl Signal for GreetCmd {
         ValidationResult::ok()
     }
     fn serialize_to_json(&self) -> ::axiom_core::Result<serde_json::Value> {
-        serde_json::to_value(self)
-            .map_err(|e| ::axiom_core::AxiomError::SignalSerialization {
-                signal_type: "Greet".into(),
-                message: e.to_string(),
-            })
+        serde_json::to_value(self).map_err(|e| ::axiom_core::AxiomError::SignalSerialization {
+            signal_type: "Greet".into(),
+            message: e.to_string(),
+        })
     }
 }
 
@@ -144,11 +143,10 @@ impl Signal for V2Signal {
         ValidationResult::ok()
     }
     fn serialize_to_json(&self) -> ::axiom_core::Result<serde_json::Value> {
-        serde_json::to_value(self)
-            .map_err(|e| ::axiom_core::AxiomError::SignalSerialization {
-                signal_type: "Greet".into(),
-                message: e.to_string(),
-            })
+        serde_json::to_value(self).map_err(|e| ::axiom_core::AxiomError::SignalSerialization {
+            signal_type: "Greet".into(),
+            message: e.to_string(),
+        })
     }
 }
 

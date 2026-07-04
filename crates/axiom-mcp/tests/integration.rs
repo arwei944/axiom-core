@@ -1,8 +1,10 @@
 use std::sync::Arc;
 
-use axiom_mcp::{client::McpClient, server::McpServer, tools::{ToolRegistry, AxiomTool, BoxMcpFuture}, protocol::{McpCapability, McpError}};
+use axiom_mcp::{
+    protocol::McpError,
+    tools::{AxiomTool, BoxMcpFuture, ToolRegistry},
+};
 use serde_json::Value;
-use tokio;
 
 struct TestTool;
 
@@ -40,7 +42,8 @@ impl AxiomTool for TestTool {
 
     fn execute<'a>(&'a self, arguments: &'a Value) -> BoxMcpFuture<'a> {
         Box::pin(async move {
-            let message = arguments.get("message")
+            let message = arguments
+                .get("message")
                 .and_then(|v| v.as_str())
                 .ok_or_else(|| McpError::InvalidRequest("message is required".into()))?;
 
@@ -64,7 +67,9 @@ async fn test_mcp_tool_execution() {
     let registry = Arc::new(ToolRegistry::new());
     registry.register(TestTool);
 
-    let result = registry.execute("test_tool", &serde_json::json!({ "message": "hello" })).await;
+    let result = registry
+        .execute("test_tool", &serde_json::json!({ "message": "hello" }))
+        .await;
 
     assert!(result.is_ok());
     let response = result.unwrap();
@@ -75,7 +80,9 @@ async fn test_mcp_tool_execution() {
 async fn test_mcp_tool_not_found() {
     let registry = Arc::new(ToolRegistry::new());
 
-    let result = registry.execute("non_existent", &serde_json::json!({})).await;
+    let result = registry
+        .execute("non_existent", &serde_json::json!({}))
+        .await;
 
     assert!(result.is_err());
     if let Err(McpError::ToolNotFound(_)) = result {

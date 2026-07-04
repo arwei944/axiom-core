@@ -28,6 +28,13 @@ impl Layer {
         }
     }
 
+    /// Check if a signal can be sent from this layer to the target layer.
+    ///
+    /// Rules:
+    /// - Oversight can send to any layer (supervises everything)
+    /// - Agent can send to Agent or Validate (deliberative layer)
+    /// - Validate can send to Validate, Exec, or Agent (validation layer)
+    /// - Exec can only send to Exec (execution layer, no reverse)
     pub fn can_send_to(&self, target: Layer) -> bool {
         match self {
             Layer::Oversight => true,

@@ -74,6 +74,9 @@ toml = "TOML 解析（build gate + archcheck）"
 walkdir = "目录遍历（archcheck）"
 once_cell = "延迟初始化（archcheck）"
 archcheck = "编译期架构门禁"
+bincode = "二进制序列化（codec 可选依赖）"
+proptest = "属性测试框架（store 测试）"
+loom = "并发测试框架（store 测试）"
 
 [dev-dependencies-audit]
 enabled = true

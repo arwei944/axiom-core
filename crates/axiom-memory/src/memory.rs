@@ -108,12 +108,7 @@ impl WorkingMemory {
     }
 
     pub fn filter_by_tag(&self, tag: &str) -> Vec<MemoryItem> {
-        let ids = self
-            .tags_index
-            .read()
-            .get(tag)
-            .cloned()
-            .unwrap_or_default();
+        let ids = self.tags_index.read().get(tag).cloned().unwrap_or_default();
 
         let items = self.items.read();
         ids.iter()
@@ -199,8 +194,7 @@ impl WorkingMemory {
             }
 
             if let Some(item) = items.get(idx) {
-                if item.item_type != MemoryItemType::Goal
-                    && item.item_type != MemoryItemType::Plan
+                if item.item_type != MemoryItemType::Goal && item.item_type != MemoryItemType::Plan
                 {
                     indices_to_remove.push(idx);
                     removed_tokens += item.token_estimate;
@@ -225,7 +219,11 @@ impl WorkingMemory {
         if !summary_text.is_empty() {
             let summary = MemoryItem::new(
                 MemoryItemType::Reflection,
-                format!("Summary of {} older memory items:\n{}", items.len(), summary_text),
+                format!(
+                    "Summary of {} older memory items:\n{}",
+                    items.len(),
+                    summary_text
+                ),
             )
             .with_importance(0.3);
             items.push(summary);
@@ -261,9 +259,18 @@ impl WorkingMemory {
                 break;
             }
             if !result.is_empty() {
-                result = format!("[{}] {}\n{}", item.item_type.as_str().to_uppercase(), item.content, result);
+                result = format!(
+                    "[{}] {}\n{}",
+                    item.item_type.as_str().to_uppercase(),
+                    item.content,
+                    result
+                );
             } else {
-                result = format!("[{}] {}", item.item_type.as_str().to_uppercase(), item.content);
+                result = format!(
+                    "[{}] {}",
+                    item.item_type.as_str().to_uppercase(),
+                    item.content
+                );
             }
             tokens_used += item_tokens;
         }

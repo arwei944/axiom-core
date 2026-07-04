@@ -1,7 +1,7 @@
 //! Integration tests for Cell restart mechanism with exponential backoff.
 
 use axiom_core::cell::SupervisionStrategy;
-use axiom_runtime::supervisor::{Supervisor, SupervisionDecision};
+use axiom_runtime::supervisor::{SupervisionDecision, Supervisor};
 
 #[tokio::test]
 async fn test_restart_with_exponential_backoff() {
@@ -11,19 +11,34 @@ async fn test_restart_with_exponential_backoff() {
         .await;
 
     let d1 = supervisor.record_panic("test-cell").await;
-    assert!(matches!(d1, SupervisionDecision::Restart { backoff_ms: 100 }));
+    assert!(matches!(
+        d1,
+        SupervisionDecision::Restart { backoff_ms: 100 }
+    ));
 
     let d2 = supervisor.record_panic("test-cell").await;
-    assert!(matches!(d2, SupervisionDecision::Restart { backoff_ms: 200 }));
+    assert!(matches!(
+        d2,
+        SupervisionDecision::Restart { backoff_ms: 200 }
+    ));
 
     let d3 = supervisor.record_panic("test-cell").await;
-    assert!(matches!(d3, SupervisionDecision::Restart { backoff_ms: 400 }));
+    assert!(matches!(
+        d3,
+        SupervisionDecision::Restart { backoff_ms: 400 }
+    ));
 
     let d4 = supervisor.record_panic("test-cell").await;
-    assert!(matches!(d4, SupervisionDecision::Restart { backoff_ms: 800 }));
+    assert!(matches!(
+        d4,
+        SupervisionDecision::Restart { backoff_ms: 800 }
+    ));
 
     let d5 = supervisor.record_panic("test-cell").await;
-    assert!(matches!(d5, SupervisionDecision::Restart { backoff_ms: 1600 }));
+    assert!(matches!(
+        d5,
+        SupervisionDecision::Restart { backoff_ms: 1600 }
+    ));
 
     let d6 = supervisor.record_panic("test-cell").await;
     assert!(matches!(d6, SupervisionDecision::Stop));
@@ -33,7 +48,10 @@ async fn test_restart_with_exponential_backoff() {
 async fn test_backoff_caps_at_30_seconds() {
     let supervisor = Supervisor::new();
     supervisor
-        .register_cell("test-cell", SupervisionStrategy::Restart { max_retries: 10 })
+        .register_cell(
+            "test-cell",
+            SupervisionStrategy::Restart { max_retries: 10 },
+        )
         .await;
 
     for attempt in 1..=10 {

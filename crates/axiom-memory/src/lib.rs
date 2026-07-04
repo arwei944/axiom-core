@@ -7,8 +7,8 @@
 //! - Memory retrieval with relevance scoring
 //! - Memory item types (thought, observation, action, result)
 
-pub mod memory;
 pub mod item;
+pub mod memory;
 
 pub use item::{MemoryItem, MemoryItemType};
 pub use memory::{MemoryError, WorkingMemory};

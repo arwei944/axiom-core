@@ -20,10 +20,16 @@ pub enum AxiomError {
     InvariantViolated { message: String },
 
     #[error("Schema validation failed for {signal_type}: {message}")]
-    SchemaValidation { signal_type: String, message: String },
+    SchemaValidation {
+        signal_type: String,
+        message: String,
+    },
 
     #[error("Signal validation failed for {signal_type}: {message}")]
-    SignalValidation { signal_type: String, message: String },
+    SignalValidation {
+        signal_type: String,
+        message: String,
+    },
 
     #[error("Layer violation: {from} cannot send to {to} (signal: {signal_type}, source_cell: {source_cell})")]
     LayerViolation {
@@ -34,7 +40,11 @@ pub enum AxiomError {
     },
 
     #[error("Handoff limit exceeded: message {msg_id} hopped {hops} times (max 8, correlation: {correlation_id})")]
-    HandoffLimitExceeded { msg_id: String, hops: u32, correlation_id: String },
+    HandoffLimitExceeded {
+        msg_id: String,
+        hops: u32,
+        correlation_id: String,
+    },
 
     #[error("Cell {cell_id} heartbeat timeout (last seen {last_seen_ms}ms ago)")]
     HeartbeatTimeout { cell_id: String, last_seen_ms: u64 },
@@ -49,10 +59,17 @@ pub enum AxiomError {
     CircuitBreak { cell_id: String, failures: u32 },
 
     #[error("Stale state detected for cell {cell_id}: expected version {expected}, got {actual}")]
-    StaleState { cell_id: String, expected: u64, actual: u64 },
+    StaleState {
+        cell_id: String,
+        expected: u64,
+        actual: u64,
+    },
 
     #[error("Duplicate message {msg_id} (idempotency violation, correlation: {correlation_id})")]
-    DuplicateMessage { msg_id: String, correlation_id: String },
+    DuplicateMessage {
+        msg_id: String,
+        correlation_id: String,
+    },
 
     #[error("Version incompatibility: {compatibility:?} (required: {required}, found: {found})")]
     VersionMismatch {
@@ -61,47 +78,93 @@ pub enum AxiomError {
         found: Version,
     },
 
-    #[error("Schema version too new for {signal_type}: found v{found}, max supported v{max_supported}")]
-    SchemaVersionTooNew { signal_type: String, found: u16, max_supported: u16 },
+    #[error(
+        "Schema version too new for {signal_type}: found v{found}, max supported v{max_supported}"
+    )]
+    SchemaVersionTooNew {
+        signal_type: String,
+        found: u16,
+        max_supported: u16,
+    },
 
-    #[error("Schema version too old for {signal_type}: found v{found}, no migration path to v{current}")]
-    MigrationPathNotFound { signal_type: String, found: u16, current: u16 },
+    #[error(
+        "Schema version too old for {signal_type}: found v{found}, no migration path to v{current}"
+    )]
+    MigrationPathNotFound {
+        signal_type: String,
+        found: u16,
+        current: u16,
+    },
 
     #[error("Migration chain incomplete for {signal_type}: missing migration v{from} to v{to}")]
-    MigrationChainGap { signal_type: String, from: u16, to: u16 },
+    MigrationChainGap {
+        signal_type: String,
+        from: u16,
+        to: u16,
+    },
 
     #[error("Protocol version mismatch: expected v{expected}, got v{got}")]
     ProtocolMismatch { expected: u16, got: u16 },
 
     #[error("Migration failed from v{from} to v{to} for {signal_type}: {reason}")]
-    MigrationFailed { signal_type: String, from: u16, to: u16, reason: String },
+    MigrationFailed {
+        signal_type: String,
+        from: u16,
+        to: u16,
+        reason: String,
+    },
 
     #[error("Permission denied: {action} requires {required} permission")]
     PermissionDenied { action: String, required: String },
 
     #[error("Correlation chain broken: {message} (correlation_id: {correlation_id})")]
-    CorrelationBroken { message: String, correlation_id: String },
+    CorrelationBroken {
+        message: String,
+        correlation_id: String,
+    },
 
     #[error("Witness chain broken: {message} (cell_id: {cell_id}, witness_id: {witness_id})")]
-    WitnessChainBroken { message: String, cell_id: String, witness_id: String },
+    WitnessChainBroken {
+        message: String,
+        cell_id: String,
+        witness_id: String,
+    },
 
     #[error("Entropy threshold exceeded: {score} > {threshold} (cell_id: {cell_id})")]
-    EntropyExceeded { score: f64, threshold: f64, cell_id: String },
+    EntropyExceeded {
+        score: f64,
+        threshold: f64,
+        cell_id: String,
+    },
 
     #[error("Token budget exceeded for {cell_id}: used {used}, budget {budget}")]
-    TokenBudgetExceeded { cell_id: String, used: u64, budget: u64 },
+    TokenBudgetExceeded {
+        cell_id: String,
+        used: u64,
+        budget: u64,
+    },
 
     #[error("Message loop detected: {message} (correlation: {correlation_id})")]
-    LoopDetected { message: String, correlation_id: String },
+    LoopDetected {
+        message: String,
+        correlation_id: String,
+    },
 
     #[error("Timeout after {timeout_ms}ms (cell_id: {cell_id}, operation: {operation})")]
-    Timeout { cell_id: String, timeout_ms: u64, operation: String },
+    Timeout {
+        cell_id: String,
+        timeout_ms: u64,
+        operation: String,
+    },
 
     #[error("Resource exhausted: {resource} (cell_id: {cell_id})")]
     ResourceExhausted { resource: String, cell_id: String },
 
     #[error("Invalid signal type: {signal_type} (expected one of: {expected_types})")]
-    InvalidSignalType { signal_type: String, expected_types: String },
+    InvalidSignalType {
+        signal_type: String,
+        expected_types: String,
+    },
 
     #[error("Shutdown in progress: {message}")]
     ShutdownInProgress { message: String },
@@ -125,7 +188,10 @@ pub enum AxiomError {
     WitnessSerialization { cell_id: String, message: String },
 
     #[error("Signal serialization failed for {signal_type}: {message}")]
-    SignalSerialization { signal_type: String, message: String },
+    SignalSerialization {
+        signal_type: String,
+        message: String,
+    },
 
     #[error("Internal error: {message}")]
     Internal { message: String },

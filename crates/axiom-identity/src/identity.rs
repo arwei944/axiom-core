@@ -125,16 +125,16 @@ impl AgentIdentity {
                 parts.push(format!("Traits: {}", self.traits.join(", ")));
             }
             if !self.capabilities.is_empty() {
-                parts.push(format!(
-                    "Capabilities: {}",
-                    self.capabilities.join(", ")
-                ));
+                parts.push(format!("Capabilities: {}", self.capabilities.join(", ")));
             }
         }
 
         if level.can_disclose(DisclosureLevel::Transparent) {
             parts.push(format!("Identity ID: {}", self.id));
-            parts.push(format!("Disclosure Level: {}", self.disclosure_level.as_str()));
+            parts.push(format!(
+                "Disclosure Level: {}",
+                self.disclosure_level.as_str()
+            ));
         }
 
         parts.join("\n")

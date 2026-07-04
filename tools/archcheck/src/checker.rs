@@ -4,8 +4,10 @@ use regex::Regex;
 use std::collections::HashMap;
 use std::path::Path;
 
-static DEP_RE: Lazy<Regex> = Lazy::new(|| Regex::new(r#"^[a-zA-Z0-9_-]+"#).expect("valid dep regex"));
-static SECTION_RE: Lazy<Regex> = Lazy::new(|| Regex::new(r#"^\[(.+?)\]$"#).expect("valid section regex"));
+static DEP_RE: Lazy<Regex> =
+    Lazy::new(|| Regex::new(r#"^[a-zA-Z0-9_-]+"#).expect("valid dep regex"));
+static SECTION_RE: Lazy<Regex> =
+    Lazy::new(|| Regex::new(r#"^\[(.+?)\]$"#).expect("valid section regex"));
 
 #[derive(Debug, Clone)]
 pub struct Violation {
@@ -127,11 +129,7 @@ pub fn check_dev_dependencies(
     violations
 }
 
-fn check_internal_dep(
-    arch: &Architecture,
-    crate_name: &str,
-    dep_name: &str,
-) -> Vec<Violation> {
+fn check_internal_dep(arch: &Architecture, crate_name: &str, dep_name: &str) -> Vec<Violation> {
     let mut violations = Vec::new();
 
     let crate_layer = match arch.crate_layers.get(crate_name) {
@@ -172,11 +170,7 @@ fn check_internal_dep(
     violations
 }
 
-fn check_third_party_dep(
-    arch: &Architecture,
-    crate_name: &str,
-    dep_name: &str,
-) -> Vec<Violation> {
+fn check_third_party_dep(arch: &Architecture, crate_name: &str, dep_name: &str) -> Vec<Violation> {
     let mut violations = Vec::new();
 
     if let Some(reason) = arch.forbidden_deps.get(dep_name) {

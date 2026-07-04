@@ -35,6 +35,9 @@
 │   ├── axiom-tool       — Tool trait + ToolRegistry + 权限控制            │
 │   ├── axiom-memory     — 工作记忆 + 上下文预算                           │
 │   └── axiom-store      — 事件存储（Append-Only Log + 快照 + 重放）      │
+│                       ├── sqlite/  — SQLite 后端（store/queries/config）│
+│                       ├── file_store/ — 文件后端（store/config）        │
+│                       └── replay/ — 重放引擎（engine/validation/witness）│
 ├─────────────────────────────────────────────────────────────────────────┤
 │ Layer 6: （预留）                                                       │
 ├─────────────────────────────────────────────────────────────────────────┤
@@ -271,12 +274,16 @@ MCP 桥接：
 │  ┌──────────────────┐    ┌──────────▼──────────┐                       │
 │  │   EventStore     │    │   SnapshotStore     │                       │
 │  │ (axiom-store)    │    │ (每100事件触发)      │                       │
-│  ├──────────────────┤    ├─────────────────────┤                       │
-│  │ append(event)    │    │ save(cell_id, state)│                       │
-│  │ read(aggregate)  │    │ load(cell_id)       │                       │
-│  │ read_by_corr()   │    │ retention: 5个      │                       │
-│  │ read_by_cell()   │    │ compression: snappy │                       │
-│  │ subscribe()      │    │                     │                       │
+│  │  ├── sqlite/     │    ├─────────────────────┤                       │
+│  │  ├── file_store/ │    │ save(cell_id, state)│                       │
+│  │  ├── replay/     │    │ load(cell_id)       │                       │
+│  │  └── memory.rs   │    │ retention: 5个      │                       │
+│  │                   │    │ compression: snappy │                       │
+│  │ append(event)     │    │                     │                       │
+│  │ read(aggregate)   │    │                     │                       │
+│  │ read_by_corr()    │    │                     │                       │
+│  │ read_by_cell()    │    │                     │                       │
+│  │ subscribe()       │    │                     │                       │
 │  └──────────────────┘    └─────────────────────┘                       │
 │           │                                                              │
 │           ▼                                                              │

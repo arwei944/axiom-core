@@ -131,7 +131,7 @@ impl Cell for HelloCell {
                     ctx.witness()
                         .summary(format!("processed greeting: {}", signal.message))
                         .outcome(TransitionOutcome::Success)
-                        .processing_time_us(42)
+                        .processing_time_us(42),
                 )?;
                 Ok(())
             })();

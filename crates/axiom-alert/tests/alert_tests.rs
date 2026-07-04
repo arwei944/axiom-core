@@ -1,7 +1,7 @@
 #[cfg(test)]
 mod tests {
     use axiom_alert::{
-        alert::{Alert, AlertRule, AlertStatus, Severity},
+        alert::{Alert, AlertStatus, Severity},
         router::AlertRouter,
         silence::Silence,
         store::MemoryAlertStore,

@@ -27,16 +27,36 @@ struct TestSignal {
 }
 
 impl Signal for TestSignal {
-    fn signal_type(&self) -> &'static str { "TestSignal" }
-    fn msg_id(&self) -> &axiom_core::id::MsgId { &self.msg_id }
-    fn correlation_id(&self) -> &CorrelationId { &self.correlation_id }
-    fn vector_clock(&self) -> &VectorClock { &self.vector_clock }
-    fn timestamp_ns(&self) -> u64 { now_ns() }
-    fn kind(&self) -> SignalKind { SignalKind::Command }
-    fn layer(&self) -> Layer { Layer::Exec }
-    fn as_any(&self) -> &dyn std::any::Any { self }
-    fn clone_signal(&self) -> Box<dyn Signal> { Box::new(self.clone()) }
-    fn validate(&self) -> ValidationResult { ValidationResult::ok() }
+    fn signal_type(&self) -> &'static str {
+        "TestSignal"
+    }
+    fn msg_id(&self) -> &axiom_core::id::MsgId {
+        &self.msg_id
+    }
+    fn correlation_id(&self) -> &CorrelationId {
+        &self.correlation_id
+    }
+    fn vector_clock(&self) -> &VectorClock {
+        &self.vector_clock
+    }
+    fn timestamp_ns(&self) -> u64 {
+        now_ns()
+    }
+    fn kind(&self) -> SignalKind {
+        SignalKind::Command
+    }
+    fn layer(&self) -> Layer {
+        Layer::Exec
+    }
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
+    fn clone_signal(&self) -> Box<dyn Signal> {
+        Box::new(self.clone())
+    }
+    fn validate(&self) -> ValidationResult {
+        ValidationResult::ok()
+    }
     fn serialize_to_json(&self) -> ::axiom_core::Result<serde_json::Value> {
         serde_json::to_value(self).map_err(|e| ::axiom_core::AxiomError::SignalSerialization {
             signal_type: "ConformanceTestSignal".into(),
@@ -81,14 +101,16 @@ fn conformance_layered_context_compile_time_enforcement() {
     let mut ctx = CellContext::new(&cell_id, Layer::Exec);
 
     let mut layered_exec = LayeredCellContext::<ExecLayer>::from_cell_context(&mut ctx);
-    
+
     let signal = TestSignal {
         msg_id: axiom_core::id::MsgId::generate(),
         correlation_id: CorrelationId::generate(),
         vector_clock: VectorClock::new(),
     };
 
-    assert!(layered_exec.send_to::<ExecLayer, _>(signal.clone(), "exec-target").is_ok());
+    assert!(layered_exec
+        .send_to::<ExecLayer, _>(signal.clone(), "exec-target")
+        .is_ok());
 }
 
 #[test]
@@ -116,9 +138,9 @@ fn conformance_as_layered_assertion() {
 #[test]
 fn conformance_reply_layer_validation() {
     let cell_id = CellId::new("reply-conformance-test");
-    
+
     let mut exec_ctx = CellContext::new(&cell_id, Layer::Exec);
-    
+
     let incoming_env = axiom_core::signal::SignalEnvelope {
         msg_id: axiom_core::id::MsgId::generate(),
         correlation_id: CorrelationId::generate(),
@@ -145,7 +167,11 @@ fn conformance_reply_layer_validation() {
 
     assert!(matches!(
         exec_ctx.reply(&incoming_env, signal),
-        Err(axiom_core::AxiomError::LayerViolation { from: Layer::Exec, to: Layer::Agent, .. })
+        Err(axiom_core::AxiomError::LayerViolation {
+            from: Layer::Exec,
+            to: Layer::Agent,
+            ..
+        })
     ));
 }
 
@@ -163,10 +189,18 @@ fn conformance_entropy_governor_is_oversight_layer() {
         vector_clock: VectorClock::new(),
     };
 
-    assert!(layered.send_to::<ExecLayer, _>(signal.clone(), "any-cell").is_ok());
-    assert!(layered.send_to::<ValidateLayer, _>(signal.clone(), "any-cell").is_ok());
-    assert!(layered.send_to::<AgentLayer, _>(signal.clone(), "any-cell").is_ok());
-    assert!(layered.send_to::<OversightLayer, _>(signal.clone(), "any-cell").is_ok());
+    assert!(layered
+        .send_to::<ExecLayer, _>(signal.clone(), "any-cell")
+        .is_ok());
+    assert!(layered
+        .send_to::<ValidateLayer, _>(signal.clone(), "any-cell")
+        .is_ok());
+    assert!(layered
+        .send_to::<AgentLayer, _>(signal.clone(), "any-cell")
+        .is_ok());
+    assert!(layered
+        .send_to::<OversightLayer, _>(signal.clone(), "any-cell")
+        .is_ok());
 }
 
 #[test]
@@ -180,26 +214,48 @@ fn conformance_architecture_self_consistency() {
     };
 
     let mut oversight_ctx = CellContext::new(&cell_id, Layer::Oversight);
-    let mut layered_oversight = LayeredCellContext::<OversightLayer>::from_cell_context(&mut oversight_ctx);
-    assert!(layered_oversight.send_to::<OversightLayer, _>(signal.clone(), "test").is_ok());
-    assert!(layered_oversight.send_to::<AgentLayer, _>(signal.clone(), "test").is_ok());
-    assert!(layered_oversight.send_to::<ValidateLayer, _>(signal.clone(), "test").is_ok());
-    assert!(layered_oversight.send_to::<ExecLayer, _>(signal.clone(), "test").is_ok());
+    let mut layered_oversight =
+        LayeredCellContext::<OversightLayer>::from_cell_context(&mut oversight_ctx);
+    assert!(layered_oversight
+        .send_to::<OversightLayer, _>(signal.clone(), "test")
+        .is_ok());
+    assert!(layered_oversight
+        .send_to::<AgentLayer, _>(signal.clone(), "test")
+        .is_ok());
+    assert!(layered_oversight
+        .send_to::<ValidateLayer, _>(signal.clone(), "test")
+        .is_ok());
+    assert!(layered_oversight
+        .send_to::<ExecLayer, _>(signal.clone(), "test")
+        .is_ok());
 
     let mut agent_ctx = CellContext::new(&cell_id, Layer::Agent);
     let mut layered_agent = LayeredCellContext::<AgentLayer>::from_cell_context(&mut agent_ctx);
-    assert!(layered_agent.send_to::<AgentLayer, _>(signal.clone(), "test").is_ok());
-    assert!(layered_agent.send_to::<ValidateLayer, _>(signal.clone(), "test").is_ok());
+    assert!(layered_agent
+        .send_to::<AgentLayer, _>(signal.clone(), "test")
+        .is_ok());
+    assert!(layered_agent
+        .send_to::<ValidateLayer, _>(signal.clone(), "test")
+        .is_ok());
 
     let mut validate_ctx = CellContext::new(&cell_id, Layer::Validate);
-    let mut layered_validate = LayeredCellContext::<ValidateLayer>::from_cell_context(&mut validate_ctx);
-    assert!(layered_validate.send_to::<ValidateLayer, _>(signal.clone(), "test").is_ok());
-    assert!(layered_validate.send_to::<ExecLayer, _>(signal.clone(), "test").is_ok());
-    assert!(layered_validate.send_to::<AgentLayer, _>(signal.clone(), "test").is_ok());
+    let mut layered_validate =
+        LayeredCellContext::<ValidateLayer>::from_cell_context(&mut validate_ctx);
+    assert!(layered_validate
+        .send_to::<ValidateLayer, _>(signal.clone(), "test")
+        .is_ok());
+    assert!(layered_validate
+        .send_to::<ExecLayer, _>(signal.clone(), "test")
+        .is_ok());
+    assert!(layered_validate
+        .send_to::<AgentLayer, _>(signal.clone(), "test")
+        .is_ok());
 
     let mut exec_ctx = CellContext::new(&cell_id, Layer::Exec);
     let mut layered_exec = LayeredCellContext::<ExecLayer>::from_cell_context(&mut exec_ctx);
-    assert!(layered_exec.send_to::<ExecLayer, _>(signal.clone(), "test").is_ok());
+    assert!(layered_exec
+        .send_to::<ExecLayer, _>(signal.clone(), "test")
+        .is_ok());
 }
 
 #[test]

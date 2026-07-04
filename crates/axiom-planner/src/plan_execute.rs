@@ -104,10 +104,7 @@ impl PlanAndExecutePlanner {
         }
 
         if let Some(mem) = &self.memory {
-            mem.add(
-                axiom_memory::MemoryItem::action(&step.description)
-                    .with_importance(0.6),
-            );
+            mem.add(axiom_memory::MemoryItem::action(&step.description).with_importance(0.6));
             if let Some(output) = &step.actual_output {
                 mem.add(axiom_memory::MemoryItem::result(output));
             }
@@ -179,8 +176,7 @@ impl PlanAndExecutePlanner {
             }
         } else {
             let retry_idx = steps.len();
-            let mut retry_step =
-                PlanStep::new(retry_idx, format!("Retry: {}", failed.description));
+            let mut retry_step = PlanStep::new(retry_idx, format!("Retry: {}", failed.description));
             retry_step.tool_name = failed.tool_name.clone();
             retry_step.dependencies = vec![failed_idx];
             steps.push(retry_step);
@@ -232,10 +228,7 @@ impl Planner for PlanAndExecutePlanner {
             loop {
                 iteration += 1;
                 if iteration > self.max_iterations {
-                    return Ok(PlanningResult::failure(
-                        steps,
-                        "Max iterations reached",
-                    ));
+                    return Ok(PlanningResult::failure(steps, "Max iterations reached"));
                 }
 
                 let mut all_done = true;

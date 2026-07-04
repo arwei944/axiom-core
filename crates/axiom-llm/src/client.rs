@@ -12,8 +12,14 @@ use crate::types::{
 };
 
 pub trait LlmProvider: Send + Sync + 'static {
-    fn complete<'a>(&'a self, prompt: &'a str) -> crate::BoxLlmFuture<'a, Result<CompletionResponse, LlmError>>;
-    fn chat<'a>(&'a self, messages: &'a [ChatMessage]) -> crate::BoxLlmFuture<'a, Result<ChatResponse, LlmError>>;
+    fn complete<'a>(
+        &'a self,
+        prompt: &'a str,
+    ) -> crate::BoxLlmFuture<'a, Result<CompletionResponse, LlmError>>;
+    fn chat<'a>(
+        &'a self,
+        messages: &'a [ChatMessage],
+    ) -> crate::BoxLlmFuture<'a, Result<ChatResponse, LlmError>>;
 }
 
 pub struct LlmClient {
@@ -46,7 +52,10 @@ impl LlmClient {
     }
 
     fn is_retryable(error: &LlmError) -> bool {
-        matches!(error, LlmError::Connection(_) | LlmError::RateLimited | LlmError::Timeout)
+        matches!(
+            error,
+            LlmError::Connection(_) | LlmError::RateLimited | LlmError::Timeout
+        )
     }
 
     async fn with_retry<F, Fut, T>(&self, f: F) -> Result<T, LlmError>
@@ -111,11 +120,7 @@ impl LlmClient {
         Ok(result)
     }
 
-    pub async fn structured_output<T>(
-        &self,
-        prompt: &str,
-        _schema: &Value,
-    ) -> Result<T, LlmError>
+    pub async fn structured_output<T>(&self, prompt: &str, _schema: &Value) -> Result<T, LlmError>
     where
         T: DeserializeOwned,
     {

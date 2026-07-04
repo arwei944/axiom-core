@@ -6,10 +6,10 @@
 //! - Progressive disclosure of capabilities
 //! - Context-aware persona switching
 
+pub mod agent;
 pub mod identity;
 pub mod skill;
-pub mod agent;
 
-pub use identity::{AgentIdentity, DisclosureLevel, IdentityError};
-pub use skill::{Skill, SkillState, ActivationCondition};
 pub use agent::AgentPersona;
+pub use identity::{AgentIdentity, DisclosureLevel, IdentityError};
+pub use skill::{ActivationCondition, Skill, SkillState};

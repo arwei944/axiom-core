@@ -50,11 +50,7 @@ impl ToolRegistry {
     }
 
     pub fn list(&self) -> Vec<ToolInfo> {
-        self.tools
-            .read()
-            .values()
-            .map(|t| t.info())
-            .collect()
+        self.tools.read().values().map(|t| t.info()).collect()
     }
 
     pub fn contains(&self, name: &str) -> bool {

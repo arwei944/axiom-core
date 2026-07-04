@@ -49,7 +49,10 @@ fn parse_local_axiom_deps(cargo_toml: &Path) -> Vec<String> {
             && !trimmed.is_empty()
             && !trimmed.starts_with('#')
         {
-            if let Some(dep_name) = trimmed.split(|c: char| c.is_whitespace() || c == '=').next() {
+            if let Some(dep_name) = trimmed
+                .split(|c: char| c.is_whitespace() || c == '=')
+                .next()
+            {
                 if dep_name.starts_with("axiom-") {
                     deps.push(dep_name.to_string());
                 }
@@ -72,11 +75,16 @@ fn parse_third_party_deps(cargo_toml: &Path) -> Vec<(String, String)> {
             section = trimmed.trim_start_matches('[').trim_end_matches(']').trim();
             continue;
         }
-        if (section == "dependencies" || section == "build-dependencies" || section == "dev-dependencies")
+        if (section == "dependencies"
+            || section == "build-dependencies"
+            || section == "dev-dependencies")
             && !trimmed.is_empty()
             && !trimmed.starts_with('#')
         {
-            if let Some(dep_name) = trimmed.split(|c: char| c.is_whitespace() || c == '=').next() {
+            if let Some(dep_name) = trimmed
+                .split(|c: char| c.is_whitespace() || c == '=')
+                .next()
+            {
                 if !dep_name.is_empty() && !dep_name.starts_with("axiom-") {
                     deps.push((dep_name.to_string(), format!("Cargo.toml:{}", line_num + 1)));
                 }
@@ -110,7 +118,9 @@ pub fn check_current_crate(crate_name: &str) {
 
             // Check proc-macro exemption
             if dep == "axiom-macros" {
-                let is_exempt = arch.proc_macro_exemptions.iter()
+                let is_exempt = arch
+                    .proc_macro_exemptions
+                    .iter()
                     .any(|(k, v)| k == crate_name && v.allowed_deps.contains(dep));
                 if is_exempt {
                     continue;
@@ -120,7 +130,9 @@ pub fn check_current_crate(crate_name: &str) {
             // Check reverse dependency exemption
             if let Some(dep_level) = crate_level_of(dep) {
                 if dep_level < level {
-                    let is_exempt = arch.reverse_dependency_exemptions.iter()
+                    let is_exempt = arch
+                        .reverse_dependency_exemptions
+                        .iter()
                         .any(|(k, v)| k == crate_name && v.allowed_deps.contains(dep));
                     if is_exempt {
                         continue;
@@ -151,7 +163,10 @@ pub fn check_current_crate(crate_name: &str) {
     let arch = architecture();
     for (dep, location) in &third_party {
         if arch.forbidden_deps.contains_key(dep) {
-            let reason = arch.forbidden_deps.get(dep).map_or("No reason provided", |v| v.as_str());
+            let reason = arch
+                .forbidden_deps
+                .get(dep)
+                .map_or("No reason provided", |v| v.as_str());
             panic!(
                 "\n\n\
                 ╔══════════════════════════════════════════════════════════════╗\n\
@@ -197,11 +212,11 @@ pub fn check_current_crate(crate_name: &str) {
                 section = trimmed.trim_start_matches('[').trim_end_matches(']').trim();
                 continue;
             }
-            if section == "dev-dependencies"
-                && !trimmed.is_empty()
-                && !trimmed.starts_with('#')
-            {
-                if let Some(dep_name) = trimmed.split(|c: char| c.is_whitespace() || c == '=').next() {
+            if section == "dev-dependencies" && !trimmed.is_empty() && !trimmed.starts_with('#') {
+                if let Some(dep_name) = trimmed
+                    .split(|c: char| c.is_whitespace() || c == '=')
+                    .next()
+                {
                     if !dep_name.is_empty() && !dep_name.starts_with("axiom-") {
                         dev_dep_names.push(dep_name.to_string());
                     }

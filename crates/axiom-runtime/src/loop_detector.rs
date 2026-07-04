@@ -36,7 +36,11 @@ impl LruCorrelationMap {
                 },
             );
         }
-        &mut self.map.get_mut(&k).expect("key just inserted should exist").cells
+        &mut self
+            .map
+            .get_mut(&k)
+            .expect("key just inserted should exist")
+            .cells
     }
     fn evict_if_needed(&mut self) {
         while self.map.len() >= self.max_tracked {
@@ -79,7 +83,8 @@ impl LoopDetector {
             return Err(axiom_core::AxiomError::LoopDetected {
                 message: format!(
                     "revisiting cell {} after visiting {} cells",
-                    target, cells.len()
+                    target,
+                    cells.len()
                 ),
                 correlation_id: cid,
             });

@@ -22,6 +22,7 @@ axum = { workspace = true, optional = true }
 default = []
 metrics = ["dep:axum"]
 telemetry = []
+bincode-codec = ["axiom-core/bincode-codec"]
 
 [build-dependencies]
 archcheck = { path = "../../tools/archcheck" }

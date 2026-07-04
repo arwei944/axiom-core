@@ -10,43 +10,49 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
-- Phase 4: Witness time travel and replay capabilities
-  - `ReplayEngine::replay_at_timestamp` - Replay at specific timestamp
-  - `ReplayEngine::replay_at_sequence` - Replay at specific sequence
-  - `ReplayEngine::diff_between` - State diff between sequences
-  - `WitnessReplay` - Witness replay executor with chain validation
-  - `StateDiff` - State difference structure
-- Phase 3: Unified constraint runtime
-  - `ConstraintValidator` - Unified validation context
-  - `ValidationContext` - Validation context from envelope
-  - `CapabilityVersionInterceptor` - Capability version checking
-  - `GuardInterceptor` - Guard permission checking
-- Phase 2: Store persistence
-  - `SqliteStore` - SQLite backend with migrations
-  - `FileStore` - Append-only file log backend
-  - `FileSnapshotStore` - File-based snapshot store with compression
-  - `StoreConfig` / `StoreFactory` - Backend configuration
-  - `verify_witness_chain` - Witness chain integrity verification
-- Phase 1: Lens primitive
-  - `Lens` trait - On-demand state projection
-  - `Projectable` trait - Object-safe lens trait
-  - `ProjectionCache` - Cache with TTL/LRU
-  - `IncrementalProjectionCache` - Incremental cache
-  - `LensRegistry` / `LENS_REGISTRY` - Lens registration
-  - `#[lens]` macro - Automatic lens implementation
-
-### Changed
-- `AxiomRuntime` now auto-registers capability version and guard interceptors
-- `ReplayEngine` supports multiple replay modes (aggregate, cell, correlation, time, sequence, diff)
-- `Witness` chain verification integrated into store layer
-
-### Fixed
-- Witness hash chain validation in runtime persistence
-- Snapshot retention enforcement in file backend
+- Future work items
 
 ---
 
-## [0.2.0] - 2026-07-04
+## [0.3.0] - 2026-07-04
+
+### Added
+- **Phase 4: Runtime Robustness**
+  - `SignalCodec` trait with `JsonCodec` and `BincodeCodec` implementations
+  - `MessageBus::with_codec()` for pluggable serialization
+  - Enhanced `RuntimeHealth` with metrics/telemetry/store connectivity
+  - Bincode serialization support via `bincode-codec` feature
+- **Phase 5: Technical Debt Repayment**
+  - `runtime.rs` split into `runtime/` (9 files) and `dispatch/` (3 files) modules
+  - `macros/lib.rs` split into 10 files with shared `utils.rs`
+  - Removed unnecessary `#[allow(dead_code)]` and unused imports
+  - Unified error handling across core crates using `thiserror`
+- **Phase 6: Production Documentation**
+  - `docs/PRODUCTION.md` - Deployment, configuration, backup/restore
+  - `docs/PERFORMANCE.md` - Benchmarks, tuning decision trees, config recommendations
+  - `docs/MIGRATION.md` - Migration guides from LangChain, CrewAI, custom frameworks
+  - `docs/OPERATIONS.md` - Alert handling, log interpretation, witness troubleshooting
+
+### Changed
+- SQLite is now the default persistence backend
+- `SnapshotPolicy` refactored to enum with configurable retention
+- `tokio::select!` stop signal fixed in dispatch loop
+- `Layer::can_send_to()` documented with layer transition rules
+
+### Fixed
+- SQLite `event_id` NOT NULL constraint violation
+- sqlx 0.7 compatibility issues in `SqliteStore`
+- Type conversion issues (`u64`, `u16`) in SQLite queries
+- `oneshot::Receiver` usage in dispatch loop
+
+### Security
+- Added `bincode`, `prometheus`, `axum` to audited dependencies
+- Capability version interceptor for runtime permission checks
+- Architecture governance enforcement via `archcheck` and `xtask gatecheck`
+
+---
+
+## [Unreleased]
 
 ### Added
 - **Phase 1: Lens Primitive**
@@ -118,6 +124,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-[Unreleased]: https://github.com/axiom-framework/axiom/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/axiom-framework/axiom/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/axiom-framework/axiom/releases/tag/v0.3.0
 [0.2.0]: https://github.com/axiom-framework/axiom/releases/tag/v0.2.0
 [0.1.0]: https://github.com/axiom-framework/axiom/releases/tag/v0.1.0

@@ -16,7 +16,10 @@ pub fn run(strict: bool, fix: bool) -> Result<()> {
         return Ok(());
     }
 
-    println!("📋 检测到 {} 个 Cargo.toml 文件变更:", cargo_toml_files.len());
+    println!(
+        "📋 检测到 {} 个 Cargo.toml 文件变更:",
+        cargo_toml_files.len()
+    );
     for file in &cargo_toml_files {
         println!("  - {}", file);
     }

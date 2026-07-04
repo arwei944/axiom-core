@@ -50,10 +50,12 @@ pub fn run_new_signal(args: &NewSignalArgs) -> Result<std::process::ExitCode> {
         ));
     }
 
-    fs::create_dir_all(output_dir)
-        .context("Failed to create output directory")?;
+    fs::create_dir_all(output_dir).context("Failed to create output directory")?;
 
-    println!("Creating Signal '{}' (kind: {}, layer: {})...", args.name, kind, layer);
+    println!(
+        "Creating Signal '{}' (kind: {}, layer: {})...",
+        args.name, kind, layer
+    );
 
     create_signal_file(&file_path, &args.name, &kind, &layer)?;
     update_signals_mod(output_dir, &args.name)?;
@@ -123,8 +125,7 @@ fn create_signal_file(file_path: &Path, name: &str, kind: &str, layer: &str) -> 
         name
     );
 
-    let mut file = File::create(file_path)
-        .context("Failed to create signal file")?;
+    let mut file = File::create(file_path).context("Failed to create signal file")?;
     file.write_all(content.as_bytes())
         .context("Failed to write signal file")?;
 
@@ -136,9 +137,8 @@ fn update_signals_mod(output_dir: &str, name: &str) -> Result<()> {
     let snake_name = snake_case(name);
 
     let content = if mod_path.exists() {
-        let mut existing = fs::read_to_string(&mod_path)
-            .context("Failed to read mod.rs")?;
-        
+        let mut existing = fs::read_to_string(&mod_path).context("Failed to read mod.rs")?;
+
         if !existing.contains(&format!("pub mod {};", snake_name)) {
             existing.push_str(&format!("pub mod {};\n", snake_name));
         }
@@ -147,8 +147,7 @@ fn update_signals_mod(output_dir: &str, name: &str) -> Result<()> {
         format!("pub mod {};\n", snake_name)
     };
 
-    fs::write(&mod_path, content)
-        .context("Failed to write mod.rs")?;
+    fs::write(&mod_path, content).context("Failed to write mod.rs")?;
 
     Ok(())
 }

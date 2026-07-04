@@ -23,7 +23,7 @@ default = ["sqlite"]
 sqlite = ["sqlx/sqlite", "tokio/rt"]
 
 [dependencies.sqlx]
-version = "0.7"
+version = "0.8"
 default-features = false
 features = ["runtime-tokio-rustls", "sqlite", "chrono"]
 optional = true
@@ -31,5 +31,9 @@ optional = true
 [build-dependencies]
 archcheck = { path = "../../tools/archcheck" }
 toml = "0.8"
+
+[dev-dependencies]
+proptest = { workspace = true }
+loom = { workspace = true }
 
 

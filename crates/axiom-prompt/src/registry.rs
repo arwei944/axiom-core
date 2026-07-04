@@ -20,10 +20,7 @@ impl TemplateRegistry {
     }
 
     pub fn register(&mut self, template: PromptTemplate) -> Result<(), PromptError> {
-        let versions = self
-            .templates
-            .entry(template.name.clone())
-            .or_default();
+        let versions = self.templates.entry(template.name.clone()).or_default();
 
         if versions.contains_key(&template.version) {
             return Err(PromptError::VersionConflict(format!(

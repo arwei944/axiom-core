@@ -9,8 +9,8 @@ use axiom_core::id::{CorrelationId, MsgId};
 use axiom_core::layer::Layer;
 use axiom_core::signal::{SignalEnvelope, SignalKind, VectorClock};
 use axiom_core::version::SchemaVersion;
-use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::Arc;
 
 // ========== Test 1: Concurrent mailbox operations ==========
 
@@ -246,9 +246,9 @@ fn test_witness_concurrent_hash_computation() {
 
             for i in 0..per_thread {
                 let mut w = make_test_witness(t * per_thread + i);
-                w.prev_hash = prev.clone();
+                w.prev_hash = prev;
                 w.hash = WitnessHash([(t * per_thread + i) as u8; 32]);
-                prev = Some(w.hash.clone());
+                prev = Some(w.hash);
                 witnesses.push(w);
             }
 
@@ -291,12 +291,12 @@ fn make_test_witness(seq: usize) -> axiom_core::witness::Witness {
     use axiom_core::witness::{TransitionOutcome, Witness, WitnessHash, WitnessMetrics};
 
     Witness {
-        witness_id: WitnessId::new(&format!("wit-{}", seq)),
+        witness_id: WitnessId::new(format!("wit-{}", seq)),
         schema_version: SchemaVersion::new(1),
         cell_id: "test-cell".to_string(),
         correlation_id: CorrelationId::new("test-corr"),
         trace_id: None,
-        triggering_msg_id: Some(MsgId::new(&format!("msg-{}", seq))),
+        triggering_msg_id: Some(MsgId::new(format!("msg-{}", seq))),
         vector_clock: VectorClock::new(),
         timestamp_ns: seq as u64 * 1000,
         prev_hash: None,

@@ -1,4 +1,4 @@
-# ⛔ 开发门禁：未加载约束禁止开发
+# 开发门禁：未加载约束禁止开发
 
 > **本文件是开发的唯一入口。不完成预检，禁止修改任何代码。**
 > This is a HARD GATE. No code changes without completing preflight.
@@ -62,7 +62,7 @@
 
 ## 当前项目状态
 
-- **当前阶段**: Phase 0-1（基础设施+核心原语）
-- **当前Task**: Task 0（基础设施配置）
-- **Plan**: [docs/plans/01-phase0-1-foundation.md](docs/plans/01-phase0-1-foundation.md)
-- **需求文档**: [docs/architecture/00-requirements.md](docs/architecture/00-requirements.md)
+- **当前阶段**: v0.3.0（生产就绪、可观测性、工程债偿还）
+- **当前Task**: 文档更新与清理
+- **Plan**: [docs/plans/v0.3-task-breakdown.md](docs/plans/v0.3-task-breakdown.md)
+- **进度总览**: [docs/PROGRESS.md](docs/PROGRESS.md)

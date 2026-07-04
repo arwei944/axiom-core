@@ -48,14 +48,16 @@ impl ConstraintValidator {
         dimension: CapabilityDimension,
         requested_version: &axiom_core::version::Version,
     ) -> InterceptDecision {
-        let registered = axiom_core::capability::CapabilityVersionRegistry::capabilities_by_dimension(dimension.clone());
+        let registered =
+            axiom_core::capability::CapabilityVersionRegistry::capabilities_by_dimension(
+                dimension.clone(),
+            );
         if registered.is_empty() {
             return InterceptDecision::Allow;
         }
-        let latest = registered
-            .iter()
-            .max_by_key(|c| c.version)
-            .unwrap();
+        let Some(latest) = registered.iter().max_by_key(|c| c.version) else {
+            return InterceptDecision::Allow;
+        };
         if !latest.is_compatible_with(&axiom_core::capability::CapabilityDescriptor {
             dimension: dimension.clone(),
             name: "requested",
@@ -70,6 +72,7 @@ impl ConstraintValidator {
                 ),
             };
         }
+
         InterceptDecision::Allow
     }
 
@@ -89,10 +92,7 @@ impl ConstraintValidator {
         InterceptDecision::Allow
     }
 
-    pub fn validate_layer_direction(
-        &self,
-        env: &SignalEnvelope,
-    ) -> InterceptDecision {
+    pub fn validate_layer_direction(&self, env: &SignalEnvelope) -> InterceptDecision {
         if env.source_layer.can_send_to(env.target_layer) {
             InterceptDecision::Allow
         } else {

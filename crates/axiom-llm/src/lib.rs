@@ -17,6 +17,4 @@ use std::pin::Pin;
 pub type BoxLlmFuture<'a, T> = Pin<Box<dyn Future<Output = T> + Send + 'a>>;
 
 pub use client::{LlmClient, LlmProvider};
-pub use types::{
-    ChatMessage, ChatResponse, CompletionResponse, LlmError, MessageRole, TokenUsage,
-};
+pub use types::{ChatMessage, ChatResponse, CompletionResponse, LlmError, MessageRole, TokenUsage};

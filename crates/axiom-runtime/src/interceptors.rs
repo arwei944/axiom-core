@@ -114,14 +114,11 @@ impl BusInterceptor for LoopDetectInterceptor {
     }
 }
 
-#[allow(dead_code)]
-pub struct CapabilityVersionInterceptor {
-    validator: ConstraintValidator,
-}
+pub struct CapabilityVersionInterceptor;
 
 impl CapabilityVersionInterceptor {
-    pub fn new(inner: ConstraintValidator) -> Self {
-        Self { validator: inner }
+    pub fn new(_inner: ConstraintValidator) -> Self {
+        Self
     }
 }
 
@@ -233,7 +230,7 @@ mod tests {
 
     #[test]
     fn guard_blocks_forbidden_signal() {
-        let i = GuardInterceptor::default();
+        let i = GuardInterceptor;
         let mut e = make_env(0, "g");
         e.signal_type = "ForbiddenSignal".into();
         assert!(matches!(i.intercept(&e), InterceptDecision::Reject { .. }));
@@ -241,7 +238,7 @@ mod tests {
 
     #[test]
     fn guard_allows_normal_signal() {
-        let i = GuardInterceptor::default();
+        let i = GuardInterceptor;
         let e = make_env(0, "g");
         assert!(matches!(i.intercept(&e), InterceptDecision::Allow));
     }

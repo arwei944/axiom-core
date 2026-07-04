@@ -113,7 +113,7 @@ impl MetricsServer {
     pub fn new(
         registry: Arc<dyn MetricsRegistry>,
         health: Arc<parking_lot::RwLock<HealthResponse>>,
-    ) -> Self {
+    ) -> Result<Self> {
         let app = Router::new()
             .route("/metrics", get(metrics_handler))
             .route("/health", get(health_handler))
@@ -124,17 +124,19 @@ impl MetricsServer {
 
         let listener = tokio::net::TcpListener::bind("0.0.0.0:9090")
             .await
-            .expect("bind metrics server");
+            .map_err(|e| crate::AxiomError::Io {
+                message: format!("failed to bind metrics server: {}", e),
+            })?;
 
         let handle = tokio::spawn(async move {
             axum::serve(listener, app).await.ok();
         });
 
-        Self {
+        Ok(Self {
             registry,
             health,
             _handle: Some(handle),
-        }
+        })
     }
 
     pub fn update_health(&self, response: HealthResponse) {
@@ -171,9 +173,7 @@ struct MetricsState {
 }
 
 #[cfg(feature = "metrics")]
-async fn metrics_handler(
-    state: axum::extract::State<Arc<MetricsState>>,
-) -> Response {
+async fn metrics_handler(state: axum::extract::State<Arc<MetricsState>>) -> Response {
     let body = state.registry.encode();
     Response::builder()
         .header("Content-Type", "text/plain; version=0.0.4")
@@ -182,9 +182,7 @@ async fn metrics_handler(
 }
 
 #[cfg(feature = "metrics")]
-async fn health_handler(
-    state: axum::extract::State<Arc<MetricsState>>,
-) -> Json<HealthResponse> {
+async fn health_handler(state: axum::extract::State<Arc<MetricsState>>) -> Json<HealthResponse> {
     let health = state.health.read().clone();
     Json(health)
 }
@@ -206,6 +204,6 @@ mod tests {
     async fn metrics_server_responds() {
         let registry = Arc::new(PrometheusRegistry::new());
         let health = Arc::new(parking_lot::RwLock::new(HealthResponse::default()));
-        let _server = MetricsServer::new(registry, health);
+        let _server = MetricsServer::new(registry, health).unwrap();
     }
 }

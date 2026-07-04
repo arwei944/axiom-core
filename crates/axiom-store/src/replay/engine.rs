@@ -1,10 +1,10 @@
 //! Replay engine - rebuilds aggregate state from event log.
 
 use crate::event::Event;
+use crate::replay::StateDiff;
 use crate::snapshot::{Snapshot, SnapshotStore};
 use crate::store::{EventStore, StoreError};
 use axiom_core::signal::VectorClock;
-use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 
 #[derive(Debug, Clone)]
@@ -151,7 +151,10 @@ impl ReplayEngine {
         start_ns: u64,
         end_ns: u64,
     ) -> Result<ReplayResult<S>, StoreError> {
-        let all_events = self.event_store.read_by_time_range(start_ns, end_ns).await?;
+        let all_events = self
+            .event_store
+            .read_by_time_range(start_ns, end_ns)
+            .await?;
         let latest_seq = all_events
             .iter()
             .map(|e| e.sequence_number)
@@ -215,10 +218,7 @@ impl ReplayEngine {
     ) -> Result<ReplayResult<S>, StoreError> {
         let start_ns = axiom_core::signal::now_ns();
 
-        let snapshot = self
-            .snapshot_store
-            .load_snapshot_at("", up_to_seq)
-            .await?;
+        let snapshot = self.snapshot_store.load_snapshot_at("", up_to_seq).await?;
 
         let (mut state, start_seq, mut vc, snapshot_used) = if let Some(snap) = snapshot {
             if snap.schema_version > S::current_schema_version() {
@@ -262,119 +262,6 @@ impl ReplayEngine {
             snapshot_used,
             replay_duration_ms: duration_ms,
         })
-    }
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct StartupValidation {
-    pub validated_types: Vec<String>,
-    pub warnings: Vec<String>,
-    pub errors: Vec<String>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct StateDiff<S> {
-    pub from_state: S,
-    pub to_state: S,
-    pub from_sequence: u64,
-    pub to_sequence: u64,
-    pub from_timestamp_ns: u64,
-    pub to_timestamp_ns: u64,
-    pub changed_fields: Vec<String>,
-}
-
-impl<S: ReplayableState + Clone> StateDiff<S> {
-    pub fn compute(from: ReplayResult<S>, to: ReplayResult<S>) -> Self {
-        let mut changed_fields = Vec::new();
-        if from.state.to_snapshot() != to.state.to_snapshot() {
-            changed_fields.push("state changed".to_string());
-        }
-
-        Self {
-            from_state: from.state,
-            to_state: to.state,
-            from_sequence: from.last_sequence,
-            to_sequence: to.last_sequence,
-            from_timestamp_ns: 0,
-            to_timestamp_ns: 0,
-            changed_fields,
-        }
-    }
-}
-
-pub async fn validate_migration_chains_at_startup(
-    _store: &dyn EventStore,
-) -> Result<StartupValidation, StoreError> {
-    Ok(StartupValidation {
-        validated_types: Vec::new(),
-        warnings: Vec::new(),
-        errors: Vec::new(),
-    })
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct WitnessReplayResult<S> {
-    pub state: S,
-    pub witnesses_consumed: u64,
-    pub chain_valid: bool,
-    pub replay_duration_ms: u64,
-}
-
-pub struct WitnessReplay;
-
-impl WitnessReplay {
-    pub fn replay<S: ReplayableState + Default>(
-        witnesses: &[axiom_core::Witness],
-    ) -> WitnessReplayResult<S> {
-        let start = std::time::Instant::now();
-        let chain_valid = axiom_core::Witness::verify_chain_integrity(witnesses);
-        let mut state = S::default();
-
-        for w in witnesses {
-            if let Ok(_event) = serde_json::from_value::<axiom_core::WitnessEvent>(
-                serde_json::to_value(&w.summary).unwrap_or_default(),
-            ) {
-                if let Err(err) = state.apply_event("witness", &serde_json::to_value(w).unwrap_or_default()) {
-                    tracing::warn!(witness_id = ?w.witness_id, error = ?err, "witness replay apply_event failed");
-                }
-            }
-        }
-
-        WitnessReplayResult {
-            state,
-            witnesses_consumed: witnesses.len() as u64,
-            chain_valid,
-            replay_duration_ms: start.elapsed().as_millis() as u64,
-        }
-    }
-
-    pub fn replay_from_events<S: ReplayableState + Default>(
-        events: &[Event],
-    ) -> WitnessReplayResult<S> {
-        let start = std::time::Instant::now();
-        let mut witnesses = Vec::new();
-
-        for e in events {
-            if let Ok(w) = serde_json::from_value::<axiom_core::Witness>(e.payload.clone()) {
-                witnesses.push(w);
-            }
-        }
-
-        let chain_valid = axiom_core::Witness::verify_chain_integrity(&witnesses);
-        let mut state = S::default();
-
-        for w in &witnesses {
-            if let Err(err) = state.apply_event("witness", &serde_json::to_value(w).unwrap_or_default()) {
-                tracing::warn!(witness_id = ?w.witness_id, error = ?err, "witness replay apply_event failed");
-            }
-        }
-
-        WitnessReplayResult {
-            state,
-            witnesses_consumed: witnesses.len() as u64,
-            chain_valid,
-            replay_duration_ms: start.elapsed().as_millis() as u64,
-        }
     }
 }
 
@@ -522,10 +409,8 @@ mod tests {
             store.append(e).await.unwrap();
         }
 
-        let result: ReplayResult<CounterState> = engine
-            .replay_at_timestamp("ts-agg", 3000)
-            .await
-            .unwrap();
+        let result: ReplayResult<CounterState> =
+            engine.replay_at_timestamp("ts-agg", 3000).await.unwrap();
         assert_eq!(result.state.count, 3);
     }
 
@@ -535,12 +420,13 @@ mod tests {
         let snaps = Arc::new(MemorySnapshotStore::new());
         let engine = ReplayEngine::new(store.clone(), snaps.clone());
 
-        for i in 1..=5 {
+        for _i in 1..=5 {
             let e = EventBuilder::new("seq-agg", "increment", serde_json::json!({"by": 1})).build();
             store.append(e).await.unwrap();
         }
 
-        let result: ReplayResult<CounterState> = engine.replay_at_sequence("seq-agg", 3).await.unwrap();
+        let result: ReplayResult<CounterState> =
+            engine.replay_at_sequence("seq-agg", 3).await.unwrap();
         assert_eq!(result.state.count, 3);
     }
 
@@ -550,52 +436,19 @@ mod tests {
         let snaps = Arc::new(MemorySnapshotStore::new());
         let engine = ReplayEngine::new(store.clone(), snaps.clone());
 
-        for i in 1..=5 {
-            let e = EventBuilder::new("diff-agg", "increment", serde_json::json!({"by": 1})).build();
+        for _i in 1..=5 {
+            let e =
+                EventBuilder::new("diff-agg", "increment", serde_json::json!({"by": 1})).build();
             store.append(e).await.unwrap();
         }
 
-        let diff = engine.diff_between::<CounterState>("diff-agg", 2, 5).await.unwrap();
+        let diff = engine
+            .diff_between::<CounterState>("diff-agg", 2, 5)
+            .await
+            .unwrap();
         assert_eq!(diff.from_state.count, 2);
         assert_eq!(diff.to_state.count, 5);
         assert_eq!(diff.from_sequence, 2);
         assert_eq!(diff.to_sequence, 5);
-    }
-
-    #[tokio::test]
-    async fn test_witness_replay_from_events() {
-        use axiom_core::{Witness, WitnessEvent};
-
-        let store = Arc::new(MemoryStore::new());
-        let witness = Witness {
-            witness_id: axiom_core::id::WitnessId::new("w1"),
-            schema_version: axiom_core::version::SchemaVersion::new(1),
-            cell_id: "c1".into(),
-            correlation_id: axiom_core::id::CorrelationId::new("corr"),
-            trace_id: None,
-            triggering_msg_id: None,
-            vector_clock: Default::default(),
-            timestamp_ns: 1,
-            prev_hash: None,
-            state_before_hash: None,
-            state_after_hash: None,
-            hash: axiom_core::witness::WitnessHash([1; 32]),
-            summary: "test".into(),
-            outcome: axiom_core::witness::TransitionOutcome::Success,
-            metrics: Default::default(),
-            version_info: axiom_core::version::VersionInfo::current(),
-            signal_fingerprint: [0; 32],
-            payload_size_bytes: 0,
-            kind: axiom_core::witness::WitnessKind::StateTransition,
-        };
-
-        let payload = serde_json::to_value(&witness).unwrap();
-        let event = EventBuilder::new("c1", "witness", payload).build();
-        store.append(event).await.unwrap();
-
-        let events = store.read("c1").await.unwrap();
-        let result = WitnessReplay::replay_from_events::<CounterState>(&events);
-        assert!(result.chain_valid);
-        assert_eq!(result.witnesses_consumed, 1);
     }
 }

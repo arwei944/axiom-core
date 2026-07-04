@@ -1,8 +1,8 @@
 # API Boundary - v1 Stable API
 
-> **Version**: v0.2.0  
+> **Version**: v0.3.0  
 > **Status**: Stable  
-> **Last Updated**: 2026-07-04
+> **Last Updated**: 2026-07-05
 
 This document defines the stable v1 API boundary for the Axiom framework. All public APIs listed here are guaranteed to maintain backward compatibility within the same major version.
 
@@ -297,7 +297,7 @@ Breaking changes require:
 | Feature | Default | Description |
 |---------|---------|-------------|
 | `unstable` | No | Enable unstable APIs |
-| `sqlite` | No | Enable SQLite store backend |
+| `sqlite` | Yes | Enable SQLite store backend |
 | `sha2-id` | No | Enable SHA-2 witness hashing |
 
 ---

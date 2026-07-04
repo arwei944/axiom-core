@@ -14,8 +14,8 @@ pub mod store;
 pub mod threshold;
 
 pub use alert::{Alert, AlertRule, AlertSink, AlertStatus, Severity};
-pub use threshold::{Threshold, Window, WindowKind};
+pub use governance::GovernanceMapper;
 pub use router::AlertRouter;
 pub use silence::Silence;
 pub use store::MemoryAlertStore;
-pub use governance::GovernanceMapper;
+pub use threshold::{Threshold, Window, WindowKind};

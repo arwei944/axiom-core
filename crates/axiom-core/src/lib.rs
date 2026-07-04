@@ -47,7 +47,7 @@
 //!
 //! # Version
 //!
-//! Current version: **v0.2.0**
+//! Current version: **v0.3.0**
 //!
 //! See [VERSIONING.md](../VERSIONING.md) for versioning policy.
 //! See [API_BOUNDARY.md](../API_BOUNDARY.md) for stable API surface.
@@ -58,6 +58,7 @@ pub mod axiom;
 pub mod capability;
 pub mod cell;
 pub mod clock;
+pub mod codec;
 pub mod context;
 pub mod entropy;
 pub mod error;
@@ -78,14 +79,20 @@ pub use capability::{
     CapabilityDescriptor, CapabilityDimension, CapabilityVersionRegistry, CAPABILITY_REGISTRY,
     CAPABILITY_VERSION_REGISTRY,
 };
+pub use clock::{Clock, MockClock, SystemClock};
+pub use codec::{JsonCodec, SignalCodec};
 pub use entropy::{
     CellEntropy, EntropyLevel, EntropyScore, EntropySnapshot, EntropyWeights, CRITICAL_THRESHOLD,
     GREEN_THRESHOLD, RED_THRESHOLD, YELLOW_THRESHOLD,
 };
-pub use clock::{Clock, MockClock, SystemClock};
 pub use error::{AxiomError, Result};
 pub use id::{AxiomId, CellId, CorrelationId, LensId, MsgId, TraceId, WitnessId};
 pub use layer::Layer;
+pub use lens::{
+    CacheMetrics, DependencyCycleError, InMemoryProjectionCache, IncrementalProjectionCache, Lens,
+    LensAccessError, LensAccessor, LensError, LensEvent, LensRegistry, Projectable, Projection,
+    ProjectionCache, ProjectionDowncastError, LENS_REGISTRY,
+};
 pub use registry::{
     count_registered_axioms, registered_axioms, registered_migration_chains,
     verify_migration_chain_completeness, WITNESS_REGISTRY,
@@ -104,16 +111,13 @@ pub use witness::{
     TransitionOutcome, Witness, WitnessBatch, WitnessBuilder, WitnessEvent, WitnessGenerator,
     WitnessHash, WitnessKind, WitnessMetrics,
 };
-pub use lens::{
-    CacheMetrics, DependencyCycleError, IncrementalProjectionCache, InMemoryProjectionCache, Lens,
-    LensAccessor, LensAccessError, LensEvent, LensError, LensRegistry, LENS_REGISTRY, Projectable,
-    Projection, ProjectionCache, ProjectionDowncastError,
-};
 
-pub use axiom_macros::{axiom, capability, cell, guard, lens, migration, schema_version, signal, SignalPayload, tool};
+pub use axiom_macros::{
+    axiom, capability, cell, guard, lens, migration, schema_version, signal, tool, SignalPayload,
+};
 
 #[cfg(feature = "unstable")]
 pub use cell::{
-    BoxHandleFuture, CellHandle, CellHealth, CellMeta, DynCell, DynHandleCell, ExecCell,
-    LayerOf, OversightCell, AgentCell, ValidateCell, SupervisionStrategy,
+    AgentCell, BoxHandleFuture, CellHandle, CellHealth, CellMeta, DynCell, DynHandleCell, ExecCell,
+    LayerOf, OversightCell, SupervisionStrategy, ValidateCell,
 };

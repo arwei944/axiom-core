@@ -1,12 +1,13 @@
 //! Snapshot mechanism for accelerating replay.
 
-use crate::store::{BoxFuture, StoreError};
-use axiom_core::signal::VectorClock;
-use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fs;
 use std::path::PathBuf;
 use std::sync::Arc;
+
+use crate::store::{BoxFuture, StoreError};
+use axiom_core::signal::VectorClock;
+use serde::{Deserialize, Serialize};
 use tokio::sync::RwLock;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -33,16 +34,40 @@ pub trait SnapshotStore: Send + Sync {
     ) -> BoxFuture<'a, Result<Option<Snapshot>, StoreError>>;
 }
 
-#[derive(Debug, Clone)]
-pub struct SnapshotPolicy {
-    pub every_n_events: u64,
-    pub max_snapshots_per_aggregate: usize,
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(tag = "policy", rename_all = "kebab-case")]
+pub enum SnapshotPolicy {
+    Never,
+    EveryN { n: u64 },
+    EveryDuration { duration_ms: u64 },
+    OnStateSize { bytes: usize },
 }
 
 impl Default for SnapshotPolicy {
     fn default() -> Self {
+        SnapshotPolicy::EveryN { n: 100 }
+    }
+}
+
+impl SnapshotPolicy {
+    pub fn should_snapshot(&self, events_since: u64, state_size_bytes: usize) -> bool {
+        match self {
+            SnapshotPolicy::Never => false,
+            SnapshotPolicy::EveryN { n } => events_since >= *n,
+            SnapshotPolicy::EveryDuration { .. } => false,
+            SnapshotPolicy::OnStateSize { bytes } => state_size_bytes >= *bytes,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SnapshotRetention {
+    pub max_snapshots_per_aggregate: usize,
+}
+
+impl Default for SnapshotRetention {
+    fn default() -> Self {
         Self {
-            every_n_events: 100,
             max_snapshots_per_aggregate: 5,
         }
     }
@@ -51,6 +76,7 @@ impl Default for SnapshotPolicy {
 pub struct MemorySnapshotStore {
     snapshots: Arc<RwLock<HashMap<String, Vec<Snapshot>>>>,
     policy: SnapshotPolicy,
+    retention: SnapshotRetention,
 }
 
 impl MemorySnapshotStore {
@@ -62,15 +88,26 @@ impl MemorySnapshotStore {
         Self {
             snapshots: Arc::new(RwLock::new(HashMap::new())),
             policy,
+            retention: SnapshotRetention::default(),
         }
+    }
+
+    pub fn with_retention(mut self, retention: SnapshotRetention) -> Self {
+        self.retention = retention;
+        self
     }
 
     pub fn policy(&self) -> &SnapshotPolicy {
         &self.policy
     }
 
-    pub fn should_snapshot(&self, events_since_last_snapshot: u64) -> bool {
-        events_since_last_snapshot >= self.policy.every_n_events
+    pub fn should_snapshot(
+        &self,
+        events_since_last_snapshot: u64,
+        state_size_bytes: usize,
+    ) -> bool {
+        self.policy
+            .should_snapshot(events_since_last_snapshot, state_size_bytes)
     }
 }
 
@@ -90,9 +127,8 @@ impl SnapshotStore for MemorySnapshotStore {
             list.push(snapshot);
             list.sort_by_key(|s| s.sequence_number);
 
-            if list.len() > self.policy.max_snapshots_per_aggregate {
-                let excess = list.len() - self.policy.max_snapshots_per_aggregate;
-                list.drain(0..excess);
+            while list.len() > self.retention.max_snapshots_per_aggregate {
+                list.remove(0);
             }
             Ok(())
         })
@@ -159,7 +195,9 @@ impl FileSnapshotStore {
 
     fn enforce_retention(&self, aggregate_id: &str) -> Result<(), StoreError> {
         let mut files = Vec::new();
-        for entry in fs::read_dir(&self.config.snapshot_dir).map_err(|e| StoreError::Storage(format!("read snapshot dir: {e}")))? {
+        for entry in fs::read_dir(&self.config.snapshot_dir)
+            .map_err(|e| StoreError::Storage(format!("read snapshot dir: {e}")))?
+        {
             let entry = entry.map_err(|e| StoreError::Storage(format!("dir entry: {e}")))?;
             let path = entry.path();
             if let Some(name) = path.file_name().and_then(|n| n.to_str()) {
@@ -203,7 +241,9 @@ impl SnapshotStore for FileSnapshotStore {
     ) -> BoxFuture<'a, Result<Option<Snapshot>, StoreError>> {
         Box::pin(async move {
             let mut files = Vec::new();
-            for entry in fs::read_dir(&self.config.snapshot_dir).map_err(|e| StoreError::Storage(format!("read snapshot dir: {e}")))? {
+            for entry in fs::read_dir(&self.config.snapshot_dir)
+                .map_err(|e| StoreError::Storage(format!("read snapshot dir: {e}")))?
+            {
                 let entry = entry.map_err(|e| StoreError::Storage(format!("dir entry: {e}")))?;
                 let path = entry.path();
                 if let Some(name) = path.file_name().and_then(|n| n.to_str()) {
@@ -240,8 +280,8 @@ impl SnapshotStore for FileSnapshotStore {
             if !path.exists() {
                 return Ok(None);
             }
-            let data = fs::read(&path)
-                .map_err(|e| StoreError::Storage(format!("read snapshot: {e}")))?;
+            let data =
+                fs::read(&path).map_err(|e| StoreError::Storage(format!("read snapshot: {e}")))?;
             let mut decoder = snap::read::FrameDecoder::new(&data[..]);
             let mut decompressed = Vec::new();
             std::io::Read::read_to_end(&mut decoder, &mut decompressed)
@@ -317,7 +357,13 @@ mod tests {
 
         let mut count = 0;
         for entry in fs::read_dir(dir.path()).unwrap() {
-            if entry.unwrap().path().extension().map(|e| e == "snap").unwrap_or(false) {
+            if entry
+                .unwrap()
+                .path()
+                .extension()
+                .map(|e| e == "snap")
+                .unwrap_or(false)
+            {
                 count += 1;
             }
         }

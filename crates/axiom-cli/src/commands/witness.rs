@@ -72,7 +72,8 @@ fn run_view(args: &ViewArgs) -> Result<ExitCode> {
     println!("Cell ID: {}", args.cell_id);
     println!("Limit: {}", args.limit);
 
-    let witnesses = fetch_witnesses(&args.cell_id, args.limit).context("Failed to fetch witnesses")?;
+    let witnesses =
+        fetch_witnesses(&args.cell_id, args.limit).context("Failed to fetch witnesses")?;
 
     println!("\n{}", render_witness_list(&witnesses, args.detailed));
 
@@ -87,7 +88,8 @@ fn run_verify(args: &VerifyArgs) -> Result<ExitCode> {
         println!("Verifying all cells");
     }
 
-    let result = verify_witness_chain(args.cell_id.as_deref()).context("Failed to verify witness chain")?;
+    let result =
+        verify_witness_chain(args.cell_id.as_deref()).context("Failed to verify witness chain")?;
 
     println!("\n{}", render_verification_result(&result));
 
@@ -155,10 +157,19 @@ fn fetch_witnesses(cell_id: &str, limit: usize) -> Result<Vec<WitnessData>> {
             cell_id: cell_id.to_string(),
             correlation_id: format!("corr-{}", i + 1),
             timestamp: format!("2024-01-15T10:{:02}:{:02}.000Z", 30, i),
-            signal_type: if i % 2 == 0 { "UserRequest" } else { "PlanGenerated" }.to_string(),
+            signal_type: if i % 2 == 0 {
+                "UserRequest"
+            } else {
+                "PlanGenerated"
+            }
+            .to_string(),
             outcome: "Success".to_string(),
             hash: format!("{:064x}", i * 123456789),
-            parent_hash: if i == 0 { None } else { Some(format!("{:064x}", (i - 1) * 123456789)) },
+            parent_hash: if i == 0 {
+                None
+            } else {
+                Some(format!("{:064x}", (i - 1) * 123456789))
+            },
             payload_size: 128 + i * 16,
         });
     }
@@ -184,7 +195,9 @@ fn fetch_witness_by_id(witness_id: &str) -> Result<WitnessData> {
         signal_type: "ReviewGenerated".to_string(),
         outcome: "Success".to_string(),
         hash: "abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890".to_string(),
-        parent_hash: Some("0000000000000000000000000000000000000000000000000000000000000000".to_string()),
+        parent_hash: Some(
+            "0000000000000000000000000000000000000000000000000000000000000000".to_string(),
+        ),
         payload_size: 1536,
     })
 }
@@ -204,7 +217,8 @@ fn export_witness_data() -> Result<String> {
       "payload_size": 128
     }
   ]
-}"#.to_string())
+}"#
+    .to_string())
 }
 
 fn render_witness_list(witnesses: &[WitnessData], detailed: bool) -> String {
@@ -247,10 +261,7 @@ fn render_witness_list(witnesses: &[WitnessData], detailed: bool) -> String {
 fn render_verification_result(result: &VerificationResult) -> String {
     let mut output = String::new();
 
-    output.push_str(&format!(
-        "Total Witnesses: {}\n",
-        result.total_witnesses
-    ));
+    output.push_str(&format!("Total Witnesses: {}\n", result.total_witnesses));
     output.push_str(&format!(
         "Valid Chains: {} | Invalid Chains: {}\n\n",
         result.valid_chains, result.invalid_chains

@@ -18,6 +18,29 @@ use crate::version::SchemaVersion;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
+fn serialize_payload<S>(payload: &serde_json::Value, serializer: S) -> Result<S::Ok, S::Error>
+where
+    S: serde::Serializer,
+{
+    if serializer.is_human_readable() {
+        payload.serialize(serializer)
+    } else {
+        payload.to_string().serialize(serializer)
+    }
+}
+
+fn deserialize_payload<'de, D>(deserializer: D) -> Result<serde_json::Value, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    if deserializer.is_human_readable() {
+        serde_json::Value::deserialize(deserializer)
+    } else {
+        let s = String::deserialize(deserializer)?;
+        serde_json::from_str(&s).map_err(serde::de::Error::custom)
+    }
+}
+
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct VectorClock(pub HashMap<String, u64>);
 
@@ -97,7 +120,7 @@ impl Clone for Box<dyn Signal> {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct SignalEnvelope {
     pub msg_id: MsgId,
     pub correlation_id: CorrelationId,
@@ -110,6 +133,10 @@ pub struct SignalEnvelope {
     pub target_layer: Layer,
     pub source_cell: Option<String>,
     pub target_cell: Option<String>,
+    #[serde(
+        serialize_with = "serialize_payload",
+        deserialize_with = "deserialize_payload"
+    )]
     pub payload: serde_json::Value,
     pub schema_version: SchemaVersion,
     pub parent_msg_id: Option<MsgId>,
@@ -353,11 +380,10 @@ mod tests {
             ValidationResult::ok()
         }
         fn serialize_to_json(&self) -> crate::Result<serde_json::Value> {
-            serde_json::to_value(self)
-                .map_err(|e| crate::AxiomError::SignalSerialization {
-                    signal_type: "TestSignal".into(),
-                    message: e.to_string(),
-                })
+            serde_json::to_value(self).map_err(|e| crate::AxiomError::SignalSerialization {
+                signal_type: "TestSignal".into(),
+                message: e.to_string(),
+            })
         }
     }
 }

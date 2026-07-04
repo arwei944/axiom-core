@@ -1,6 +1,6 @@
+use crate::checker::Severity;
 use crate::loader::Architecture;
 use crate::reporter::{report_json, report_text};
-use crate::checker::Severity;
 use anyhow::{Context, Result};
 use clap::{Arg, ArgAction, Command};
 use std::path::PathBuf;
@@ -78,7 +78,10 @@ fn main() -> Result<()> {
     }
 
     let architecture = Architecture::load(&arch_path).with_context(|| {
-        format!("failed to load architecture.toml from {}", arch_path.display())
+        format!(
+            "failed to load architecture.toml from {}",
+            arch_path.display()
+        )
     })?;
 
     if matches.get_flag("list-crates") {

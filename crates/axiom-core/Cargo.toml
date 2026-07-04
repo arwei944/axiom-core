@@ -15,6 +15,7 @@ default = ["sha2-id", "uuid"]
 sha2-id = ["dep:sha2"]
 uuid = ["dep:uuid"]
 unstable = []
+bincode-codec = ["dep:bincode"]
 
 [dependencies]
 serde = { workspace = true }
@@ -23,6 +24,7 @@ thiserror = { workspace = true }
 tracing = { workspace = true }
 sha2 = { workspace = true, optional = true }
 uuid = { workspace = true, optional = true }
+bincode = { workspace = true, optional = true }
 futures = { workspace = true }
 linkme = { workspace = true }
 parking_lot = { workspace = true }

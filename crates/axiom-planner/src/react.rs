@@ -141,7 +141,10 @@ impl Planner for ReActPlanner {
                             goal
                         )
                     } else {
-                        format!("Final Answer: Based on the analysis, the answer for '{}' is ready.", goal)
+                        format!(
+                            "Final Answer: Based on the analysis, the answer for '{}' is ready.",
+                            goal
+                        )
                     }
                 };
 
@@ -165,7 +168,8 @@ impl Planner for ReActPlanner {
                 self.think(&mut step, extract_thought(&response).unwrap_or(&thought));
                 self.act(&mut step, action_name, &action_input).await?;
 
-                scratchpad.push_str(&format!("\nThought: {}\nAction: {} with {}\nObservation: {}",
+                scratchpad.push_str(&format!(
+                    "\nThought: {}\nAction: {} with {}\nObservation: {}",
                     extract_thought(&response).unwrap_or("thinking"),
                     action_name,
                     action_input,
@@ -175,7 +179,10 @@ impl Planner for ReActPlanner {
                 steps.push(step);
             }
 
-            Ok(PlanningResult::failure(steps, "Max iterations reached without final answer"))
+            Ok(PlanningResult::failure(
+                steps,
+                "Max iterations reached without final answer",
+            ))
         })
     }
 }

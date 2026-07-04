@@ -8,8 +8,8 @@ use axiom_identity::*;
 use axiom_llm::LlmClient;
 use axiom_memory::{MemoryItem, MemoryItemType};
 use axiom_prompt::*;
-use axiom_tool::*;
 use axiom_tool::tool::SimpleTool;
+use axiom_tool::*;
 use serde_json::{json, Value};
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -165,9 +165,9 @@ async fn test_agent_with_identity() {
 async fn test_agent_with_skill() {
     let skill = Skill::new("coding", "Code Assistant")
         .with_description("Help with coding tasks")
-        .with_activation(ActivationCondition::KeywordTrigger(vec![
-            "code".to_string(),
-        ]))
+        .with_activation(ActivationCondition::KeywordTrigger(
+            vec!["code".to_string()],
+        ))
         .with_tools(vec!["echo".to_string()])
         .with_prompt_fragments(vec!["You can write code.".to_string()]);
 
@@ -253,7 +253,7 @@ async fn test_agent_full_integration() {
     let query_response = agent.query("Hello").await.unwrap();
     assert!(!query_response.is_empty());
 
-    assert!(agent.memory_items().len() > 0);
+    assert!(!agent.memory_items().is_empty());
 
     let stats = agent.stats();
     assert!(stats.queries_processed > 0);

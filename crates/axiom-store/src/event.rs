@@ -10,8 +10,13 @@ use serde::{Deserialize, Serialize};
 pub enum EventOutcome {
     #[default]
     Success,
-    Failed { reason: String },
-    AxiomViolated { axiom_name: String, message: String },
+    Failed {
+        reason: String,
+    },
+    AxiomViolated {
+        axiom_name: String,
+        message: String,
+    },
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

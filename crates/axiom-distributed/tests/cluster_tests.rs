@@ -42,7 +42,7 @@ mod tests {
             to_sequence: 10,
         };
         let resp = sync.sync(req).await.unwrap();
-        let _ = sync.apply(resp).await.unwrap();
+        sync.apply(resp).await.unwrap();
     }
 
     #[test]

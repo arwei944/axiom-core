@@ -121,10 +121,16 @@ impl SecurityManager {
     }
 
     pub fn register_permission(&self, permission: ToolPermission) {
-        self.permissions.write().insert(permission.tool_name.clone(), permission);
+        self.permissions
+            .write()
+            .insert(permission.tool_name.clone(), permission);
     }
 
-    pub fn check_permission(&self, tool_name: &str, context: &SecurityContext) -> Result<bool, McpError> {
+    pub fn check_permission(
+        &self,
+        tool_name: &str,
+        context: &SecurityContext,
+    ) -> Result<bool, McpError> {
         let permissions = self.permissions.read();
         let permission = match permissions.get(tool_name) {
             Some(p) => p.clone(),
@@ -141,7 +147,12 @@ impl SecurityManager {
         Ok(true)
     }
 
-    pub fn check_approval(&self, tool_name: &str, arguments: &Value, context: &SecurityContext) -> Result<bool, McpError> {
+    pub fn check_approval(
+        &self,
+        tool_name: &str,
+        arguments: &Value,
+        context: &SecurityContext,
+    ) -> Result<bool, McpError> {
         let permissions = self.permissions.read();
         let permission = match permissions.get(tool_name) {
             Some(p) => p.clone(),

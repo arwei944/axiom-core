@@ -7,12 +7,12 @@ use criterion::{black_box, criterion_group, criterion_main, Criterion};
 
 fn make_witness(seq: u64, prev_hash: Option<WitnessHash>) -> Witness {
     Witness {
-        witness_id: WitnessId::new(&format!("wit-{seq}")),
+        witness_id: WitnessId::new(format!("wit-{seq}")),
         schema_version: SchemaVersion::new(1),
         cell_id: "bench-cell".to_string(),
         correlation_id: CorrelationId::new("bench-corr"),
         trace_id: None,
-        triggering_msg_id: Some(MsgId::new(&format!("msg-{seq}"))),
+        triggering_msg_id: Some(MsgId::new(format!("msg-{seq}"))),
         vector_clock: axiom_core::signal::VectorClock::new(),
         timestamp_ns: seq * 1000,
         prev_hash,
@@ -25,6 +25,7 @@ fn make_witness(seq: u64, prev_hash: Option<WitnessHash>) -> Witness {
         version_info: VersionInfo::current(),
         signal_fingerprint: [0u8; 32],
         payload_size_bytes: 0,
+        kind: axiom_core::witness::WitnessKind::StateTransition,
     }
 }
 
@@ -53,8 +54,8 @@ fn bench_witness_chain_verify_100(c: &mut Criterion) {
     let mut chain = Vec::with_capacity(100);
     let mut prev: Option<WitnessHash> = None;
     for i in 1..=100 {
-        let w = make_witness(i, prev.clone());
-        prev = Some(w.hash.clone());
+        let w = make_witness(i, prev);
+        prev = Some(w.hash);
         chain.push(w);
     }
 
@@ -70,8 +71,8 @@ fn bench_witness_chain_verify_1000(c: &mut Criterion) {
     let mut chain = Vec::with_capacity(1000);
     let mut prev: Option<WitnessHash> = None;
     for i in 1..=1000 {
-        let w = make_witness(i, prev.clone());
-        prev = Some(w.hash.clone());
+        let w = make_witness(i, prev);
+        prev = Some(w.hash);
         chain.push(w);
     }
 

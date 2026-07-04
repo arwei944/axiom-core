@@ -57,7 +57,13 @@ pub fn run_new_crate(args: &NewCrateArgs) -> Result<std::process::ExitCode> {
     create_crate_structure(&crate_path, template)?;
 
     // 生成所有文件
-    create_cargo_toml(&crate_path, &crate_name, args.layer, &allowed_deps, template)?;
+    create_cargo_toml(
+        &crate_path,
+        &crate_name,
+        args.layer,
+        &allowed_deps,
+        template,
+    )?;
     create_build_rs(&crate_path, &crate_name)?;
     create_lib_rs(&crate_path, &crate_name)?;
     update_architecture_toml(&crate_name, args.layer)?;
@@ -113,15 +119,12 @@ fn get_allowed_deps_for_layer(layer: usize) -> Vec<String> {
 }
 
 fn create_crate_structure(crate_path: &Path, template: &str) -> Result<()> {
-    fs::create_dir_all(crate_path)
-        .context("Failed to create crate directory")?;
+    fs::create_dir_all(crate_path).context("Failed to create crate directory")?;
 
-    fs::create_dir_all(crate_path.join("src"))
-        .context("Failed to create src directory")?;
+    fs::create_dir_all(crate_path.join("src")).context("Failed to create src directory")?;
 
     if template == "full" {
-        fs::create_dir_all(crate_path.join("tests"))
-            .context("Failed to create tests directory")?;
+        fs::create_dir_all(crate_path.join("tests")).context("Failed to create tests directory")?;
         fs::create_dir_all(crate_path.join("examples"))
             .context("Failed to create examples directory")?;
         fs::create_dir_all(crate_path.join(".github/workflows"))
@@ -191,8 +194,8 @@ fn create_cargo_toml(
         dev_deps
     );
 
-    let mut file = File::create(crate_path.join("Cargo.toml"))
-        .context("Failed to create Cargo.toml")?;
+    let mut file =
+        File::create(crate_path.join("Cargo.toml")).context("Failed to create Cargo.toml")?;
     file.write_all(content.as_bytes())
         .context("Failed to write Cargo.toml")?;
 
@@ -210,8 +213,8 @@ fn create_build_rs(crate_path: &Path, crate_name: &str) -> Result<()> {
         crate_name
     );
 
-    let mut file = File::create(crate_path.join("build.rs"))
-        .context("Failed to create build.rs")?;
+    let mut file =
+        File::create(crate_path.join("build.rs")).context("Failed to create build.rs")?;
     file.write_all(content.as_bytes())
         .context("Failed to write build.rs")?;
 
@@ -235,14 +238,12 @@ fn create_lib_rs(crate_path: &Path, name: &str) -> Result<()> {
          //!\n\
          //! This crate can depend on:\n\
          //!\n",
-        module_name,
-        module_name,
-        layer,
-        layer
+        module_name, module_name, layer, layer
     );
 
-    let content = content + &format!(
-        "//! - Layer {}: {} (and lower layers)\n\
+    let content = content
+        + &format!(
+            "//! - Layer {}: {} (and lower layers)\n\
          //!\n\
          #![warn(missing_docs)]\n\
          #![warn(clippy::all)]\n\
@@ -252,24 +253,25 @@ fn create_lib_rs(crate_path: &Path, name: &str) -> Result<()> {
          pub mod {};\n\
          \n\
          pub use {}::*;\n",
-        layer,
-        module_name,
-        module_name,
-        module_name
-    );
+            layer, module_name, module_name, module_name
+        );
 
-    let mut file = File::create(crate_path.join("src/lib.rs"))
-        .context("Failed to create lib.rs")?;
+    let mut file =
+        File::create(crate_path.join("src/lib.rs")).context("Failed to create lib.rs")?;
     file.write_all(content.as_bytes())
         .context("Failed to write lib.rs")?;
 
-    let struct_name = module_name.replace("-", "_").split("-").map(|s| {
-        let mut chars = s.chars();
-        match chars.next() {
-            None => String::new(),
-            Some(c) => c.to_uppercase().to_string() + chars.as_str(),
-        }
-    }).collect::<String>();
+    let struct_name = module_name
+        .replace("-", "_")
+        .split("-")
+        .map(|s| {
+            let mut chars = s.chars();
+            match chars.next() {
+                None => String::new(),
+                Some(c) => c.to_uppercase().to_string() + chars.as_str(),
+            }
+        })
+        .collect::<String>();
 
     let module_content = format!(
         "//! {} module\n\
@@ -354,19 +356,19 @@ fn get_layer_for_crate(name: &str) -> usize {
 fn update_architecture_toml(crate_name: &str, layer: usize) -> Result<()> {
     let arch_path = PathBuf::from(".axiom/architecture.toml");
 
-    let mut content = fs::read_to_string(&arch_path)
-        .context("Failed to read architecture.toml")?;
+    let mut content = fs::read_to_string(&arch_path).context("Failed to read architecture.toml")?;
 
     let insert_line = format!("{} = {}\n", crate_name, layer);
 
     // Find the [crate-layers] section and add the new crate
     if !content.contains(&crate_name.to_string()) {
-        content = content
-            .replace("[crate-layers]", &format!("[crate-layers]\n{}", insert_line));
+        content = content.replace(
+            "[crate-layers]",
+            &format!("[crate-layers]\n{}", insert_line),
+        );
     }
 
-    fs::write(&arch_path, content)
-        .context("Failed to write architecture.toml")?;
+    fs::write(&arch_path, content).context("Failed to write architecture.toml")?;
 
     println!("Updated .axiom/architecture.toml with new crate registration");
 
@@ -436,8 +438,7 @@ jobs:
         fs::create_dir_all(parent)?;
     }
 
-    let mut file = File::create(workflow_path)
-        .context("Failed to create CI workflow")?;
+    let mut file = File::create(workflow_path).context("Failed to create CI workflow")?;
     file.write_all(content.as_bytes())
         .context("Failed to write CI workflow")?;
 

@@ -7,9 +7,9 @@
 //! - Witness recording for tool invocations
 //! - Tool composition
 
+pub mod error;
 pub mod registry;
 pub mod tool;
-pub mod error;
 
 pub use error::ToolError;
 pub use registry::ToolRegistry;

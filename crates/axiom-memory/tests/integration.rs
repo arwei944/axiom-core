@@ -160,7 +160,8 @@ fn test_estimate_tokens() {
     let tokens = item::estimate_tokens("Hello world");
     assert!(tokens > 0);
 
-    let more_tokens = item::estimate_tokens("This is a much longer text with more words and characters");
+    let more_tokens =
+        item::estimate_tokens("This is a much longer text with more words and characters");
     assert!(more_tokens > tokens);
 }
 

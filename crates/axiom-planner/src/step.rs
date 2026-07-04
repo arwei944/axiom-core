@@ -14,7 +14,10 @@ pub enum StepStatus {
 
 impl StepStatus {
     pub fn is_finished(&self) -> bool {
-        matches!(self, StepStatus::Completed | StepStatus::Failed | StepStatus::Skipped)
+        matches!(
+            self,
+            StepStatus::Completed | StepStatus::Failed | StepStatus::Skipped
+        )
     }
 
     pub fn as_str(&self) -> &'static str {

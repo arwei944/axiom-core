@@ -14,6 +14,9 @@ pub mod tools;
 
 pub use client::McpClient;
 pub use protocol::{McpCapability, McpError, McpTool, McpToolCall, McpToolResult};
-pub use security::{ApprovalManager, ApprovalRequest, ApprovalStatus, PermissionLevel, SecurityContext, SecurityManager, ToolPermission};
+pub use security::{
+    ApprovalManager, ApprovalRequest, ApprovalStatus, PermissionLevel, SecurityContext,
+    SecurityManager, ToolPermission,
+};
 pub use server::McpServer;
 pub use tools::{AxiomTool, ToolRegistry};

@@ -246,7 +246,10 @@ fn fetch_cell_status(cell_id: &str) -> Result<CellStatusData> {
 }
 
 fn restart_cell(cell_id: &str, _force: bool) -> Result<String> {
-    Ok(format!("\x1B[32m✓ Cell '{}' restarted successfully\x1B[0m", cell_id))
+    Ok(format!(
+        "\x1B[32m✓ Cell '{}' restarted successfully\x1B[0m",
+        cell_id
+    ))
 }
 
 fn stop_cell(cell_id: &str, _force: bool) -> Result<String> {
@@ -254,7 +257,10 @@ fn stop_cell(cell_id: &str, _force: bool) -> Result<String> {
 }
 
 fn start_cell(cell_id: &str) -> Result<String> {
-    Ok(format!("\x1B[32m✓ Cell '{}' started successfully\x1B[0m", cell_id))
+    Ok(format!(
+        "\x1B[32m✓ Cell '{}' started successfully\x1B[0m",
+        cell_id
+    ))
 }
 
 fn render_cell_list(cells: &[CellInfo], detailed: bool) -> String {
@@ -314,7 +320,10 @@ fn render_cell_status(status: &CellStatusData) -> String {
     output.push_str(&format!("Layer: {}\n", status.layer));
     output.push_str(&format!("State: {} {}\x1B[0m\n", state_color, status.state));
     output.push_str(&format!("Version: {}\n", status.version));
-    output.push_str(&format!("Messages Processed: {}\n", status.messages_processed));
+    output.push_str(&format!(
+        "Messages Processed: {}\n",
+        status.messages_processed
+    ));
     output.push_str(&format!("Errors: {}\n", status.errors));
     output.push_str(&format!("Restarts: {}\n", status.restart_count));
     output.push_str(&format!("Uptime: {} seconds\n", status.uptime_seconds));
@@ -322,7 +331,10 @@ fn render_cell_status(status: &CellStatusData) -> String {
     if let Some(time) = &status.last_message_time {
         output.push_str(&format!("Last Message: {}\n", time));
     }
-    output.push_str(&format!("Supervision Strategy: {}\n", status.supervision_strategy));
+    output.push_str(&format!(
+        "Supervision Strategy: {}\n",
+        status.supervision_strategy
+    ));
 
     output
 }

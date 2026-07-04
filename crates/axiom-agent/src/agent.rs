@@ -147,14 +147,13 @@ impl AgentCell {
 
         if let Some(persona) = &self.persona {
             let identity = persona.identity();
-            self.memory
-                .add(axiom_memory::MemoryItem::new(
-                    axiom_memory::MemoryItemType::System,
-                    format!(
-                        "Agent {} started. Role: {}",
-                        identity.name, identity.description
-                    ),
-                ));
+            self.memory.add(axiom_memory::MemoryItem::new(
+                axiom_memory::MemoryItemType::System,
+                format!(
+                    "Agent {} started. Role: {}",
+                    identity.name, identity.description
+                ),
+            ));
         }
 
         tracing::info!(agent_id = %self.id, "Agent started");
@@ -216,7 +215,9 @@ impl AgentCell {
         let system_prompt = self.build_system_prompt();
 
         // Build the full prompt
-        let memory_context = self.memory.render_with_limit(self.config.memory_token_budget);
+        let memory_context = self
+            .memory
+            .render_with_limit(self.config.memory_token_budget);
         let full_prompt = format!(
             "{}\n\nContext:\n{}\n\nUser: {}\n\nAssistant:",
             system_prompt, memory_context, user_input
@@ -255,7 +256,8 @@ impl AgentCell {
                     // Fallback to direct LLM if planner fails
                     if let Some(llm) = &self.llm {
                         self.stats.write().llm_calls += 1;
-                        let completion = llm.complete(&full_prompt).await.map_err(AgentError::from)?;
+                        let completion =
+                            llm.complete(&full_prompt).await.map_err(AgentError::from)?;
                         completion.text
                     } else {
                         return Err(AgentError::from(e));
@@ -281,8 +283,7 @@ impl AgentCell {
         };
 
         // Record response in memory
-        self.memory
-            .add(axiom_memory::MemoryItem::result(&response));
+        self.memory.add(axiom_memory::MemoryItem::result(&response));
 
         // Update stats
         let duration_ms = start.elapsed().as_millis() as u64;
@@ -302,11 +303,7 @@ impl AgentCell {
     }
 
     /// Execute a tool by name.
-    pub async fn execute_tool(
-        &self,
-        tool_name: &str,
-        parameters: &Value,
-    ) -> AgentResult<Value> {
+    pub async fn execute_tool(&self, tool_name: &str, parameters: &Value) -> AgentResult<Value> {
         let tools = self
             .tools
             .as_ref()
@@ -320,19 +317,16 @@ impl AgentCell {
             "Executing tool"
         );
 
-        let result = tools
-            .execute(tool_name, parameters)
-            .await
-            .map_err(|e| {
-                self.stats.write().errors += 1;
-                tracing::error!(
-                    agent_id = %self.id,
-                    tool = tool_name,
-                    error = %e,
-                    "Tool execution failed"
-                );
-                AgentError::from(e)
-            })?;
+        let result = tools.execute(tool_name, parameters).await.map_err(|e| {
+            self.stats.write().errors += 1;
+            tracing::error!(
+                agent_id = %self.id,
+                tool = tool_name,
+                error = %e,
+                "Tool execution failed"
+            );
+            AgentError::from(e)
+        })?;
 
         tracing::debug!(
             agent_id = %self.id,
@@ -367,10 +361,7 @@ impl AgentCell {
     }
 
     /// Register a prompt template.
-    pub fn register_template(
-        &self,
-        template: axiom_prompt::PromptTemplate,
-    ) -> AgentResult<()> {
+    pub fn register_template(&self, template: axiom_prompt::PromptTemplate) -> AgentResult<()> {
         if let Some(registry) = &self.prompt_registry {
             registry
                 .write()

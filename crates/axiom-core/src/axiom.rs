@@ -9,8 +9,8 @@
 
 use crate::error::AxiomError;
 use crate::layer::Layer;
-use crate::Result;
 use crate::signal::Signal;
+use crate::Result;
 use serde::{Deserialize, Serialize};
 
 pub trait Guard: Send + Sync + 'static {

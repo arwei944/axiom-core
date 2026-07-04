@@ -18,7 +18,7 @@ pub struct NewCellArgs {
 
 pub fn run_new_cell(args: &NewCellArgs) -> Result<std::process::ExitCode> {
     let layer = args.layer.to_lowercase();
-    
+
     if !["oversight", "agent", "validate", "exec"].contains(&layer.as_str()) {
         return Err(anyhow::anyhow!(
             "Layer must be one of: oversight, agent, validate, exec"
@@ -36,8 +36,7 @@ pub fn run_new_cell(args: &NewCellArgs) -> Result<std::process::ExitCode> {
         ));
     }
 
-    fs::create_dir_all(output_dir)
-        .context("Failed to create output directory")?;
+    fs::create_dir_all(output_dir).context("Failed to create output directory")?;
 
     println!("Creating Cell '{}' at layer '{}'...", args.name, layer);
 
@@ -108,8 +107,14 @@ fn create_cell_file(file_path: &Path, name: &str, layer: &str) -> Result<()> {
     content.push_str("//! \n");
     content.push_str("//! # Architecture Constraints\n");
     content.push_str("//! \n");
-    content.push_str(&format!("//! - This Cell can only send signals to: {}\n", allowed));
-    content.push_str(&format!("//! - This Cell cannot send signals to: {}\n", forbidden));
+    content.push_str(&format!(
+        "//! - This Cell can only send signals to: {}\n",
+        allowed
+    ));
+    content.push_str(&format!(
+        "//! - This Cell cannot send signals to: {}\n",
+        forbidden
+    ));
     content.push_str("//! \n");
     content.push_str("use axiom_core::cell::Cell;\n");
     content.push_str("use axiom_core::context::CellContext;\n");
@@ -128,7 +133,10 @@ fn create_cell_file(file_path: &Path, name: &str, layer: &str) -> Result<()> {
     content.push_str(&format!("    type Layer = {};\n", layer_marker));
     content.push('\n');
     content.push_str("    fn id(&self) -> &CellId {\n");
-    content.push_str(&format!("        static ID: CellId = CellId::new_static(\"{}\");\n", snake_name));
+    content.push_str(&format!(
+        "        static ID: CellId = CellId::new_static(\"{}\");\n",
+        snake_name
+    ));
     content.push_str("        &ID\n");
     content.push_str("    }\n");
     content.push('\n');
@@ -137,7 +145,10 @@ fn create_cell_file(file_path: &Path, name: &str, layer: &str) -> Result<()> {
     content.push_str("        msg: Self::Message,\n");
     content.push_str("        ctx: &mut CellContext<'_>,\n");
     content.push_str("    ) -> Result<(), AxiomError> {\n");
-    content.push_str(&format!("        tracing::info!(\"{} received: {{:?}}\", msg);\n", name));
+    content.push_str(&format!(
+        "        tracing::info!(\"{} received: {{:?}}\", msg);\n",
+        name
+    ));
     content.push_str("        Ok(())\n");
     content.push_str("    }\n");
     content.push_str("}\n");
@@ -148,14 +159,16 @@ fn create_cell_file(file_path: &Path, name: &str, layer: &str) -> Result<()> {
     content.push_str("    pub payload: Value,\n");
     content.push_str("}\n");
     content.push('\n');
-    content.push_str(&format!("impl axiom_core::signal::Signal for {}Message {{\n", name));
+    content.push_str(&format!(
+        "impl axiom_core::signal::Signal for {}Message {{\n",
+        name
+    ));
     content.push_str("    fn signal_type(&self) -> &str {\n");
     content.push_str(&format!("        \"{}Message\"\n", name));
     content.push_str("    }\n");
     content.push_str("}\n");
 
-    let mut file = File::create(file_path)
-        .context("Failed to create cell file")?;
+    let mut file = File::create(file_path).context("Failed to create cell file")?;
     file.write_all(content.as_bytes())
         .context("Failed to write cell file")?;
 
@@ -167,9 +180,8 @@ fn update_cells_mod(output_dir: &str, name: &str) -> Result<()> {
     let snake_name = snake_case(name);
 
     let content = if mod_path.exists() {
-        let mut existing = fs::read_to_string(&mod_path)
-            .context("Failed to read mod.rs")?;
-        
+        let mut existing = fs::read_to_string(&mod_path).context("Failed to read mod.rs")?;
+
         if !existing.contains(&format!("pub mod {};", snake_name)) {
             existing.push_str(&format!("pub mod {};\n", snake_name));
         }
@@ -178,8 +190,7 @@ fn update_cells_mod(output_dir: &str, name: &str) -> Result<()> {
         format!("pub mod {};\n", snake_name)
     };
 
-    fs::write(&mod_path, content)
-        .context("Failed to write mod.rs")?;
+    fs::write(&mod_path, content).context("Failed to write mod.rs")?;
 
     Ok(())
 }

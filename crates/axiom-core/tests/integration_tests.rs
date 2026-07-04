@@ -156,7 +156,7 @@ impl Cell for TestCell {
                     ctx.witness()
                         .summary(format!("processed: {}", signal.value))
                         .outcome(TransitionOutcome::Success)
-                        .processing_time_us(100)
+                        .processing_time_us(100),
                 )?;
                 Ok(())
             })();
@@ -513,7 +513,8 @@ fn test_entropy_high_weight_more_damage() {
 async fn test_error_path_layer_violation() {
     let cell_id = CellId::new("layer-violation-test");
     let mut ctx = CellContext::new(&cell_id, Layer::Exec);
-    let mut layered_ctx = LayeredCellContext::<axiom_core::sealed::ExecLayer>::from_cell_context(&mut ctx);
+    let mut layered_ctx =
+        LayeredCellContext::<axiom_core::sealed::ExecLayer>::from_cell_context(&mut ctx);
 
     let event = TestEvent::new(CorrelationId::generate(), "same-layer-target");
     let result = layered_ctx.emit_to::<axiom_core::sealed::ExecLayer, _>(event);
