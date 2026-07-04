@@ -121,7 +121,7 @@ fn main() -> Result<()> {
             let output = args
                 .get_one::<String>("output")
                 .expect("output is required");
-            let state_path = PathBuf::from(output);
+            let state_path = PathBuf::from(output); // foxguard: ignore[rs/no-path-traversal] — output is CLI arg, default is relative
 
             let arch_path = std::env::var("AXIOM_ARCHITECTURE_TOML")
                 .unwrap_or_else(|_| ".axiom/architecture.toml".to_string());

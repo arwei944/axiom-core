@@ -2,7 +2,7 @@ use std::path::Path;
 
 fn main() {
     let manifest_dir = env!("CARGO_MANIFEST_DIR");
-    let cargo_toml = Path::new(manifest_dir).join("Cargo.toml");
+    let cargo_toml = Path::new(manifest_dir).join("Cargo.toml"); // foxguard: ignore[rs/no-path-traversal]
 
     let content = match std::fs::read_to_string(&cargo_toml) {
         Ok(c) => c,

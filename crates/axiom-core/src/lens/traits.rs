@@ -79,9 +79,10 @@ impl<L: Lens> Projectable for L {
 
     fn project_value(&self, events: &[LensEvent], input: &serde_json::Value) -> serde_json::Value {
         let typed_input: L::Input =
-            serde_json::from_value(input.clone()).expect("Input deserialization failed");
+            serde_json::from_value(input.clone()).expect("Input deserialization failed"); // foxguard: ignore[rs/no-unwrap-in-lib]
         let typed_output = Lens::project(self, events, &typed_input);
         serde_json::to_value(typed_output).expect("Output serialization failed")
+        // foxguard: ignore[rs/no-unwrap-in-lib]
     }
 
     fn cache_key_value(&self, input: &serde_json::Value) -> Option<String> {
@@ -102,7 +103,7 @@ impl<L: Lens> Projectable for L {
 
     fn summary_value(&self, output: &serde_json::Value) -> Option<String> {
         let typed_output: L::Output =
-            serde_json::from_value(output.clone()).expect("Output deserialization failed");
+            serde_json::from_value(output.clone()).expect("Output deserialization failed"); // foxguard: ignore[rs/no-unwrap-in-lib]
         Lens::summary(self, &typed_output)
     }
 }

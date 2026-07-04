@@ -19,6 +19,8 @@ static ARCHITECTURE_TOML: &str = include_str!("../../../.axiom/architecture.toml
 fn architecture() -> &'static Architecture {
     static ARCH: OnceLock<Architecture> = OnceLock::new();
     ARCH.get_or_init(|| {
+        // foxguard: ignore[rs/no-unwrap-in-lib] — architecture TOML is bundled with the
+        // crate; a parse failure here indicates a corrupted shipped resource.
         Architecture::from_toml_str(ARCHITECTURE_TOML)
             .expect("TOML parse error in ../../../.axiom/architecture.toml")
     })
@@ -104,7 +106,7 @@ fn check_dev_dependency_audit_enabled() -> bool {
 /// architecture rules. It will panic with a descriptive message if violations are found.
 pub fn check_current_crate(crate_name: &str) {
     let manifest_dir = env!("CARGO_MANIFEST_DIR");
-    let cargo_toml = Path::new(manifest_dir).join("Cargo.toml");
+    let cargo_toml = Path::new(manifest_dir).join("Cargo.toml"); // foxguard: ignore[rs/no-path-traversal]
 
     // Check [dependencies] and [build-dependencies] for internal deps
     let local_deps = parse_local_axiom_deps(&cargo_toml);

@@ -158,7 +158,7 @@ pub fn impl_signal(attr: TokenStream, item: TokenStream) -> TokenStream {
                     let s = s.trim_matches('"').to_string();
                     layer =
                         parse_layer_variant(&syn::LitStr::new(&s, proc_macro2::Span::call_site()))
-                            .unwrap();
+                            .expect("valid layer variant"); // foxguard: ignore[rs/no-unwrap-in-lib]
                 }
             } else if ident == "trace" {
                 has_trace = true;

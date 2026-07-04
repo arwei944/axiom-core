@@ -149,6 +149,7 @@ pub fn uninstall() -> Result<()> {
     let hook_file = ".git/hooks/pre-commit";
 
     if std::path::Path::new(hook_file).exists() {
+        // foxguard: ignore[rs/no-path-traversal] — hook_file is a fixed relative path
         std::fs::remove_file(hook_file)?;
         println!("✅ 预提交钩子已卸载: {}", hook_file);
     } else {

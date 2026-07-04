@@ -60,7 +60,7 @@ impl LensAccessor {
 
 fn compute_hash(value: &serde_json::Value) -> [u8; 32] {
     use sha2::{Digest, Sha256};
-    let bytes = serde_json::to_vec(value).expect("Serialization failed");
+    let bytes = serde_json::to_vec(value).expect("Serialization failed"); // foxguard: ignore[rs/no-unwrap-in-lib] — Value-to-bytes serialization is infallible for JSON
     let mut hasher = Sha256::new();
     hasher.update(&bytes);
     let result = hasher.finalize();

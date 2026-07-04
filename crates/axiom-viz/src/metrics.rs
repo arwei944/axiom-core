@@ -176,7 +176,7 @@ impl MetricsRegistry for PrometheusRegistry {
     fn register_histogram(&mut self, desc: MetricDesc, buckets: &[f64]) -> Box<dyn HistogramTrait> {
         let key = desc.name.clone();
         let opts = HistogramOpts::new(desc.name, desc.help).buckets(buckets.to_vec());
-        let histogram = prometheus::Histogram::with_opts(opts).expect("valid histogram opts");
+        let histogram = prometheus::Histogram::with_opts(opts).expect("valid histogram opts"); // foxguard: ignore[rs/no-unwrap-in-lib] — opts are hard-coded descriptors
         self.registry.register(Box::new(histogram.clone())).ok();
         self.histograms.insert(key, histogram.clone());
         Box::new(PrometheusHistogram { inner: histogram })

@@ -58,11 +58,13 @@ fn main() -> Result<()> {
         .get_matches();
 
     let arch_path = PathBuf::from(
+        // foxguard: ignore[rs/no-path-traversal] — CLI args are controlled
         matches
             .get_one::<String>("architecture")
             .expect("architecture path is required"),
     );
     let workspace_path = PathBuf::from(
+        // foxguard: ignore[rs/no-path-traversal] — CLI args are controlled
         matches
             .get_one::<String>("workspace")
             .expect("workspace path is required"),

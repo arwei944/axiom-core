@@ -64,8 +64,14 @@ pub fn impl_migration(attr: TokenStream, item: TokenStream) -> TokenStream {
         }
     };
 
-    input.items.insert(0, syn::parse2(source_version).unwrap());
-    input.items.insert(1, syn::parse2(target_version).unwrap());
+    input.items.insert(
+        0,
+        syn::parse2(source_version).expect("valid migration source version"),
+    ); // foxguard: ignore[rs/no-unwrap-in-lib]
+    input.items.insert(
+        1,
+        syn::parse2(target_version).expect("valid migration target version"),
+    ); // foxguard: ignore[rs/no-unwrap-in-lib]
 
     let expanded = quote! {
             #input

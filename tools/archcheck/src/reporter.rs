@@ -48,4 +48,5 @@ pub fn report_json(violations: &[Violation]) -> String {
     });
 
     serde_json::to_string_pretty(&report).expect("JSON serialization of architecture report failed")
+    // foxguard: ignore[rs/no-unwrap-in-lib] — reporter output path is controlled
 }

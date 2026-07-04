@@ -132,7 +132,10 @@ impl AgentBuilder {
     /// Set the agent identity (creates a persona if not already set).
     pub fn with_identity(mut self, identity: axiom_identity::AgentIdentity) -> Self {
         if self.persona.is_some() {
-            let persona = self.persona.take().unwrap();
+            let persona = self
+                .persona
+                .take()
+                .expect("persona must be set when identity is provided"); // foxguard: ignore[rs/no-unwrap-in-lib]
             persona.set_identity(identity);
             self.persona = Some(persona);
         } else {

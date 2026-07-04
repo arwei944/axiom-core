@@ -42,8 +42,10 @@ impl TemplateRegistry {
                 let mut latest: Option<&PromptTemplate> = None;
                 for template in versions.values() {
                     if latest.is_none()
-                        || compare_versions(&template.version, latest.unwrap().version.as_str())
-                            == std::cmp::Ordering::Greater
+                        || compare_versions(
+                            &template.version,
+                            latest.expect("latest must exist").version.as_str(),
+                        ) == std::cmp::Ordering::Greater
                     {
                         latest = Some(template);
                     }

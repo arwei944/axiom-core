@@ -142,3 +142,22 @@ jobs:
           key: ${{ runner.os }}-cargo-release-${{ hashFiles('**/Cargo.lock') }}
       - name: Cargo publish dry run (axiom-core)
         run: cargo publish -p axiom-core --dry-run
+
+  security-audit:
+    name: Security Audit (foxguard)
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-security-${{ hashFiles('**/Cargo.lock') }}
+      - name: Install foxguard
+        run: cargo install foxguard
+      - name: Run foxguard scan
+        run: foxguard .

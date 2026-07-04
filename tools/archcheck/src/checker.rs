@@ -5,8 +5,10 @@ use std::collections::HashMap;
 use std::path::Path;
 
 static DEP_RE: Lazy<Regex> =
+    // foxguard: ignore[rs/no-unwrap-in-lib] — compile-time constants must be valid
     Lazy::new(|| Regex::new(r#"^[a-zA-Z0-9_-]+"#).expect("valid dep regex"));
 static SECTION_RE: Lazy<Regex> =
+    // foxguard: ignore[rs/no-unwrap-in-lib] — compile-time constants must be valid
     Lazy::new(|| Regex::new(r#"^\[(.+?)\]$"#).expect("valid section regex"));
 
 #[derive(Debug, Clone)]

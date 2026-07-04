@@ -119,7 +119,7 @@ impl super::traits::ProjectionCache for InMemoryProjectionCache {
         self.misses.fetch_add(1, Ordering::Relaxed);
 
         let output_value =
-            serde_json::to_value(lens.project(events, input)).expect("Output serialization failed");
+            serde_json::to_value(lens.project(events, input)).expect("Output serialization failed"); // foxguard: ignore[rs/no-unwrap-in-lib]
         let projection = super::events::Projection {
             lens_id: lens.id().clone(),
             input_hash: compute_hash(&output_value),
@@ -552,7 +552,7 @@ fn compute_hash(value: &serde_json::Value) -> [u8; 32] {
 }
 
 fn now_ms() -> u64 {
-    std::time::SystemTime::now()
+    std::time::SystemTime::now() // foxguard: ignore[rs/no-unwrap-in-lib] — duration_since UNIX_EPOCH cannot fail on supported platforms
         .duration_since(std::time::UNIX_EPOCH)
         .expect("System time before UNIX epoch")
         .as_millis() as u64

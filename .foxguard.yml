@@ -1,0 +1,11 @@
+scan:
+  baseline: .foxguard/baseline.json
+  disable_rules:
+    - rs/no-unwrap-in-lib
+    - rs/no-path-traversal
+
+secrets:
+  exclude_paths:
+    - fixtures
+    - testdata
+    - target

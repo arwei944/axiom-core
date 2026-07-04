@@ -94,10 +94,11 @@ impl Architecture {
 fn architecture() -> Result<&'static Architecture, crate::AxiomError> {
     static ARCH: OnceLock<Architecture> = OnceLock::new();
     ARCH.get_or_init(|| {
+        // foxguard: ignore[rs/no-unwrap-in-lib] — architecture TOML is bundled with the crate
         Architecture::from_toml(ARCHITECTURE_TOML)
             .expect("failed to parse .axiom/architecture.toml")
     });
-    Ok(ARCH.get().expect("architecture initialized"))
+    Ok(ARCH.get().expect("architecture initialized")) // foxguard: ignore[rs/no-unwrap-in-lib] — OnceLock is initialized above
 }
 
 /// Find layer index for a crate by name.

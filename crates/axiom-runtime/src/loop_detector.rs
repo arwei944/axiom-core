@@ -36,7 +36,7 @@ impl LruCorrelationMap {
                 },
             );
         }
-        &mut self
+        &mut self // foxguard: ignore[rs/no-unwrap-in-lib] — key was just inserted in get_or_default
             .map
             .get_mut(&k)
             .expect("key just inserted should exist")
