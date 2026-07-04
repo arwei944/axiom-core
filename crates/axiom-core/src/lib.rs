@@ -57,6 +57,7 @@
 pub mod axiom;
 pub mod capability;
 pub mod cell;
+pub mod clock;
 pub mod context;
 pub mod entropy;
 pub mod error;
@@ -81,6 +82,7 @@ pub use entropy::{
     CellEntropy, EntropyLevel, EntropyScore, EntropySnapshot, EntropyWeights, CRITICAL_THRESHOLD,
     GREEN_THRESHOLD, RED_THRESHOLD, YELLOW_THRESHOLD,
 };
+pub use clock::{Clock, MockClock, SystemClock};
 pub use error::{AxiomError, Result};
 pub use id::{AxiomId, CellId, CorrelationId, LensId, MsgId, TraceId, WitnessId};
 pub use layer::Layer;
