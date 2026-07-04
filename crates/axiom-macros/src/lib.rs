@@ -198,7 +198,7 @@ pub fn derive_signal_payload(input: TokenStream) -> TokenStream {
                 &self.vector_clock
             }
             fn timestamp_ns(&self) -> u64 {
-                ::axiom_core::signal::now_ns()
+                ::axiom_core::clock::global_clock().now_ns()
             }
             fn kind(&self) -> ::axiom_core::SignalKind {
                 #kind
@@ -281,14 +281,14 @@ pub fn cell(attr: TokenStream, item: TokenStream) -> TokenStream {
         impl ::axiom_core::witness::WitnessGenerator for #struct_type {
             fn generate_witness(&self, _event: ::axiom_core::witness::WitnessEvent) -> ::axiom_core::witness::Witness {
                 ::axiom_core::witness::Witness {
-                    witness_id: ::axiom_core::id::WitnessId::new(format!("wit-auto-{}", ::axiom_core::signal::now_ns())),
+                    witness_id: ::axiom_core::id::WitnessId::new(format!("wit-auto-{}", ::axiom_core::clock::global_clock().now_ns())),
                     schema_version: <::axiom_core::version::WitnessSchema as ::axiom_core::Versioned>::schema_version(),
                     cell_id: stringify!(#struct_type).to_string(),
                     correlation_id: ::axiom_core::id::CorrelationId::new("auto"),
                     trace_id: None,
                     triggering_msg_id: None,
                     vector_clock: ::axiom_core::signal::VectorClock::new(),
-                    timestamp_ns: ::axiom_core::signal::now_ns(),
+                    timestamp_ns: ::axiom_core::clock::global_clock().now_ns(),
                     prev_hash: None,
                     state_before_hash: None,
                     state_after_hash: None,
@@ -539,7 +539,7 @@ pub fn signal(attr: TokenStream, item: TokenStream) -> TokenStream {
                 &self.vector_clock
             }
             fn timestamp_ns(&self) -> u64 {
-                ::axiom_core::signal::now_ns()
+                ::axiom_core::clock::global_clock().now_ns()
             }
             fn kind(&self) -> ::axiom_core::SignalKind {
                 #kind
@@ -620,14 +620,14 @@ pub fn tool(attr: TokenStream, item: TokenStream) -> TokenStream {
     let exec_wrapper = quote! {
         async fn execute(&self, parameters: &serde_json::Value) -> Result<serde_json::Value, ::axiom_tool::ToolError> {
             let _ = ::axiom_core::registry::WITNESS_REGISTRY.record(::axiom_core::witness::Witness {
-                witness_id: ::axiom_core::id::WitnessId::new(format!("tool-wit-{}", ::axiom_core::signal::now_ns())),
+                witness_id: ::axiom_core::id::WitnessId::new(format!("tool-wit-{}", ::axiom_core::clock::global_clock().now_ns())),
                 schema_version: <::axiom_core::version::WitnessSchema as ::axiom_core::Versioned>::schema_version(),
                 cell_id: "tool-executor".to_string(),
                 correlation_id: ::axiom_core::id::CorrelationId::new("auto"),
                 trace_id: None,
                 triggering_msg_id: None,
                 vector_clock: ::axiom_core::signal::VectorClock::new(),
-                timestamp_ns: ::axiom_core::signal::now_ns(),
+                timestamp_ns: ::axiom_core::clock::global_clock().now_ns(),
                 prev_hash: None,
                 state_before_hash: None,
                 state_after_hash: None,
@@ -886,14 +886,14 @@ pub fn guard(attr: TokenStream, item: TokenStream) -> TokenStream {
                 let result = self.check_inner(signal);
 
                 let _ = ::axiom_core::registry::WITNESS_REGISTRY.record(::axiom_core::witness::Witness {
-                    witness_id: ::axiom_core::id::WitnessId::new(format!("guard-wit-{}", ::axiom_core::signal::now_ns())),
+                    witness_id: ::axiom_core::id::WitnessId::new(format!("guard-wit-{}", ::axiom_core::clock::global_clock().now_ns())),
                     schema_version: <::axiom_core::version::WitnessSchema as ::axiom_core::Versioned>::schema_version(),
                     cell_id: "guard-executor".to_string(),
                     correlation_id: ::axiom_core::id::CorrelationId::new("auto"),
                     trace_id: None,
                     triggering_msg_id: None,
                     vector_clock: ::axiom_core::signal::VectorClock::new(),
-                    timestamp_ns: ::axiom_core::signal::now_ns(),
+                    timestamp_ns: ::axiom_core::clock::global_clock().now_ns(),
                     prev_hash: None,
                     state_before_hash: None,
                     state_after_hash: None,
@@ -1241,3 +1241,4 @@ pub fn capability(attr: TokenStream, item: TokenStream) -> TokenStream {
 
     TokenStream::from(expanded)
 }
+
