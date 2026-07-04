@@ -10,6 +10,7 @@ pub mod mailbox;
 pub mod runtime;
 pub mod server;
 pub mod supervisor;
+pub mod telemetry;
 
 pub use bus::{BusInterceptor, InterceptDecision, MessageBus};
 pub use dlq::{DeadLetter, DeadLetterQueue};
@@ -24,3 +25,4 @@ pub use mailbox::Mailbox;
 pub use runtime::{AxiomRuntime, CellRegistration, RuntimeBuilder, RuntimeConfig, RuntimeHealth};
 pub use server::MetricsServer;
 pub use supervisor::Supervisor;
+pub use telemetry::{TelemetryConfig, TracerHandle, init_telemetry};

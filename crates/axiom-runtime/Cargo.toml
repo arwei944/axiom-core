@@ -21,6 +21,7 @@ axum = { workspace = true, optional = true }
 [features]
 default = []
 metrics = ["dep:axum"]
+telemetry = []
 
 [build-dependencies]
 archcheck = { path = "../../tools/archcheck" }
