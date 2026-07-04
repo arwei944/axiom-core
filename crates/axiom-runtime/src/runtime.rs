@@ -17,9 +17,10 @@ use tokio::task::JoinHandle;
 
 use axiom_core::context::CellContext;
 use axiom_core::error::AxiomError;
+use axiom_core::clock::global_clock;
 use axiom_core::id::{CellId, CorrelationId, MsgId};
 use axiom_core::layer::Layer;
-use axiom_core::signal::{now_ns, SignalEnvelope, SignalKind, VectorClock};
+use axiom_core::signal::{SignalEnvelope, SignalKind, VectorClock};
 
 use crate::bus::MessageBus;
 use crate::constraint_validator::{ConstraintValidator, ValidationContext};
@@ -809,7 +810,7 @@ impl AxiomRuntime {
             trace_id: None,
             signal_type: signal_type.to_string(),
             vector_clock: VectorClock::new(),
-            timestamp_ns: now_ns(),
+            timestamp_ns: global_clock().now_ns(),
             kind: SignalKind::Command,
             source_layer: Layer::Oversight,
             target_layer,
@@ -938,7 +939,7 @@ mod tests {
             trace_id: None,
             signal_type: "Test".into(),
             vector_clock: VectorClock::new(),
-            timestamp_ns: now_ns(),
+            timestamp_ns: global_clock().now_ns(),
             kind: SignalKind::Command,
             source_layer: from,
             target_layer: to,
@@ -1041,3 +1042,4 @@ mod tests {
         );
     }
 }
+

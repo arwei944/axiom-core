@@ -3,12 +3,12 @@
 //! Moved from axiom-oversight to axiom-runtime to avoid circular dependencies.
 //! axiom-oversight re-exports these types for oversight-level consumers.
 
+use axiom_core::clock::global_clock;
 use axiom_core::entropy::{
     EntropyLevel, EntropyScore, CRITICAL_THRESHOLD, GREEN_THRESHOLD, RED_THRESHOLD,
     YELLOW_THRESHOLD,
 };
 use axiom_core::id::CellId;
-use axiom_core::signal::now_ns;
 use parking_lot::Mutex;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -80,7 +80,7 @@ impl EntropyGovernorCell {
     }
 
     pub fn record(&self, ev: EntropyEvent) {
-        let now = now_ns();
+        let now = global_clock().now_ns();
         let cell_id = match &ev {
             EntropyEvent::AxiomViolation { cell_id } => cell_id.clone(),
             EntropyEvent::DroppedMessage { cell_id } => cell_id.clone(),
@@ -133,7 +133,7 @@ impl EntropyGovernorCell {
     }
 
     pub fn decay_tick(&self) {
-        let now = now_ns();
+        let now = global_clock().now_ns();
         let mut g = self.global.lock();
         g.decay(now);
         drop(g);
@@ -144,7 +144,7 @@ impl EntropyGovernorCell {
     }
 
     pub fn snapshot(&self) -> EntropySnapshot {
-        let now = now_ns();
+        let now = global_clock().now_ns();
         let g = *self.global.lock();
         let level = g.level();
         let per_cell = self
@@ -167,7 +167,7 @@ impl EntropyGovernorCell {
 
     pub fn take_action(&self) -> GovernanceAction {
         let snap = self.snapshot();
-        let now = now_ns();
+        let now = global_clock().now_ns();
         let mut last_action_ns = self.last_action_ns.lock();
         if *last_action_ns + self.cooldown_ns > now {
             return GovernanceAction::None;
@@ -209,7 +209,7 @@ impl EntropyGovernorCell {
         if !hot {
             return false;
         }
-        let now = now_ns();
+        let now = global_clock().now_ns();
         let mut last_action_ns = self.last_action_ns.lock();
         if *last_action_ns + self.cooldown_ns > now {
             return false;
@@ -219,7 +219,7 @@ impl EntropyGovernorCell {
     }
 
     pub fn reset(&self) {
-        let now = now_ns();
+        let now = global_clock().now_ns();
         let mut g = self.global.lock();
         let gt = g.green_threshold;
         let yt = g.yellow_threshold;
@@ -403,3 +403,4 @@ mod tests {
         );
     }
 }
+

@@ -1,5 +1,6 @@
 //! Dead Letter Queue - captures undeliverable messages for analysis.
 
+use axiom_core::clock::global_clock;
 use axiom_core::signal::SignalEnvelope;
 use parking_lot::RwLock;
 use std::collections::VecDeque;
@@ -32,7 +33,7 @@ impl DeadLetterQueue {
         letters.push_back(DeadLetter {
             envelope,
             reason: reason.to_string(),
-            timestamp_ns: axiom_core::signal::now_ns(),
+            timestamp_ns: global_clock().now_ns(),
         });
     }
 
