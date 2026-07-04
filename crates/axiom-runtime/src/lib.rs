@@ -8,6 +8,7 @@ pub mod interceptors;
 pub mod loop_detector;
 pub mod mailbox;
 pub mod runtime;
+pub mod server;
 pub mod supervisor;
 
 pub use bus::{BusInterceptor, InterceptDecision, MessageBus};
@@ -21,4 +22,5 @@ pub use interceptors::{
 pub use loop_detector::LoopDetector;
 pub use mailbox::Mailbox;
 pub use runtime::{AxiomRuntime, CellRegistration, RuntimeBuilder, RuntimeConfig, RuntimeHealth};
+pub use server::MetricsServer;
 pub use supervisor::Supervisor;

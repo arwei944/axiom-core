@@ -235,6 +235,8 @@ pub struct AxiomRuntime {
     throttle_state: Arc<parking_lot::RwLock<HashMap<String, f64>>>,
     emergency_mode: Arc<parking_lot::RwLock<bool>>,
     events_since_snapshot: Arc<parking_lot::RwLock<HashMap<String, u64>>>,
+    #[cfg(feature = "metrics")]
+    metrics_server: crate::MetricsServer,
 }
 
 impl AxiomRuntime {
@@ -261,6 +263,8 @@ impl AxiomRuntime {
             throttle_state,
             emergency_mode,
             events_since_snapshot,
+            #[cfg(feature = "metrics")]
+            metrics_server: crate::MetricsServer::default(),
         }
     }
 

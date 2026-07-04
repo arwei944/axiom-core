@@ -197,9 +197,6 @@ pub fn derive_signal_payload(input: TokenStream) -> TokenStream {
             fn vector_clock(&self) -> &::axiom_core::VectorClock {
                 &self.vector_clock
             }
-            fn timestamp_ns(&self) -> u64 {
-                self.timestamp_ns.unwrap_or_else(|| ::axiom_core::clock::global_clock().now_ns())
-            }
             fn kind(&self) -> ::axiom_core::SignalKind {
                 #kind
             }
@@ -359,7 +356,6 @@ pub fn signal(attr: TokenStream, item: TokenStream) -> TokenStream {
         pub msg_id: ::axiom_core::id::MsgId,
         pub correlation_id: ::axiom_core::id::CorrelationId,
         pub vector_clock: ::axiom_core::signal::VectorClock,
-        pub timestamp_ns: Option<u64>,
     };
 
     let optional_fields = if has_trace || has_sender {
@@ -510,19 +506,6 @@ pub fn signal(attr: TokenStream, item: TokenStream) -> TokenStream {
                     msg_id,
                     correlation_id,
                     vector_clock: ::axiom_core::signal::VectorClock::new(),
-                    timestamp_ns: None,
-                    #trace_field_init
-                    #sender_field_init
-                    #data_field_inits
-                }
-            }
-
-            pub fn new_with_timestamp(msg_id: ::axiom_core::id::MsgId, correlation_id: ::axiom_core::id::CorrelationId, timestamp_ns: u64 #data_field_params) -> Self {
-                Self {
-                    msg_id,
-                    correlation_id,
-                    vector_clock: ::axiom_core::signal::VectorClock::new(),
-                    timestamp_ns: Some(timestamp_ns),
                     #trace_field_init
                     #sender_field_init
                     #data_field_inits
@@ -551,9 +534,6 @@ pub fn signal(attr: TokenStream, item: TokenStream) -> TokenStream {
             #trace_id_impl
             fn vector_clock(&self) -> &::axiom_core::signal::VectorClock {
                 &self.vector_clock
-            }
-            fn timestamp_ns(&self) -> u64 {
-                self.timestamp_ns.unwrap_or_else(|| ::axiom_core::clock::global_clock().now_ns())
             }
             fn kind(&self) -> ::axiom_core::SignalKind {
                 #kind
@@ -1255,4 +1235,6 @@ pub fn capability(attr: TokenStream, item: TokenStream) -> TokenStream {
 
     TokenStream::from(expanded)
 }
+
+
 

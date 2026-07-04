@@ -73,7 +73,9 @@ pub trait Signal: Send + Sync + 'static {
         None
     }
     fn vector_clock(&self) -> &VectorClock;
-    fn timestamp_ns(&self) -> u64;
+    fn timestamp_ns(&self) -> u64 {
+        crate::clock::global_clock().now_ns()
+    }
     fn kind(&self) -> SignalKind;
     fn layer(&self) -> Layer;
     fn sender(&self) -> Option<&str> {

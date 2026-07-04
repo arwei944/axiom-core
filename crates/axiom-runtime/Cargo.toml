@@ -16,6 +16,11 @@ thiserror = { workspace = true }
 tracing = { workspace = true }
 parking_lot = { workspace = true }
 futures = { workspace = true }
+axum = { workspace = true, optional = true }
+
+[features]
+default = []
+metrics = ["dep:axum"]
 
 [build-dependencies]
 archcheck = { path = "../../tools/archcheck" }
