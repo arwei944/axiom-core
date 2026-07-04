@@ -51,6 +51,7 @@ regex = "1"
 parking_lot = "0.12"
 dashmap = "5"
 schemars = "0.8"
+prometheus = "0.13"
 
 axiom-core = { path = "crates/axiom-core" }
 axiom-runtime = { path = "crates/axiom-runtime" }

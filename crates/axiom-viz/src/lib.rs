@@ -11,11 +11,20 @@ use serde::Serialize;
 
 pub mod cell_flow;
 pub mod entropy;
+pub mod metrics;
 pub mod timeline;
 pub mod topology;
 
 pub use cell_flow::{CellFlowRecord, CellFlowSnapshot};
 pub use entropy::EntropyData;
+pub use metrics::{
+    active_cells, cell_restarts_total, dead_letters_total, entropy_score,
+    init_core_metrics, message_duration_seconds, message_total, witness_chain_errors,
+    CounterTrait, GaugeTrait, HistogramTrait, MetricDesc, MetricType, MetricsRegistry,
+    NoopRegistry,
+};
+#[cfg(feature = "metrics")]
+pub use metrics::PrometheusRegistry;
 pub use timeline::{Timeline, TimelineEntry};
 pub use topology::{CellNode, TopologyGraph};
 
