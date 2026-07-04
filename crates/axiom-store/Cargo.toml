@@ -16,9 +16,10 @@ tokio = { workspace = true, features = ["sync", "rt", "macros"] }
 parking_lot = { workspace = true }
 snap = "1"
 tempfile = { version = "3" }
+uuid = { workspace = true }
 
 [features]
-default = []
+default = ["sqlite"]
 sqlite = ["sqlx/sqlite", "tokio/rt"]
 
 [dependencies.sqlx]

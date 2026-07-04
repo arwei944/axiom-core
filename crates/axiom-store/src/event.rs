@@ -6,8 +6,9 @@ use axiom_core::signal::VectorClock;
 use axiom_core::version::{EventSchema, SchemaVersion, Versioned};
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub enum EventOutcome {
+    #[default]
     Success,
     Failed { reason: String },
     AxiomViolated { axiom_name: String, message: String },

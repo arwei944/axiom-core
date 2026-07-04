@@ -2,12 +2,15 @@
 
 use crate::event::Event;
 use crate::store::{BoxFuture, EventReceiver, EventStore, StoreError};
+use crate::{EventMetadata, WitnessHashData};
 use axiom_core::id::CorrelationId;
+use axiom_core::layer::Layer;
 use serde_json::Value;
 use sqlx::sqlite::{SqlitePool, SqlitePoolOptions};
-use std::pin::Pin;
+use sqlx::Row;
 use std::sync::Arc;
 use tokio::sync::broadcast;
+use uuid::Uuid;
 
 #[derive(Debug, Clone)]
 pub struct SqliteStoreConfig {
@@ -83,29 +86,29 @@ impl SqliteStore {
             )
             "#,
         )
-        .execute(&*self.pool)
+        .execute(&self.pool)
         .await
         .map_err(|e| StoreError::Storage(format!("sqlite migration: {e}")))?;
 
         sqlx::query(
             "CREATE INDEX IF NOT EXISTS idx_events_aggregate ON events(aggregate_id)",
         )
-        .execute(&*self.pool)
+        .execute(&self.pool)
         .await
         .map_err(|e| StoreError::Storage(format!("sqlite index aggregate_id: {e}")))?;
 
         sqlx::query("CREATE INDEX IF NOT EXISTS idx_events_timestamp ON events(timestamp_ns)")
-            .execute(&*self.pool)
+            .execute(&self.pool)
             .await
             .map_err(|e| StoreError::Storage(format!("sqlite index timestamp_ns: {e}")))?;
 
         sqlx::query("CREATE INDEX IF NOT EXISTS idx_events_correlation ON events(correlation_id)")
-            .execute(&*self.pool)
+            .execute(&self.pool)
             .await
             .map_err(|e| StoreError::Storage(format!("sqlite index correlation_id: {e}")))?;
 
         sqlx::query("CREATE INDEX IF NOT EXISTS idx_events_cell_id ON events(cell_id)")
-            .execute(&*self.pool)
+            .execute(&self.pool)
             .await
             .map_err(|e| StoreError::Storage(format!("sqlite index cell_id: {e}")))?;
 
@@ -121,7 +124,7 @@ impl SqliteStore {
             let mut arr = [0u8; 32];
             if b.len() == 32 {
                 arr.copy_from_slice(&b);
-                Some(crate::store::WitnessHashData {
+                Some(WitnessHashData {
                     prev_hash: None,
                     state_before_hash: None,
                     state_after_hash: None,
@@ -137,7 +140,7 @@ impl SqliteStore {
             .map_err(|e| StoreError::Serialization(e.to_string()))?;
 
         Ok(Event {
-            sequence_number: row.get("sequence_number"),
+            sequence_number: row.get::<i64, _>("sequence_number") as u64,
             event_id: row.get("event_id"),
             aggregate_id: row.get("aggregate_id"),
             cell_id: row.get("cell_id"),
@@ -147,20 +150,20 @@ impl SqliteStore {
                 .map(|s| axiom_core::id::MsgId::new(s)),
             vector_clock: serde_json::from_str(row.get::<&str, _>("vector_clock"))
                 .unwrap_or_default(),
-            timestamp_ns: row.get("timestamp_ns"),
+            timestamp_ns: row.get::<i64, _>("timestamp_ns") as u64,
             payload,
             event_type: row.get("event_type"),
             schema_version: axiom_core::version::SchemaVersion::new(
-                row.get::<i32, _>("schema_version") as u32,
+                row.get::<i32, _>("schema_version") as u16,
             ),
-            metadata: crate::store::EventMetadata {
-                layer: serde_json::from_str(row.get::<&str, _>("layer")).unwrap_or_default(),
-                processing_time_ms: row.get("processing_time_ms"),
+            metadata: EventMetadata {
+                layer: serde_json::from_str(row.get::<&str, _>("layer")).unwrap_or(Layer::Exec),
+                processing_time_ms: row.get::<i64, _>("processing_time_ms") as u64,
                 was_replayed: row.get::<i32, _>("was_replayed") != 0,
                 outcome: serde_json::from_str(row.get::<&str, _>("outcome")).unwrap_or_default(),
                 summary: row.get("summary"),
                 witness_hash,
-                payload_size_bytes: row.get("payload_size_bytes"),
+                payload_size_bytes: row.get::<i64, _>("payload_size_bytes") as usize,
             },
         })
     }
@@ -209,14 +212,15 @@ impl EventStore for SqliteStore {
             let seq = sqlx::query(
                 r#"
                 INSERT INTO events (
-                    aggregate_id, cell_id, correlation_id, triggering_msg_id, vector_clock,
+                    event_id, aggregate_id, cell_id, correlation_id, triggering_msg_id, vector_clock,
                     timestamp_ns, payload, event_type, schema_version, layer,
                     processing_time_ms, was_replayed, outcome, summary,
                     witness_hash_prev, witness_hash_before, witness_hash_after, witness_hash,
                     signal_fingerprint, payload_size_bytes
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 "#,
             )
+            .bind(&event.event_id)
             .bind(&event.aggregate_id)
             .bind(&event.cell_id)
             .bind(event.correlation_id.as_str())
@@ -242,7 +246,7 @@ impl EventStore for SqliteStore {
             .bind(witness_hash_bytes)
             .bind(signal_fingerprint)
             .bind(event.metadata.payload_size_bytes as i64)
-            .execute(&*self.pool)
+            .execute(&self.pool)
             .await
             .map_err(|e| StoreError::Storage(format!("sqlite append: {e}")))?;
 
@@ -369,7 +373,7 @@ impl EventStore for SqliteStore {
                 "#,
             )
             .bind(aggregate_id)
-            .fetch_all(&*self.pool)
+            .fetch_all(&self.pool)
             .await
             .map_err(|e| StoreError::Storage(format!("sqlite read: {e}")))?;
 
@@ -390,7 +394,7 @@ impl EventStore for SqliteStore {
                 ORDER BY sequence_number ASC
                 "#,
             )
-            .fetch_all(&*self.pool)
+            .fetch_all(&self.pool)
             .await
             .map_err(|e| StoreError::Storage(format!("sqlite read_all: {e}")))?;
 
@@ -413,7 +417,7 @@ impl EventStore for SqliteStore {
                 "#,
             )
             .bind(after_ns as i64)
-            .fetch_all(&*self.pool)
+            .fetch_all(&self.pool)
             .await
             .map_err(|e| StoreError::Storage(format!("sqlite read_after: {e}")))?;
 
@@ -439,7 +443,7 @@ impl EventStore for SqliteStore {
                 "#,
             )
             .bind(seq as i64)
-            .fetch_all(&*self.pool)
+            .fetch_all(&self.pool)
             .await
             .map_err(|e| StoreError::Storage(format!("sqlite read_after_sequence: {e}")))?;
 
@@ -469,7 +473,7 @@ impl EventStore for SqliteStore {
             .bind(aggregate_id)
             .bind(from_seq as i64)
             .bind(to_seq as i64)
-            .fetch_all(&*self.pool)
+            .fetch_all(&self.pool)
             .await
             .map_err(|e| StoreError::Storage(format!("sqlite read_range: {e}")))?;
 
@@ -495,7 +499,7 @@ impl EventStore for SqliteStore {
                 "#,
             )
             .bind(correlation_id)
-            .fetch_all(&*self.pool)
+            .fetch_all(&self.pool)
             .await
             .map_err(|e| StoreError::Storage(format!("sqlite read_by_correlation: {e}")))?;
 
@@ -521,7 +525,7 @@ impl EventStore for SqliteStore {
                 "#,
             )
             .bind(cell_id)
-            .fetch_all(&*self.pool)
+            .fetch_all(&self.pool)
             .await
             .map_err(|e| StoreError::Storage(format!("sqlite read_by_cell_id: {e}")))?;
 
@@ -549,7 +553,7 @@ impl EventStore for SqliteStore {
             )
             .bind(start_ns as i64)
             .bind(end_ns as i64)
-            .fetch_all(&*self.pool)
+            .fetch_all(&self.pool)
             .await
             .map_err(|e| StoreError::Storage(format!("sqlite read_by_time_range: {e}")))?;
 
@@ -560,9 +564,9 @@ impl EventStore for SqliteStore {
     fn latest_sequence<'a>(&'a self) -> BoxFuture<'a, Result<u64, StoreError>> {
         Box::pin(async move {
             let row = sqlx::query("SELECT MAX(sequence_number) as max_seq FROM events")
-                .fetch_one(&*self.pool)
-                .await
-                .map_err(|e| StoreError::Storage(format!("sqlite latest_sequence: {e}")))?;
+            .fetch_one(&self.pool)
+            .await
+            .map_err(|e| StoreError::Storage(format!("sqlite latest_sequence: {e}")))?;
             Ok(row.get::<Option<i64>, _>("max_seq").unwrap_or(0) as u64)
         })
     }
