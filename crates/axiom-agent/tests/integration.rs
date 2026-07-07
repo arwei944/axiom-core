@@ -3,8 +3,8 @@
 //! These tests exercise the full agent pipeline: LLM + Tool + Memory +
 //! Planner + Prompt + Identity working together.
 
-use axiom_agent::*;
-use axiom_identity::*;
+use axiom_agent::{AgentBuilder, AgentCell, AgentConfig, AgentError, PlannerStrategy};
+use axiom_identity::{ActivationCondition, AgentIdentity, DisclosureLevel, Skill};
 use axiom_llm::LlmClient;
 use axiom_memory::{MemoryItem, MemoryItemType};
 use axiom_prompt::*;
@@ -72,7 +72,7 @@ async fn test_agent_basic_query() {
         .build_and_start()
         .unwrap();
 
-    let response = agent.query("Hello, who are you?").await;
+    let response = agent.query("Hello, who are you?", None).await;
     assert!(response.is_ok());
     let resp = response.unwrap();
     assert!(!resp.is_empty());
@@ -89,7 +89,7 @@ async fn test_agent_not_started_error() {
         .build()
         .unwrap();
 
-    let result = agent.query("Hello").await;
+    let result = agent.query("Hello", None).await;
     assert!(result.is_err());
     assert!(matches!(result.unwrap_err(), AgentError::NotStarted));
 }
@@ -135,8 +135,7 @@ async fn test_agent_memory_integration() {
         "Answer user questions accurately",
     ));
 
-    let _ = agent.query("What is your goal?").await.unwrap();
-
+    let _ = agent.query("What is your goal?", None).await.unwrap();
     let items = agent.memory_items();
     assert!(items.len() >= 2);
 
@@ -157,7 +156,7 @@ async fn test_agent_with_identity() {
         .build_and_start()
         .unwrap();
 
-    let response = agent.query("Who are you?").await;
+    let response = agent.query("Who are you?", None).await;
     assert!(response.is_ok());
 }
 
@@ -177,8 +176,7 @@ async fn test_agent_with_skill() {
         .build_and_start()
         .unwrap();
 
-    let _ = agent.query("I need help with code").await.unwrap();
-
+    let _ = agent.query("I need help with code", None).await.unwrap();
     let tools = agent.available_tools();
     assert!(tools.contains(&"echo".to_string()));
 }
@@ -193,7 +191,7 @@ async fn test_agent_with_planner() {
         .build_and_start()
         .unwrap();
 
-    let response = agent.query("Solve a problem").await;
+    let response = agent.query("Solve a problem", None).await;
     assert!(response.is_ok());
 
     let stats = agent.stats();
@@ -250,7 +248,7 @@ async fn test_agent_full_integration() {
         .unwrap();
     assert_eq!(tool_result["echo"], "integration");
 
-    let query_response = agent.query("Hello").await.unwrap();
+    let query_response = agent.query("Hello", None).await.unwrap();
     assert!(!query_response.is_empty());
 
     assert!(!agent.memory_items().is_empty());
@@ -300,9 +298,9 @@ async fn test_agent_stats_tracking() {
     let initial = agent.stats();
     assert_eq!(initial.queries_processed, 0);
 
-    agent.query("Question 1").await.unwrap();
-    agent.query("Question 2").await.unwrap();
-    agent.query("Question 3").await.unwrap();
+    agent.query("Question 1", None).await.unwrap();
+    agent.query("Question 2", None).await.unwrap();
+    agent.query("Question 3", None).await.unwrap();
 
     let stats = agent.stats();
     assert_eq!(stats.queries_processed, 3);
@@ -319,12 +317,12 @@ async fn test_agent_multiple_queries_memory_growth() {
 
     let initial_count = agent.memory_items().len();
 
-    agent.query("First question").await.unwrap();
+    agent.query("First question", None).await.unwrap();
     assert!(agent.memory_items().len() > initial_count);
 
     let after_first = agent.memory_items().len();
 
-    agent.query("Second question").await.unwrap();
+    agent.query("Second question", None).await.unwrap();
     assert!(agent.memory_items().len() > after_first);
 }
 
@@ -363,7 +361,7 @@ async fn test_agent_disclosure_levels() {
         .build_and_start()
         .unwrap();
 
-    let response = agent.query("Tell me about yourself").await;
+    let response = agent.query("Tell me about yourself", None).await;
     assert!(response.is_ok());
 }
 

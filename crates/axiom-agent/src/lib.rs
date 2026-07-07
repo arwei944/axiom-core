@@ -37,6 +37,7 @@
 
 pub mod agent;
 pub mod agent_manifest;
+pub mod auto_agent;
 pub mod builder;
 pub mod error;
 pub mod intent_router;
@@ -65,6 +66,7 @@ pub use builder::AgentBuilder;
 pub use error::{AgentError, AgentResult};
 pub use intent_router::{IntentRoute, IntentRouter, RoutingDecision, RoutingResult};
 pub use natural_signal::{Attachment, Entity, NaturalSignal};
+pub use auto_agent::{AutoAgent, AutoConfig, AutoMode};
 pub use self_monitor::{
     BehaviorSummary, ConfidenceSummary, ConfidenceTrend, HealthStatus, PerformanceMetrics,
     SelfMonitor, SelfReport, SuggestedAction,
