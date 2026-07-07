@@ -8,5 +8,4 @@ rustc = { extraEnv = { RUSTFLAGS = "-D warnings" } }
 check-all = ["check", "--workspace", "--all-targets"]
 lint = ["clippy", "--workspace", "--", "-D", "warnings"]
 fmt-check = ["fmt", "--all", "--", "--check"]
-verify = ["run", "-p", "axiom-cli", "--", "verify"]
-audit = ["run", "-p", "axiom-cli", "--", "audit"]
+verify = ["run", "-p", "axiom-cli", "--bin", "axm", "--", "verify"]
