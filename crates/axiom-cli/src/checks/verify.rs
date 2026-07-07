@@ -106,7 +106,7 @@ impl Check for VerifyCheck {
                 }
                 let dep_level = order.get(dep.as_str()).copied().unwrap_or(max_order);
                 if dep_level < crate_level {
-                    let is_exempt = axiom_kernel::gate::verify_dependencies(crate_name, &[dep.clone()]).is_empty();
+                    let is_exempt = axiom_kernel::gate::verify_dependencies(crate_name, std::slice::from_ref(dep)).is_empty();
                     if !is_exempt {
                         violations.push(format!(
                             "{crate_name} (level {crate_level}) depends on {dep} (level {dep_level}) - REVERSE DEPENDENCY"
