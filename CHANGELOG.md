@@ -7,7 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-## [0.4.0] - 2026-07-07
+## [0.4.0] - 2026-07-08
 
 ### Added
 - **Phase 1: Witness System Migration**
@@ -47,6 +47,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `axiom-core/examples/` migrated to `axiom-kernel/examples/`
   - All `Cargo.toml` files updated to remove `axiom-core` dependencies
   - `bincode-codec` and `sha2-id` features added to `axiom-kernel`
+- **Plugin System**
+  - `PluginRegistry` for managing loaded plugins
+  - `WasmPluginLoader` with wasmtime integration for WASM plugin loading
+  - `NativePluginLoader` with libloading for native plugin loading
+  - `AxiomPlugin` trait defining plugin lifecycle and signal handling
+  - `PluginKind` enum (Wasm/Native)
+  - `axiom-plugin-wasm-sdk` crate for WASM plugin development
+- **Heatmap System**
+  - `HeatmapCollector` for real-time signal traffic data collection
+  - `HeatmapData` struct with time window storage and dimension statistics
+  - `JsonExporter` and `PrometheusExporter` for data export
+  - Configurable sampling rate to minimize performance impact
+- **Performance Benchmarks**
+  - `axiom-bench` crate with 4 benchmark modules:
+    - `bus_dispatch.rs`: bus publish, guardian intercept, interceptor chain overhead
+    - `message_passing.rs`: signal creation, serialization, envelope round-trip
+    - `witness_chain.rs`: witness creation, hash computation, chain verification
+    - `mailbox_throughput.rs`: mailbox push/pop, batch operations, latency
 
 ### Changed
 - **100% Native Migration**: `axiom-kernel` now fully replaces `axiom-core` as the runtime layer

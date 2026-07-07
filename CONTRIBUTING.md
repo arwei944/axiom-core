@@ -1,203 +1,342 @@
 # Contributing to Axiom Core
 
-感谢你对 Axiom Core 的关注与贡献。本文件说明如何搭建开发环境、代码风格要求、提交流程及测试规范。
+## Getting Started
 
----
+1. Clone the repository:
+   ```bash
+   git clone https://github.com/axiom-core/axiom-core.git
+   cd axiom-core
+   ```
 
-## 1. 开发环境
+2. Install dependencies:
+   ```bash
+   cargo install cargo-audit
+   cargo install cargo-edit
+   ```
 
-### 1.1 必需工具
+3. Set up git hooks:
+   ```bash
+   cp .git/hooks/pre-commit.sample .git/hooks/pre-commit
+   cp .git/hooks/pre-push.sample .git/hooks/pre-push
+   chmod +x .git/hooks/pre-commit .git/hooks/pre-push
+   ```
 
-- **Rust**: 1.85+（工作区 `rust-version` 已锁定）
-- **Git**: 2.40+
-- **SQLite**: 3.40+（用于本地持久化测试）
-- **Cargo**: 1.85+
+4. Run initial validation:
+   ```bash
+   axm check
+   ```
 
-### 1.2 克隆仓库
+## Development Workflow
 
-```bash
-git clone <repository-url>
-cd axiom-core-project
+### Before Writing Code
+
+1. **Checkout a new branch**:
+   ```bash
+   git checkout -b feature/my-feature
+   ```
+
+2. **Run preflight checks**:
+   ```bash
+   axm preflight
+   ```
+
+### While Writing Code
+
+1. **Use macros for all components**:
+   ```rust
+   #[cell(layer = "exec")]    // ✅ Required: specify layer
+   #[signal(layer = "exec")]  // ✅ Required: specify layer
+   #[axiom]                    // ✅ Required: auto-registration
+   #[guard(layer = "exec")]   // ✅ Required: specify layer
+   ```
+
+2. **Follow layer conventions**:
+   - `exec`: Execution layer (business logic)
+   - `validate`: Validation layer (input validation)
+   - `agent`: Agent layer (AI orchestration)
+   - `oversight`: Oversight layer (monitoring, governance)
+
+3. **Never bypass compile-time constraints**:
+   - ❌ Don't use `std::sync::Mutex/RwLock` - use `parking_lot::Mutex/RwLock`
+   - ❌ Don't use `async-trait` - use Rust 1.75+ native async fn in traits
+   - ❌ Don't use `unwrap()`/`expect()` in non-test code
+   - ❌ Don't depend on crates below your layer
+
+4. **Use proper error handling**:
+   ```rust
+   // ✅ Correct
+   fn do_something() -> KernelResult<()> {
+       something()?;
+       Ok(())
+   }
+
+   // ❌ Wrong
+   fn do_something() {
+       something().unwrap();  // Never use unwrap()!
+   }
+   ```
+
+5. **Write tests**:
+   - Unit tests: `#[cfg(test)]` in source files
+   - Integration tests: In `tests/` directory
+   - Property tests: Use `proptest` for edge cases
+
+### Before Committing
+
+1. **Run format check**:
+   ```bash
+   cargo fmt --check
+   ```
+
+2. **Run lint check**:
+   ```bash
+   cargo clippy --workspace -- -D warnings
+   ```
+
+3. **Run build check**:
+   ```bash
+   cargo check --workspace
+   ```
+
+4. **Run architecture validation**:
+   ```bash
+   axm verify
+   ```
+
+### Before Pushing
+
+1. **Run all tests**:
+   ```bash
+   cargo test --workspace
+   ```
+
+2. **Run documentation check**:
+   ```bash
+   cargo doc --workspace --no-deps
+   ```
+
+3. **Run security audit**:
+   ```bash
+   cargo audit
+   ```
+
+4. **Run full validation**:
+   ```bash
+   axm check
+   ```
+
+## Code Style
+
+### Formatting
+
+- Use `cargo fmt` for all formatting
+- Line width: 100 characters
+- Indentation: 4 spaces (never tabs)
+- Unix line endings (`\n`)
+
+### Naming
+
+- **Structs/Enums**: PascalCase
+- **Functions/Methods**: snake_case
+- **Constants**: UPPER_SNAKE_CASE
+- **Traits**: PascalCase (adjective form)
+- **Modules**: snake_case
+- **Type aliases**: PascalCase
+
+### Imports
+
+- Group imports by crate (std, external, internal)
+- Use `use crate::` for internal paths
+- Avoid glob imports (`use foo::*`)
+- Reorder imports alphabetically
+
+### Documentation
+
+- All public items must have documentation comments
+- Use `///` for public items
+- Use `//!` for module-level documentation
+- Include examples where appropriate
+- Follow Rust documentation conventions
+
+## Architecture Rules
+
+### Layer Dependencies
+
+Crate at level N can only depend on crates at level >= N:
+
+| Level | Crates |
+|-------|--------|
+| 0 | axiom-cli, axiom-bench |
+| 1 | axiom-viz |
+| 2 | axiom-identity, axiom-prompt |
+| 3 | axiom-mcp, axiom-alert, axiom-agent, axiom-oversight |
+| 4 | axiom-distributed, axiom-planner, axiom-runtime |
+| 5 | axiom-llm, axiom-tool, axiom-memory, axiom-store |
+| 7 | axiom-kernel, axiom-core (deprecated) |
+| 8 | axiom-macros |
+| 9 | axiom-plugin-wasm-sdk, axiom-plugin-test, axiom-plugin-example-wasm |
+
+### Layer Communication
+
+Only legal layer transitions are allowed:
+
+- Oversight → All layers
+- Agent → Agent, Validate
+- Validate → Validate, Exec, Agent
+- Exec → Exec
+
+### Forbidden Dependencies
+
+- `async-trait` - Use Rust 1.75+ native async fn in traits
+- Any crate not in `AUDITED_DEPS`
+
+### Required Patterns
+
+- Use `parking_lot::Mutex/RwLock` instead of `std::sync`
+- Use `futures::FutureExt::catch_unwind` for Cell panic handling
+- Use `LayeredCellContext<L>` with `L: CanSendTo<Target>`
+- Use `tokio::time::sleep` for exponential backoff in Cell restart
+- All third-party dependencies must be in `AUDITED_DEPS`
+
+## Testing Guidelines
+
+### Unit Tests
+
+- Test individual functions/methods
+- Use `#[test]` attribute
+- Aim for 80%+ coverage
+- Test edge cases and error paths
+
+### Integration Tests
+
+- Test interactions between components
+- Use `tests/` directory
+- Test full workflows
+- Include Witness chain verification
+
+### Property Tests
+
+- Use `proptest` for randomized testing
+- Test invariants and contracts
+- Focus on data structures and algorithms
+
+### Benchmark Tests
+
+- Use `criterion` for benchmarking
+- Add benchmarks for performance-critical paths
+- Include in `axiom-bench` crate
+
+## Git Commit Messages
+
+### Format
+
+```
+<type>(<scope>): <description>
+
+<optional body>
+
+<optional footer>
 ```
 
-### 1.3 快速验证
+### Types
 
-```bash
-cargo check --workspace
-cargo test --workspace
-cargo clippy --workspace -- -D warnings
-cargo fmt --all -- --check
-```
+- `feat`: New feature
+- `fix`: Bug fix
+- `docs`: Documentation update
+- `refactor`: Code refactoring
+- `test`: Test update
+- `chore`: Build/tooling update
+- `perf`: Performance improvement
+- `style`: Code style update
 
----
-
-## 2. 代码风格
-
-### 2.1 格式化
-
-- 使用 `cargo fmt --all` 统一格式
-- 禁止提交未格式化的代码
-- CI 中 `cargo fmt --all -- --check` 为门禁项
-
-### 2.2 Clippy
-
-- 使用 `cargo clippy --workspace -- -D warnings` 检查
-- 所有 warning 必须修复，禁止 `#[allow(...)]` 掩盖问题（测试代码除外）
-
-### 2.3 命名规范
-
-- 函数/变量：`snake_case`
-- 类型/枚举/ trait：`PascalCase`
-- 常量：`SCREAMING_SNAKE_CASE`
-- 模块名：`snake_case`
-
-### 2.4 文档注释
-
-- 所有 `pub` 项必须有 `///` 文档
-- 模块级使用 `//!` 文档
-- 复杂逻辑必须有行内注释说明“为什么”
-
----
-
-## 3. 提交规范
-
-### 3.1 Commit Message
+### Examples
 
 ```
-<type>(<scope>): <subject>
+feat(kernel): add WitnessKernel with SHA-256 hash chain
 
-<body>
-
-<footer>
-```
-
-**Type**:
-- `feat`: 新功能
-- `fix`: 修复 bug
-- `docs`: 文档更新
-- `refactor`: 重构
-- `test`: 测试相关
-- `chore`: 构建/工具链调整
-- `perf`: 性能优化
-
-**Scope**:
-- `core`, `runtime`, `store`, `viz`, `macros`, `cli`, `bench`, `agent`, `alert`, `distributed`, `identity`, `llm`, `memory`, `mcp`, `oversight`, `planner`, `prompt`, `tool`
-
-**示例**:
-```
-feat(runtime): add SignalCodec trait with bincode implementation
-
-- Add SignalCodec trait with encode/decode methods
-- Implement JsonCodec and BincodeCodec
-- Wire codec into MessageBus for internal dispatch
+- Implement Witness struct with hash chain validation
+- Add WitnessBuilder for fluent witness creation
+- Include WitnessKernel for in-memory witness storage
 
 Closes #123
 ```
 
-### 3.2 分支策略
-
-- `master`: 稳定分支，受保护
-- `feat/*`: 功能分支
-- `fix/*`: 修复分支
-- `release/*`: 发布分支
-
-### 3.3 PR 要求
-
-- 代码必须通过所有 CI 检查
-- 必须有对应的测试覆盖
-- 需要至少 1 人 review 通过
-- 文档已同步更新
-
----
-
-## 4. 测试要求
-
-### 4.1 测试分层
-
-- **单元测试**: 放在 `src/` 文件内的 `#[cfg(test)]` 模块
-- **集成测试**: 放在 `tests/` 目录
-- **端到端测试**: 放在 `tests/e2e/` 目录
-- **文档测试**: 使用 `///` 示例代码
-
-### 4.2 测试命名
-
 ```
-test_<functionality>_when_<condition>_should_<expected>
+fix(runtime): fix Cell restart exponential backoff
+
+- Add tokio::time::sleep for actual delay
+- Use saturating arithmetic to prevent overflow
+- Fix backoff calculation formula
 ```
 
-**示例**:
-```rust
-#[test]
-fn test_mailbox_push_when_capacity_exceeded_should_reject() {
-    // ...
-}
-```
+## Pull Request Guidelines
 
-### 4.3 测试覆盖
+1. **Title**: Follow commit message format
+2. **Description**:
+   - What changes were made
+   - Why the changes were needed
+   - How to test the changes
+3. **Checklist**:
+   - [ ] Code follows style guidelines
+   - [ ] All tests pass
+   - [ ] Documentation is updated
+   - [ ] `axm check` passes
+4. **Review**:
+   - Request review from at least one maintainer
+   - Address all review comments
+   - Rebase on latest main before merging
 
-- 核心 crate（`axiom-core`、`axiom-runtime`、`axiom-store`）行覆盖率 ≥ 80%
-- 新功能必须有对应测试
-- 修复 bug 必须有 regression test
+## Debugging Tips
 
----
+1. **Enable logging**:
+   ```bash
+   RUST_LOG=trace cargo run
+   ```
 
-## 5. 架构规则
+2. **Use Witness chain for debugging**:
+   ```bash
+   axm witness inspect <correlation_id>
+   ```
 
-### 5.1 依赖方向
+3. **Check entropy levels**:
+   ```bash
+   axm entropy status
+   ```
 
-```
-Layer 0: axiom-cli, axiom-bench
-Layer 1: axiom-viz
-Layer 2: axiom-identity, axiom-prompt
-Layer 3: axiom-mcp, axiom-alert, axiom-agent, axiom-oversight
-Layer 4: axiom-distributed, axiom-planner, axiom-runtime
-Layer 5: axiom-llm, axiom-tool, axiom-memory, axiom-store
-Layer 7: axiom-core
-Layer 8: axiom-macros (proc-macro, 豁免)
-```
+4. **Inspect hotspots**:
+   ```bash
+   axm heatmap show
+   ```
 
-### 5.2 禁止项
+## Common Issues
 
-- 禁止 `async-trait`（Rust 1.75+ 已支持原生 async fn in traits）
-- 禁止在核心 crate 使用 `anyhow`
-- 禁止 `std::sync::Mutex` 在 async 上下文中使用
-- 禁止生产代码中使用 `unwrap()`/`expect()`/`panic!`
+### Compile-time Architecture Errors
 
-### 5.3 审计依赖
+- **REVERSE DEPENDENCY**: Check `architecture.toml` for layer assignments
+- **forbidden dependency**: Remove `async-trait` or other forbidden crates
+- **unaudited dependency**: Add to `AUDITED_DEPS` in `architecture.toml`
 
-- 所有新依赖必须加入 `.axiom/architecture.toml` 的 `[audited-deps]`
-- 禁止引入 GPL 传染协议依赖
+### Runtime Errors
 
----
+- **LayerViolation**: Check layer communication rules
+- **CellCrashed**: Check `catch_unwind` handling in dispatch loop
+- **CircuitBreak**: Check Supervisor configuration and failure rates
 
-## 6. 发布流程
+### Performance Issues
 
-### 6.1 版本号
+- **High entropy**: Identify and fix recurring failures
+- **Slow signal processing**: Check heatmap for bottlenecks
+- **Lock contention**: Use `parking_lot` and reduce lock scope
 
-- 遵循 SemVer: `MAJOR.MINOR.PATCH`
-- Breaking change → MAJOR
-- 新功能 → MINOR
-- Bug fix → PATCH
+## Resources
 
-### 6.2 发布步骤
+- [Rust Book](https://doc.rust-lang.org/book/)
+- [Rust API Guidelines](https://rust-lang.github.io/api-guidelines/)
+- [Axiom Core Architecture](docs/ARCHITECTURE.md)
+- [Migration Guide](docs/MIGRATION.md)
+- [Plugin System](docs/PLUGIN_SYSTEM.md)
+- [Heatmap System](docs/HEATMAP_SYSTEM.md)
 
-1. 更新 `CHANGELOG.md`
-2. 更新各 crate `Cargo.toml` 版本号
-3. 创建 Git tag: `git tag v0.X.Y`
-4. 推送到远程: `git push origin v0.X.Y`
+## Questions
 
----
-
-## 7. 问题反馈
-
-- 使用 GitHub Issues 提交 bug 报告
-- 包含复现步骤、环境信息、预期行为
-- 性能问题请附上 benchmark 数据
-
----
-
-## 8. 行为准则
-
-- 尊重他人，保持专业
-- 接受建设性批评
-- 关注社区最佳利益
+For questions and discussions, join our [Discord server](https://discord.gg/axiom-core).

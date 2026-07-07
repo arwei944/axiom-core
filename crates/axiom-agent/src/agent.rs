@@ -62,6 +62,8 @@ pub struct AgentCell {
     planner: Option<Arc<dyn axiom_planner::Planner>>,
     prompt_registry: Option<Arc<RwLock<axiom_prompt::registry::TemplateRegistry>>>,
     persona: Option<Arc<axiom_identity::AgentPersona>>,
+    intent_router: Option<Arc<crate::intent_router::IntentRouter>>,
+    self_monitor: Option<Arc<crate::self_monitor::SelfMonitor>>,
     stats: Arc<RwLock<AgentStats>>,
     started: Arc<RwLock<bool>>,
 }
@@ -79,6 +81,8 @@ impl AgentCell {
             planner: None,
             prompt_registry: None,
             persona: None,
+            intent_router: None,
+            self_monitor: None,
             stats: Arc::new(RwLock::new(AgentStats::default())),
             started: Arc::new(RwLock::new(false)),
         }
@@ -133,6 +137,74 @@ impl AgentCell {
         self
     }
 
+    /// Set the intent router for routing messages based on intent.
+    pub fn with_intent_router(mut self, router: Arc<crate::intent_router::IntentRouter>) -> Self {
+        self.intent_router = Some(router);
+        self
+    }
+
+    /// Set the self-monitor for tracking agent health and performance.
+    pub fn with_self_monitor(mut self, monitor: Arc<crate::self_monitor::SelfMonitor>) -> Self {
+        self.self_monitor = Some(monitor);
+        self
+    }
+
+    /// Get the intent router.
+    pub fn intent_router(&self) -> Option<&Arc<crate::intent_router::IntentRouter>> {
+        self.intent_router.as_ref()
+    }
+
+    /// Get the self-monitor.
+    pub fn self_monitor(&self) -> Option<&Arc<crate::self_monitor::SelfMonitor>> {
+        self.self_monitor.as_ref()
+    }
+
+    /// Generate a self-report with health status and suggestions.
+    pub fn self_report(&self) -> crate::self_monitor::SelfReport {
+        if let Some(monitor) = &self.self_monitor {
+            monitor.generate_report()
+        } else {
+            crate::self_monitor::SelfReport {
+                agent_id: self.id.clone(),
+                health_status: crate::self_monitor::HealthStatus::Healthy,
+                performance_metrics: crate::self_monitor::PerformanceMetrics {
+                    avg_response_time_ms: 0.0,
+                    error_rate: 0.0,
+                    throughput: 0.0,
+                    memory_usage_percent: 0.0,
+                },
+                behavior_summary: crate::self_monitor::BehaviorSummary {
+                    total_interactions: 0,
+                    successful_interactions: 0,
+                    failed_interactions: 0,
+                    common_intents: Vec::new(),
+                    rare_intents: Vec::new(),
+                },
+                confidence_summary: crate::self_monitor::ConfidenceSummary {
+                    avg_confidence: 0.0,
+                    low_confidence_count: 0,
+                    high_confidence_count: 0,
+                    confidence_trend: crate::self_monitor::ConfidenceTrend::Stable,
+                },
+                suggested_actions: Vec::new(),
+            }
+        }
+    }
+
+    /// Route a natural signal based on intent.
+    pub fn route_signal(&self, intent: &str, confidence: f64) -> crate::intent_router::RoutingResult {
+        if let Some(router) = &self.intent_router {
+            router.route(intent, confidence)
+        } else {
+            crate::intent_router::RoutingResult {
+                target_cell_id: Some(format!("agent:{}", self.id)),
+                matched_intent: intent.to_string(),
+                confidence,
+                routing_decision: crate::intent_router::RoutingDecision::Direct,
+            }
+        }
+    }
+
     /// Start the agent.
     pub fn start(&self) -> AgentResult<()> {
         if *self.started.read() {
@@ -181,7 +253,7 @@ impl AgentCell {
     }
 
     /// Process a user query and return a response.
-    pub async fn query(&self, user_input: &str) -> AgentResult<String> {
+    pub async fn query(&self, user_input: &str, intent: Option<&str>) -> AgentResult<String> {
         if !*self.started.read() {
             return Err(AgentError::NotStarted);
         }
@@ -192,6 +264,7 @@ impl AgentCell {
         tracing::debug!(
             agent_id = %self.id,
             input_len = user_input.len(),
+            intent = ?intent,
             "Processing query"
         );
 
@@ -290,6 +363,11 @@ impl AgentCell {
         {
             let mut stats = self.stats.write();
             stats.total_duration_ms += duration_ms;
+        }
+
+        // Record interaction in self-monitor
+        if let Some(monitor) = &self.self_monitor {
+            monitor.record_interaction(true, duration_ms, 0.8, intent.as_deref().unwrap_or("unknown"));
         }
 
         tracing::debug!(

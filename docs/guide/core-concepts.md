@@ -72,7 +72,6 @@ pub trait Cell: Send + 'static {
 
     fn heartbeat_interval_ms(&self) -> Option<u64> { None }
 
-    /// 处理信号，返回结果 + 外发信封 + 见证记录
     fn handle<'a>(
         &'a mut self,
         signal: Self::Message,
@@ -179,14 +178,9 @@ pub enum SignalKind {
 #[signal(kind = "command", layer = "exec")]
 #[schema_version(1)]
 struct HelloCommand {
-    // 必需字段
     msg_id: MsgId,
     correlation_id: CorrelationId,
     vector_clock: VectorClock,
-    // 可选字段（宏会自动识别并实现对应方法）
-    // trace_id: Option<TraceId>,  // 若存在，trace_id() 返回 Some
-    // sender: Option<String>,     // 若存在，sender() 返回 self.sender.as_deref()
-    // 业务字段
     message: String,
 }
 ```
@@ -212,8 +206,6 @@ assert!(vc1.causally_precedes(&vc2)); // vc1 因果先于 vc2
 assert!(!vc2.causally_precedes(&vc1));
 assert!(!vc1.concurrent_with(&vc2));
 ```
-
-这让你能在分布式场景下识别"哪个消息先发生"，而不是依赖不可靠的物理时钟。
 
 ### SignalEnvelope：类型擦除传输
 
@@ -291,7 +283,7 @@ impl Axiom for NonEmptyGreetingAxiom {
 
     fn check(&self, _current: &Self::State, new: &Self::State, _msg: &Self::Message) -> Result<()> {
         if new.iter().any(|g| g.is_empty()) {
-            return Err(AxiomError::InvariantViolated {
+            return Err(KernelError::InvariantViolated {
                 message: "greeting must not be empty".into(),
             });
         }
@@ -395,17 +387,9 @@ ctx.emit_axiom_violation("non-empty", "empty greeting")?; // 违反约束
 每条 Witness 的 `hash` 由 `prev_hash` + 内容计算得出，任何篡改都会破坏链条：
 
 ```rust
-// 验证一批 Witness 是否构成完整链条
 let ok = Witness::verify_chain_integrity(&witnesses);
 assert!(ok);
 ```
-
-### 为什么 Witness 重要
-
-- **可调试**：通过 `correlation_id` 串联一次完整调用的所有状态转换。
-- **可回放**：Witness 链 + 事件日志可实现事件溯源恢复。
-- **可审计**：`state_before_hash` / `state_after_hash` 证明状态未被篡改。
-- **可监控**：`TransitionOutcome::AxiomViolated` 直接喂给熵值计算。
 
 ---
 
@@ -422,27 +406,7 @@ assert!(ok);
 - **渐进式披露**：只暴露当前任务需要的字段。
 - **增量更新**：基于 VectorClock 自动失效缓存，只重新投影变化的部分。
 
-### 与其他原语的关系
-
-```
-  事件日志（Append-Only）
-         │
-         ▼
-   Lens（按需投影）──→ 返回精简状态视图
-         │
-         ▼
-   供 LLM / 验证层 / 监督层消费
-```
-
-Lens 与 `axiom-store`（事件存储 crate）协作：`axiom-store` 负责持久化事件日志与快照，Lens 负责从日志中重建特定视图。
-
-### 当前状态 (v0.1.0)
-
-> **注意**：Lens 原语目前仅定义了 `LensId` 类型，完整实现在 v0.2.0 中交付。
-
-### v0.2.0 设计目标
-
-#### Lens Trait
+### 核心 trait
 
 ```rust
 pub trait Lens: Send + Sync + 'static {
@@ -459,7 +423,7 @@ pub trait Lens: Send + Sync + 'static {
 }
 ```
 
-#### LensRegistry 自动注册
+### 用宏注册 Lens
 
 使用 `#[lens]` 宏自动注册到全局注册表：
 
@@ -482,27 +446,6 @@ impl Lens for OrderHistoryLens {
     }
 }
 ```
-
-#### ProjectionCache
-
-Lens 结果自动缓存，基于 VectorClock 失效：
-
-```rust
-let cache = InMemoryProjectionCache::new();
-let result = cache.get_or_compute(lens_id, input, || lens.project(events, input));
-```
-
-### 核心价值
-
-| 价值 | 说明 |
-|------|------|
-| **避免上下文爆炸** | 只投影需要的状态，不塞全部历史 |
-| **Token 预算感知** | 投影结果自动估算 Token 数，超预算时自动摘要 |
-| **权限边界** | 编译期保证一个 Lens 只能看到授权的状态子集 |
-| **时间旅行** | 支持查询任意历史时间点的状态（事件重放） |
-| **可组合** | Lens 可以组合其他 Lens，像函数式编程的透镜组合子 |
-
-详细实现计划请参考 [v0.2.0 开发计划](../plans/v0.2.0-development-plan.md)。
 
 ---
 
@@ -541,8 +484,6 @@ pub enum Layer {
 }
 ```
 
-注意：枚举数值并非 0/1/2/3 顺序，而是按"确定性"与"调用链"语义编排。调用链语义为 Oversight → Agent → Validate → Exec。
-
 ### 各层职责
 
 | 层 | 数值 | 职责 | 确定性 | 示例 |
@@ -552,13 +493,6 @@ pub enum Layer {
 | Validate | 2 | Schema 校验、规则引擎、Axiom 检查 | 高 | 校验信号的 `Schema::validate` |
 | Exec | 1 | DB / API / IO，幂等执行 | 高 | `HelloCell`、数据库写入 Cell |
 
-### 设计原则：确定性分层
-
-- **能确定的事不放给 LLM**：Exec 层做幂等 DB 操作，不让 LLM 决定。
-- **LLM 的输出必经校验**：Agent 层产出的信号要过 Validate 层的 Axiom，不直接产生副作用。
-- **监督层不碰业务**：Oversight 只看熵值、合规、健康，不执行业务逻辑。
-- **让能崩溃的崩溃**：Erlang 风格，Cell 崩溃由监督树重启，不传染。
-
 ---
 
 ## 层间调用约束规则
@@ -567,8 +501,6 @@ pub enum Layer {
 
 ### 方向矩阵（CanSendTo）
 
-源层 → 目标层 的合法调用关系（`sealed.rs`）：
-
 | 源层 \ 目标层 | Oversight | Agent | Validate | Exec |
 |---------------|-----------|-------|----------|------|
 | **Oversight** | ✅ | ✅ | ✅ | ✅ |
@@ -576,16 +508,9 @@ pub enum Layer {
 | **Validate** | ❌ | ✅ | ✅ | ✅ |
 | **Exec** | ❌ | ❌ | ❌ | ✅ |
 
-**核心规则**：
+### 编译期强制
 
-1. **Oversight 可向所有层发消息**——它是元层，监督一切。
-2. **Agent 可向 Agent、Validate 发消息**——LLM 的输出要进验证层，不能直接执行。
-3. **Validate 可向 Validate、Exec、Agent 发消息**——校验通过后下发执行，必要时可回传 Agent 做进一步推理。
-4. **Exec 只能向 Exec 发消息**——执行层结果不回灌上层，避免副作用传染。
-
-### 编译期强制：LayeredCellContext + CanSendTo
-
-`LayeredCellContext<'a, L>` 包装 `CellContext`，通过 trait bound `L: CanSendTo<Target>` 在**编译期**拒绝非法调用：
+`LayeredCellContext<'a, L>` 包装 `CellContext`，通过 trait bound `L: CanSendTo<Target>` 在编译期拒绝非法调用：
 
 ```rust
 impl<'a, L: LayerMarker> LayeredCellContext<'a, L> {
@@ -595,41 +520,12 @@ impl<'a, L: LayerMarker> LayeredCellContext<'a, L> {
         target_cell: &str,
     ) -> Result<()>
     where
-        L: CanSendTo<Target>, // ← 编译期 trait bound
-    { ... }
-
-    pub fn emit_to<Target: LayerMarker, S: Signal>(
-        &mut self,
-        signal: S,
-    ) -> Result<()>
-    where
-        L: CanSendTo<Target>, // ← 编译期 trait bound
+        L: CanSendTo<Target>,
     { ... }
 }
 ```
 
-`CanSendTo` 用 sealed trait 模式实现，下游无法扩展，保证方向矩阵穷尽：
-
-```rust
-// 只有这些组合实现了 CanSendTo，其他组合编译失败
-impl CanSendTo<OversightLayer> for OversightLayer {}
-impl CanSendTo<AgentLayer>     for OversightLayer {}
-impl CanSendTo<ValidateLayer>  for OversightLayer {}
-impl CanSendTo<ExecLayer>      for OversightLayer {}
-
-impl CanSendTo<AgentLayer>     for AgentLayer {}
-impl CanSendTo<ValidateLayer>  for AgentLayer {}
-
-impl CanSendTo<ValidateLayer>  for ValidateLayer {}
-impl CanSendTo<ExecLayer>      for ValidateLayer {}
-impl CanSendTo<AgentLayer>     for ValidateLayer {}
-
-impl CanSendTo<ExecLayer>      for ExecLayer {}
-```
-
 ### 编译失败示例
-
-如果你在 Exec 层 Cell 里尝试向 Agent 层发消息，**代码无法编译**：
 
 ```rust
 #[cell("exec")]
@@ -638,76 +534,15 @@ impl Cell for MyExecCell {
         async move {
             // ❌ 编译错误：ExecLayer 没有实现 CanSendTo<AgentLayer>
             ctx.emit_to::<AgentLayer, _>(some_signal)?;
-
-            // ✅ 只能向同层（Exec）发消息
-            ctx.emit_to::<ExecLayer, _>(some_event)?;
             Ok(())
         }
     }
 }
 ```
 
-### 运行时校验：Layer::can_send_to
-
-即使绕过类型系统（如通过 `SignalEnvelope` 直接构造），运行时仍有兜底校验：
-
-```rust
-impl Layer {
-    pub fn can_send_to(&self, target: Layer) -> bool {
-        match self {
-            Layer::Oversight => true,
-            Layer::Agent => matches!(target, Layer::Agent | Layer::Validate),
-            Layer::Validate => matches!(target, Layer::Validate | Layer::Exec | Layer::Agent),
-            Layer::Exec => matches!(target, Layer::Exec),
-        }
-    }
-}
-
-// SignalEnvelope 自带校验
-env.validate_layer_transition()?; // 违反方向则返回 LayerViolation 错误
-```
-
-### 违反方向的后果
-
-运行时若检测到层间越界，返回 `AxiomError::LayerViolation`：
-
-```rust
-pub enum AxiomError {
-    LayerViolation {
-        from: Layer,
-        to: Layer,
-        signal_type: String,
-        source_cell: String,
-    },
-    // ...
-}
-```
-
-该错误会被监督层捕获，推高熵值，严重时触发熔断。
-
-### Sealed 模式：防止扩展
-
-`LayerMarker` 使用 sealed trait 模式，下游 crate 无法新增层标记，保证方向矩阵**穷尽且不可篡改**：
-
-```rust
-mod private {
-    pub trait Sealed {}
-    impl Sealed for super::OversightLayer {}
-    impl Sealed for super::AgentLayer {}
-    impl Sealed for super::ValidateLayer {}
-    impl Sealed for super::ExecLayer {}
-}
-
-pub trait LayerMarker: private::Sealed + Send + Sync + 'static {
-    const LAYER: Layer;
-}
-```
-
 ---
 
 ## 原语协作总览
-
-下图展示一次典型的消息处理流程中，五个原语如何协作：
 
 ```
          ┌─────────────┐
@@ -743,37 +578,6 @@ pub trait LayerMarker: private::Sealed + Send + Sync + 'static {
          └─────────────┘
 ```
 
-### 一次处理的代码视角
-
-```rust
-fn handle<'a>(&'a mut self, signal: HelloCommand, ctx: LayeredCellContext<'a, Self::Layer>)
-    -> impl Future<Output = (Result<()>, Vec<OutgoingEnvelope>, Vec<OutgoingWitness>)> + Send + 'a
-{
-    async move {
-        let mut ctx = ctx;
-        // 1. Signal 已通过 Schema 校验进入
-        // 2. Cell 更新私有状态
-        self.greetings.push(signal.message.clone());
-
-        // 3. 发出后续事件（受 CanSendTo 约束）
-        ctx.emit_to::<ExecLayer, _>(GreetedEvent::new(...))?;
-
-        // 4. 产出 Witness 审计记录（自动加入哈希链）
-        ctx.emit_witness(
-            ctx.witness()
-                .summary("processed greeting")
-                .outcome(TransitionOutcome::Success)
-        )?;
-
-        // 5. 取出输出缓冲返回给运行时
-        let (outgoing, witnesses) = ctx.end_processing();
-        (Ok(()), outgoing, witnesses)
-    }
-}
-```
-
-运行时会把 `witnesses` 写入事件日志，把 `outgoing` 投递到目标 Cell，把 Axiom 违规与异常推入熵值计算。Lens 则在外部按需从事件日志投影状态。
-
 ---
 
 ## 小结
@@ -784,7 +588,7 @@ fn handle<'a>(&'a mut self, signal: HelloCommand, ctx: LayeredCellContext<'a, Se
 | **Signal** | 类型化消息 | `Signal`、`SignalEnvelope`、`VectorClock` | `#[derive(SignalPayload)]`、`#[signal(...)]` |
 | **Axiom** | 全局不变量 | `Axiom`、`DynAxiomChain`、`ViolationAction` | `#[axiom]` |
 | **Witness** | 审计哈希链 | `Witness`、`WitnessBuilder`、`TransitionOutcome` | `ctx.emit_witness(...)` |
-| **Lens** | 状态投影 | `LensId`、`Lens`、`ProjectionCache`（v0.2.0） | `#[lens]`（v0.2.0） |
+| **Lens** | 状态投影 | `Lens`、`LensId`、`ProjectionCache` | `#[lens]` |
 
 四层架构通过 `Layer` 枚举 + `CanSendTo` sealed trait + `LayeredCellContext` 在**编译期**锁死调用方向，让架构违规根本无法编译。
 

@@ -1,24 +1,157 @@
 # Axiom Core 迁移指南
 
-> **版本:** v0.3.0
-> **最后更新:** 2026-07-04
+> **版本:** v0.4.0
+> **最后更新:** 2026-07-08
+> **主题:** 从 v0.3.0 (axiom-core) 迁移到 v0.4.0 (axiom-kernel)
 
 ---
 
-## 1. 从 LangChain 迁移
+## 目录
 
-### 1.1 核心概念映射
+- [概述](#概述)
+- [从 v0.3.0 迁移](#从-v030-迁移)
+- [从 LangChain 迁移](#从-langchain-迁移)
+- [从 CrewAI 迁移](#从-crewai-迁移)
+- [从自研框架迁移](#从自研框架迁移)
+- [最小可行示例](#最小可行示例)
+- [常见迁移问题 FAQ](#常见迁移问题-faq)
+- [迁移检查清单](#迁移检查清单)
+
+---
+
+## 概述
+
+v0.4.0 完成了从 `axiom-core` 到 `axiom-kernel` 的完整迁移。`axiom-kernel` 作为新的运行时层完全替代 `axiom-core`，带来了以下改进：
+
+| 改进 | 说明 |
+|------|------|
+| **编译期注册表** | 使用 `linkme::distributed_slice`，零运行时注册开销 |
+| **更好的锁原语** | `tokio::sync::RwLock` + `parking_lot::Mutex` |
+| **WASM 插件系统** | 支持运行时动态加载 WASM 和 Native 插件 |
+| **热图系统** | 实时信号流量监控 |
+| **Witness 哈希链** | SHA-256 不可篡改审计链 |
+| **编译期层间检查** | `CanSendTo` trait bound 在编译期拒绝非法跨层调用 |
+
+---
+
+## 从 v0.3.0 迁移
+
+### 1. 更新依赖
+
+将 `Cargo.toml` 中的 `axiom-core` 替换为 `axiom-kernel`：
+
+```toml
+# v0.3.0
+[dependencies]
+axiom-core = "0.3"
+
+# v0.4.0
+[dependencies]
+axiom-kernel = "0.4"
+```
+
+### 2. 更新导入路径
+
+```rust
+// v0.3.0
+use axiom_core::cell::Cell;
+use axiom_core::signal::Signal;
+use axiom_core::axiom::Axiom;
+use axiom_core::witness::Witness;
+
+// v0.4.0
+use axiom_kernel::cell::Cell;
+use axiom_kernel::signal::Signal;
+use axiom_kernel::axiom::Axiom;
+use axiom_kernel::witness::Witness;
+```
+
+### 3. 更新宏调用
+
+```rust
+// v0.3.0
+#[axiom_core::signal]
+#[axiom_core::cell("exec")]
+#[axiom_core::axiom]
+#[axiom_core::guard(layer = "exec")]
+
+// v0.4.0
+#[axiom_kernel::signal]
+#[axiom_kernel::cell("exec")]
+#[axiom_kernel::axiom]
+#[axiom_kernel::guard(layer = "exec")]
+```
+
+### 4. 更新 Cell trait 实现
+
+`handle` 方法签名变化：
+
+```rust
+// v0.3.0
+async fn handle(&mut self, signal: Self::Message, ctx: &mut CellContext) -> Result<()>;
+
+// v0.4.0
+fn handle<'a>(
+    &'a mut self,
+    signal: Self::Message,
+    ctx: LayeredCellContext<'a, Self::Layer>,
+) -> impl Future<Output = (Result<()>, Vec<OutgoingEnvelope>, Vec<OutgoingWitness>)> + Send + 'a;
+```
+
+### 5. 更新 Witness 记录
+
+```rust
+// v0.3.0
+ctx.emit_witness(TransitionOutcome::Success).await?;
+
+// v0.4.0
+ctx.emit_witness(
+    ctx.witness()
+        .summary("processed signal")
+        .outcome(TransitionOutcome::Success)
+        .processing_time_us(42),
+)?;
+let (outgoing, witnesses) = ctx.end_processing();
+(result, outgoing, witnesses)
+```
+
+### 6. 更新 Axiom 注册
+
+```rust
+// v0.3.0
+let chain = AxiomChain::from_registry();
+
+// v0.4.0
+let chain = DynAxiomChain::from_registry_for_layer(Layer::Exec);
+```
+
+### 7. 更新 Layer 相关代码
+
+```rust
+// v0.3.0
+use axiom_core::layer::Layer;
+
+// v0.4.0 - 新增编译期层标记
+use axiom_kernel::layer::Layer;
+use axiom_kernel::sealed::ExecLayer; // 用于 LayeredCellContext
+```
+
+---
+
+## 从 LangChain 迁移
+
+### 核心概念映射
 
 | LangChain 概念 | Axiom Core 对应 | 说明 |
 |----------------|----------------|------|
 | Agent | Cell + Signal | Cell 是状态单元，Signal 是消息 |
 | Chain | Witness 链 | Witness 记录每次状态转换 |
 | Memory | Lens + EventStore | Lens 提供投影，EventStore 持久化 |
-| Tool | Tool trait + Guard | 通过 #[tool] 宏自动注入权限控制 |
+| Tool | Tool trait + Guard | 通过 `#[tool]` 宏自动注入权限控制 |
 | Callback | BusInterceptor | 运行时拦截器链 |
 | Prompt | Signal payload | 结构化消息，支持 schema 验证 |
 
-### 1.2 最小迁移步骤
+### 最小迁移步骤
 
 1. **定义 Signal 类型**
 
@@ -26,6 +159,7 @@
 use axiom_kernel::signal::Signal;
 
 #[derive(Serialize, Deserialize, SignalPayload)]
+#[signal(kind = "command", layer = "exec")]
 struct MyAgentInput {
     msg_id: MsgId,
     correlation_id: CorrelationId,
@@ -44,10 +178,14 @@ struct MyAgentCell {
     state: String,
 }
 
-#[async_trait]
 impl Cell for MyAgentCell {
     type Message = MyAgentInput;
-    // ...
+
+    fn id(&self) -> &CellId { /* ... */ }
+
+    fn handle<'a>(&'a mut self, signal: Self::Message, ctx: LayeredCellContext<'a, Self::Layer>) -> impl Future<Output = (Result<()>, Vec<OutgoingEnvelope>, Vec<OutgoingWitness>)> + Send + 'a {
+        async move { /* ... */ }
+    }
 }
 ```
 
@@ -59,27 +197,14 @@ let memory = VectorStore::new();
 
 // Axiom Core
 let store = MemoryEventStore::new();
-let lens = Lens::new("my-lens", |events| {
-    events.iter().map(|e| e.payload.clone()).collect()
-});
+let lens = OrderHistoryLens; // 使用 #[lens] 宏注册
 ```
-
-### 1.3 常见问题
-
-**Q: LangChain 的 AgentExecutor 对应什么？**
-A: Axiom Runtime 的 dispatch loop + Supervisor。Runtime 自动管理 Cell 生命周期、重试和 circuit break。
-
-**Q: 如何实现 ReAct 模式？**
-A: 使用多个 Cell 组成 pipeline，通过 Signal 传递思考-行动-观察循环。
-
-**Q: 提示词模板如何处理？**
-A: 使用 `serde_json::Value` 作为 Signal payload，在 Cell::handle 中动态生成。
 
 ---
 
-## 2. 从 CrewAI 迁移
+## 从 CrewAI 迁移
 
-### 2.1 核心概念映射
+### 核心概念映射
 
 | CrewAI 概念 | Axiom Core 对应 | 说明 |
 |-------------|----------------|------|
@@ -87,17 +212,16 @@ A: 使用 `serde_json::Value` 作为 Signal payload，在 Cell::handle 中动态
 | Agent | Cell | 每个 Agent 是一个 Cell |
 | Task | Signal | Task 作为 Signal 发送给 Agent Cell |
 | Process | Execution Layer | 顺序/并行执行由 Layer 控制 |
-| Tools | #[tool] 宏 | 自动权限注入 + audit logging |
+| Tools | `#[tool]` 宏 | 自动权限注入 + audit logging |
 | Memory | EventStore + Lens | 短期/长期记忆分离 |
 
-### 2.2 最小迁移步骤
+### 最小迁移步骤
 
-1. **定义 Crew（Runtime）**
+1. **定义 Runtime**
 
 ```rust
 let runtime = AxiomRuntime::new(RuntimeConfig::default());
 
-// 注册 Agent Cells
 runtime.register_cell(AgentRegistration {
     id: CellId::new("researcher"),
     layer: Layer::Agent,
@@ -132,24 +256,11 @@ let task = ResearchTask::new("AI 最新进展", 3);
 runtime.submit_signal(&task, None, Layer::Agent).await?;
 ```
 
-### 2.3 常见问题
-
-**Q: CrewAI 的 delegation 如何实现？**
-A: 使用 `SignalEnvelope::to_cell()` 将任务委托给特定 Cell。
-
-**Q: 如何实现 Agent 间的协作？**
-A: 通过 Witness 链传播上下文，使用 `correlation_id` 追踪任务链。
-
-**Q: 工具调用权限如何管理？**
-A: `#[tool(permission = "read")]` 宏自动注入权限检查，无需手动实现。
-
 ---
 
-## 3. 从自研框架迁移
+## 从自研框架迁移
 
-### 3.1 Actor 模型迁移
-
-如果你的框架基于 Actor 模型：
+### Actor 模型迁移
 
 ```rust
 // 你的框架
@@ -163,9 +274,7 @@ impl Cell for MyCell {
 }
 ```
 
-### 3.2 事件溯源迁移
-
-如果你的框架使用事件溯源：
+### 事件溯源迁移
 
 ```rust
 // 你的框架
@@ -181,14 +290,14 @@ store.append(Event { ... }).await?;
 // - Witness 审计链
 ```
 
-### 3.3 权限系统迁移
+### 权限系统迁移
 
 ```rust
 // 你的框架
 if !user.can("read") { return Err(...); }
 
 // Axiom Core
-#[tool(perission = "read")]
+#[tool(permission = "read")]
 fn read_data(&self) -> Result<Data> {
     // 权限检查自动注入
 }
@@ -196,9 +305,9 @@ fn read_data(&self) -> Result<Data> {
 
 ---
 
-## 4. 最小可行示例
+## 最小可行示例
 
-### 4.1 Hello World
+### Hello World
 
 ```rust
 use axiom_kernel::prelude::*;
@@ -219,10 +328,23 @@ struct HelloCell {
 impl Cell for HelloCell {
     type Message = Hello;
 
-    async fn handle(&mut self, msg: &Hello) -> HandlerResult {
-        self.count += 1;
-        tracing::info!("Hello {}! count={}", msg.name, self.count);
-        Ok(())
+    fn id(&self) -> &CellId { &CellId::new("hello") }
+
+    fn handle<'a>(&'a mut self, msg: Hello, ctx: LayeredCellContext<'a, Self::Layer>) -> impl Future<Output = (Result<()>, Vec<OutgoingEnvelope>, Vec<OutgoingWitness>)> + Send + 'a {
+        async move {
+            self.count += 1;
+            tracing::info!("Hello {}! count={}", msg.name, self.count);
+            
+            ctx.emit_witness(
+                ctx.witness()
+                    .summary(format!("greeted: {}", msg.name))
+                    .outcome(TransitionOutcome::Success)
+                    .processing_time_us(42),
+            )?;
+            
+            let (outgoing, witnesses) = ctx.end_processing();
+            (Ok(()), outgoing, witnesses)
+        }
     }
 }
 
@@ -242,26 +364,12 @@ async fn main() -> Result<()> {
 }
 ```
 
-### 4.2 带持久化的示例
-
-```rust
-let store = Arc::new(SqliteStore::connect("sqlite:myapp.db").await?);
-runtime = runtime.with_event_store(store);
-```
-
-### 4.3 带监控的示例
-
-```rust
-let metrics = Arc::new(MetricsServer::new("0.0.0.0:9090".parse()?));
-runtime = runtime.with_metrics(metrics);
-```
-
 ---
 
-## 5. 常见迁移问题 FAQ
+## 常见迁移问题 FAQ
 
 **Q: 迁移需要重写所有代码吗？**
-A: 不需要。Axiom Core 设计为增量迁移。可以从一个简单的 Cell 开始，逐步替换现有模块。
+A: 不需要。v0.4.0 设计为增量迁移。可以从一个简单的 Cell 开始，逐步替换现有模块。
 
 **Q: 如何保留现有数据？**
 A: 使用 `EventStore::replay()` 从现有事件日志重建状态。
@@ -269,32 +377,39 @@ A: 使用 `EventStore::replay()` 从现有事件日志重建状态。
 **Q: 是否支持热迁移？**
 A: 支持。使用 Witness 链和快照，可以在不停机的情况下迁移状态。
 
+**Q: `CellContext` 变成了 `LayeredCellContext`，如何处理？**
+A: `LayeredCellContext` 通过 `CanSendTo` trait bound 在编译期强制层间调用规则。使用 `ctx.as_layered::<ExecLayer>()` 获取层特定上下文。
+
+**Q: `handle` 方法返回值变了，如何适配？**
+A: 新的返回值包含 `(Result<()>, Vec<OutgoingEnvelope>, Vec<OutgoingWitness>)`。在 `handle` 结束时调用 `ctx.end_processing()` 获取外发消息和见证。
+
+**Q: `AxiomChain` 变成了 `DynAxiomChain`，如何适配？**
+A: 使用 `DynAxiomChain::from_registry_for_layer(Layer::Exec)` 按层查询注册的 Axiom。
+
 **Q: 学习曲线如何？**
 A: 核心概念（Cell、Signal、Layer）可在 1 天内掌握。完整掌握 Witness 和熵治理约需 1 周。
 
-**Q: 社区支持？**
-A: 查看 GitHub Issues 和 Discussions，或加入 Discord。
+---
+
+## 迁移检查清单
+
+- [ ] 更新 `Cargo.toml`：将 `axiom-core` 替换为 `axiom-kernel`
+- [ ] 更新所有导入路径：`axiom_core::` → `axiom_kernel::`
+- [ ] 更新宏调用：`#[axiom_core::...]` → `#[axiom_kernel::...]`
+- [ ] 更新 Cell trait 实现：`handle` 方法签名、`LayeredCellContext`
+- [ ] 更新 Witness 记录：使用 `ctx.witness()` builder 模式
+- [ ] 更新 Axiom 注册：使用 `DynAxiomChain::from_registry_for_layer`
+- [ ] 添加层标记导入：`use axiom_kernel::sealed::ExecLayer;`
+- [ ] 运行 `cargo check` 检查编译错误
+- [ ] 运行 `cargo test` 检查测试通过
+- [ ] 运行 `cargo clippy` 检查代码质量
 
 ---
 
-## 6. 迁移检查清单
-
-- [ ] 阅读 [核心概念](guide/core-concepts.md)
-- [ ] 定义 Signal 类型
-- [ ] 实现 Cell trait
-- [ ] 配置 Runtime
-- [ ] 添加 EventStore 持久化
-- [ ] 添加 MetricsServer 监控
-- [ ] 编写单元测试
-- [ ] 运行集成测试
-- [ ] 性能基准测试
-- [ ] 部署到 staging
-
----
-
-## 7. 版本历史
+## 版本历史
 
 | 版本 | 日期 | 变更 |
 |------|------|------|
+| v0.4.0 | 2026-07-08 | 新增从 v0.3.0 迁移指南，`axiom-kernel` 替代 `axiom-core` |
 | v0.3.0 | 2026-07-04 | 新增 LangChain/CrewAI/自研框架迁移指南 |
 | v0.2.0 | 2025-12-01 | 初始版本 |

@@ -32,6 +32,8 @@ pub struct AgentBuilder {
     planner: Option<Arc<dyn axiom_planner::Planner>>,
     prompt_registry: Option<axiom_prompt::registry::TemplateRegistry>,
     persona: Option<axiom_identity::AgentPersona>,
+    intent_router: Option<Arc<crate::intent_router::IntentRouter>>,
+    self_monitor: Option<Arc<crate::self_monitor::SelfMonitor>>,
 }
 
 impl AgentBuilder {
@@ -45,6 +47,8 @@ impl AgentBuilder {
             planner: None,
             prompt_registry: None,
             persona: None,
+            intent_router: None,
+            self_monitor: None,
         }
     }
 
@@ -156,6 +160,77 @@ impl AgentBuilder {
         self
     }
 
+    /// Set the intent router for routing messages based on intent.
+    pub fn with_intent_router(mut self, router: crate::intent_router::IntentRouter) -> Self {
+        self.intent_router = Some(Arc::new(router));
+        self
+    }
+
+    /// Set the intent router from Arc.
+    pub fn with_intent_router_arc(mut self, router: Arc<crate::intent_router::IntentRouter>) -> Self {
+        self.intent_router = Some(router);
+        self
+    }
+
+    /// Set the self-monitor for tracking agent health and performance.
+    pub fn with_self_monitor(mut self, monitor: crate::self_monitor::SelfMonitor) -> Self {
+        self.self_monitor = Some(Arc::new(monitor));
+        self
+    }
+
+    /// Set the self-monitor from Arc.
+    pub fn with_self_monitor_arc(mut self, monitor: Arc<crate::self_monitor::SelfMonitor>) -> Self {
+        self.self_monitor = Some(monitor);
+        self
+    }
+
+    /// Build the AgentCell from a manifest.
+    pub fn from_manifest(manifest: &crate::agent_manifest::AgentManifest) -> Self {
+        let mut builder = Self::new(&manifest.id)
+            .with_memory_budget(manifest.memory_config.max_tokens)
+            .with_auto_summarize(manifest.memory_config.auto_summarize);
+
+        match manifest.planner_config.strategy {
+            crate::agent_manifest::PlannerStrategy::ReAct => {
+                builder = builder.with_planner_strategy(PlannerStrategy::ReAct);
+            }
+            crate::agent_manifest::PlannerStrategy::PlanAndExecute => {
+                builder = builder.with_planner_strategy(PlannerStrategy::PlanAndExecute);
+            }
+            crate::agent_manifest::PlannerStrategy::ChainOfThought => {
+                builder = builder.with_planner_strategy(PlannerStrategy::PlanAndExecute);
+            }
+            crate::agent_manifest::PlannerStrategy::Auto => {}
+        }
+
+        builder = builder.with_max_iterations(manifest.planner_config.max_iterations);
+
+        let router = crate::intent_router::IntentRouter::new(&format!("agent:{}", manifest.id));
+        for cap in &manifest.capabilities {
+            match cap.activation {
+                crate::agent_manifest::ActivationCondition::Intent(ref intent) => {
+                    router.add_route(crate::intent_router::IntentRoute {
+                        intent_pattern: intent.clone(),
+                        target_cell_id: format!("agent:{}", manifest.id),
+                        confidence_threshold: 0.5,
+                        priority: 1,
+                    });
+                }
+                crate::agent_manifest::ActivationCondition::Keyword(ref keyword) => {
+                    router.add_route(crate::intent_router::IntentRoute {
+                        intent_pattern: format!("contains:{}", keyword),
+                        target_cell_id: format!("agent:{}", manifest.id),
+                        confidence_threshold: 0.5,
+                        priority: 1,
+                    });
+                }
+                _ => {}
+            }
+        }
+
+        builder.with_intent_router(router).with_self_monitor(crate::self_monitor::SelfMonitor::new(&manifest.id))
+    }
+
     /// Build the AgentCell.
     pub fn build(self) -> AgentResult<AgentCell> {
         let mut agent = AgentCell::new(self.id, self.config);
@@ -179,6 +254,14 @@ impl AgentBuilder {
 
         if let Some(persona) = self.persona {
             agent = agent.with_persona(persona);
+        }
+
+        if let Some(router) = self.intent_router {
+            agent = agent.with_intent_router(router);
+        }
+
+        if let Some(monitor) = self.self_monitor {
+            agent = agent.with_self_monitor(monitor);
         }
 
         Ok(agent)

@@ -36,9 +36,13 @@
 //! ```
 
 pub mod agent;
+pub mod agent_manifest;
 pub mod builder;
 pub mod error;
+pub mod intent_router;
+pub mod natural_signal;
 pub mod prelude;
+pub mod self_monitor;
 
 // Re-export all toolchain crates
 pub use axiom_identity;
@@ -52,5 +56,16 @@ pub use axiom_tool;
 
 // Re-export key types from this crate
 pub use agent::{AgentCell, AgentConfig, AgentStats, PlannerStrategy};
+pub use agent_manifest::{
+    AgentManifest, ActivationCondition, Capability, Constraints, Dependency, DependencySource,
+    DisclosureLevel, MemoryConfig, Parameter, PlannerConfig, PlannerStrategy as ManifestPlannerStrategy,
+    RecallStrategy, RetentionPolicy,
+};
 pub use builder::AgentBuilder;
 pub use error::{AgentError, AgentResult};
+pub use intent_router::{IntentRoute, IntentRouter, RoutingDecision, RoutingResult};
+pub use natural_signal::{Attachment, Entity, NaturalSignal};
+pub use self_monitor::{
+    BehaviorSummary, ConfidenceSummary, ConfidenceTrend, HealthStatus, PerformanceMetrics,
+    SelfMonitor, SelfReport, SuggestedAction,
+};

@@ -44,12 +44,15 @@ cargo add axiom-agent
 这等价于在 `Cargo.toml` 的 `[dependencies]` 中写入：
 
 ```toml
-[dependencies]
-axiom-kernel = "0.1"
-# 可选：Agent 配套（LLM、Tool、Memory、Planner、Identity、Prompt）
-axiom-agent = "0.1"
+[package]
+name = "my-axiom-app"
+version = "0.1.0"
+edition = "2021"
 
-# 运行时与序列化（通常会被自动引入，但显式声明更清晰）
+[dependencies]
+axiom-kernel = "0.4"
+axiom-agent = "0.4"
+
 tokio = { version = "1", features = ["rt-multi-thread", "macros"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
@@ -79,8 +82,6 @@ cargo build
 ### 完整代码
 
 ```rust
-//! Hello Cell - 最小可运行示例，演示 Cell、Signal、Witness、Entropy 的协作。
-
 use axiom_kernel::cell::{Cell, CellHandle};
 use axiom_kernel::context::{CellContext, LayeredCellContext, OutgoingEnvelope, OutgoingWitness};
 use axiom_kernel::entropy::EntropyScore;
@@ -93,13 +94,10 @@ use axiom_kernel::witness::TransitionOutcome;
 use axiom_kernel::{axiom, cell, schema_version, Axiom, DynAxiomChain, SignalPayload};
 use std::future::Future;
 
-// ─────────────────────────────────────────────────────────────
-// 1. 定义一个 Command 信号
-// ─────────────────────────────────────────────────────────────
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize, SignalPayload)]
 #[signal(kind = "command", layer = "exec")]
 #[schema_version(1)]
-#[schema(skip)] // 我们将手写 Schema 实现，跳过默认实现
+#[schema(skip)]
 struct HelloCommand {
     msg_id: MsgId,
     correlation_id: CorrelationId,
@@ -118,7 +116,6 @@ impl HelloCommand {
     }
 }
 
-// 手写 Schema 校验：消息内容不能为空，且长度不超过 1024
 impl axiom_kernel::Schema for HelloCommand {
     fn validate(&self) -> ValidationResult {
         let mut result = ValidationResult::ok();
@@ -128,9 +125,6 @@ impl axiom_kernel::Schema for HelloCommand {
     }
 }
 
-// ─────────────────────────────────────────────────────────────
-// 2. 定义一个 Event 信号（处理结果事件）
-// ─────────────────────────────────────────────────────────────
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize, SignalPayload)]
 #[signal(kind = "event", layer = "exec")]
 #[schema_version(1)]
@@ -152,9 +146,6 @@ impl GreetedEvent {
     }
 }
 
-// ─────────────────────────────────────────────────────────────
-// 3. 定义一个 Axiom（全局不变量约束）
-// ─────────────────────────────────────────────────────────────
 #[axiom]
 struct NonEmptyGreetingAxiom;
 
@@ -168,7 +159,7 @@ impl Axiom for NonEmptyGreetingAxiom {
 
     fn check(&self, _current: &Self::State, new: &Self::State, _msg: &Self::Message) -> axiom_kernel::Result<()> {
         if new.iter().any(|g| g.is_empty()) {
-            return Err(axiom_kernel::AxiomError::InvariantViolated {
+            return Err(axiom_kernel::KernelError::InvariantViolated {
                 message: "greeting must not be empty".into(),
             });
         }
@@ -180,9 +171,6 @@ impl Axiom for NonEmptyGreetingAxiom {
     }
 }
 
-// ─────────────────────────────────────────────────────────────
-// 4. 定义 Cell（隔离状态单元）
-// ─────────────────────────────────────────────────────────────
 struct HelloCell {
     id: CellId,
     greetings: Vec<String>,
@@ -197,7 +185,7 @@ impl HelloCell {
     }
 }
 
-#[cell("exec")] // 编译期将本 Cell 绑定到 Exec 层
+#[cell("exec")]
 impl Cell for HelloCell {
     type Message = HelloCommand;
 
@@ -205,7 +193,6 @@ impl Cell for HelloCell {
         &self.id
     }
 
-    // 注意：必须返回 impl Future，且在内部调用 ctx.end_processing()
     fn handle<'a>(
         &'a mut self,
         signal: HelloCommand,
@@ -216,11 +203,9 @@ impl Cell for HelloCell {
             println!("Received: {}", signal.message);
             self.greetings.push(signal.message.clone());
 
-            // 发出一个事件信号
             let event = GreetedEvent::new(signal.correlation_id.clone(), &signal.message);
             let result: axiom_kernel::Result<()> = (|| {
                 ctx.emit_to::<ExecLayer, _>(event)?;
-                // 记录一条 Witness 审计记录
                 ctx.emit_witness(
                     ctx.witness()
                         .summary(format!("processed greeting: {}", signal.message))
@@ -229,28 +214,22 @@ impl Cell for HelloCell {
                 )?;
                 Ok(())
             })();
-            // 必须调用 end_processing 取出输出缓冲
             let (outgoing, witnesses) = ctx.end_processing();
             (result, outgoing, witnesses)
         }
     }
 }
 
-// ─────────────────────────────────────────────────────────────
-// 5. 运行
-// ─────────────────────────────────────────────────────────────
 #[tokio::main]
 async fn main() {
     tracing_subscriber::fmt::init();
     tracing::info!("Axiom Core - Hello Cell example");
 
-    // 装入 CellHandle（类型擦除的句柄）
     let cell = HelloCell::new();
     let handle = CellHandle::new(cell);
     println!("Cell ID: {}", handle.id());
     println!("Cell Layer: {:?}", handle.layer());
 
-    // 构造信号并校验 Schema
     let mut cell = HelloCell::new();
     let cell_id = CellId::new("hello-cell");
     let mut ctx = CellContext::new(&cell_id, Layer::Exec);
@@ -260,7 +239,6 @@ async fn main() {
     assert_eq!(signal.kind(), SignalKind::Command);
     assert_eq!(signal.layer(), Layer::Exec);
 
-    // 将上下文升级为分层上下文，并处理信号
     let layered = ctx.as_layered::<ExecLayer>();
     let (result, _outgoing, witnesses) = cell.handle(signal, layered).await;
     result.unwrap();
@@ -268,11 +246,9 @@ async fn main() {
     println!("Greetings received: {:?}", cell.greetings);
     println!("Witnesses produced: {}", witnesses.len());
 
-    // 查询注册表中的 Axiom
     let chain = DynAxiomChain::from_registry_for_layer(Layer::Exec);
     println!("Registered axioms for Exec layer: {}", chain.count());
 
-    // 演示熵值监控
     let mut entropy = EntropyScore::new();
     assert!(entropy.is_green());
     println!("Initial entropy: {:.3} [{:?}]", entropy.compute(), entropy.level());
@@ -364,18 +340,19 @@ Axiom Core 采用 workspace 多 crate 组织，每个 crate 职责单一。下�
 
 | Crate | 职责 | 入门优先级 |
 |-------|------|-----------|
-| `axiom-kernel` | 五大原语：Cell / Signal / Lens / Axiom / Witness + Layer / Entropy | ⭐⭐⭐ 必学 |
+| `axiom-kernel` | 五大原语：Cell / Signal / Lens / Axiom / Witness + Layer / Entropy + Plugin / Heatmap | ⭐⭐⭐ 必学 |
 | `axiom-macros` | 过程宏：`#[cell]`、`#[axiom]`、`#[derive(SignalPayload)]`、`#[schema_version]` | ⭐⭐ 由 core 自动引入 |
 | `axiom-agent` | Agent 开发配套（LLM + Tool + Memory + Planner + Identity + Prompt） | ⭐⭐ 构建智能体时必学 |
 | `axiom-runtime` | Tokio 运行时：监督树 + 消息总线 + MPSC 信箱 | ⭐ 生产部署时学习 |
-| `axiom-oversight` | Layer 0 监督层：熵治理 + 架构合规 | ⭐ 高级运维 |
+| `axiom-oversight` | 监督层：熵治理 + 架构合规 | ⭐ 高级运维 |
 | `axiom-store` | 事件存储：Append-Only Event Log + 快照 + 重放 | ⭐ 持久化场景 |
 | `axiom-cli` | `axm` 命令行工具：诊断、追踪、可视化 | ⭐ 调试辅助 |
+| `axiom-plugin-wasm-sdk` | WASM 插件开发 SDK | ⭐ 扩展开发 |
 
 ### 仓库目录概览
 
 ```
-axiom-kernel-project/
+axiom-core-project/
 ├── crates/
 │   ├── axiom-kernel/                 # 核心原语（本指南的主角）
 │   │   ├── examples/
@@ -389,18 +366,22 @@ axiom-kernel-project/
 │   │       ├── layer.rs            # 四层枚举 Layer
 │   │       ├── sealed.rs           # CanSendTo 编译期方向矩阵
 │   │       ├── context.rs          # CellContext + LayeredCellContext
-│   │       └── entropy.rs          # EntropyScore 熵值模型
-│   ├── axiom-agent/                # Agent 配套（下一个指南的主角）
-│   │   └── src/
-│   │       ├── agent.rs            # AgentCell
-│   │       └── builder.rs          # AgentBuilder 链式构建器
+│   │       ├── entropy.rs          # EntropyScore 熵值模型
+│   │       ├── plugin/             # 插件子系统
+│   │       └── heatmap/            # 热图子系统
+│   ├── axiom-agent/                # Agent 配套
 │   ├── axiom-macros/               # 过程宏
 │   ├── axiom-runtime/              # Tokio 运行时
+│   ├── axiom-plugin-wasm-sdk/      # WASM 插件 SDK
 │   └── ...                         # 其他配套 crate
-├── docs/
-│   ├── architecture/               # 架构设计文档
-│   └── guide/                      # 用户指南（本目录）
-└── README.md
+├── tools/
+│   ├── archcheck/                  # 架构检查工具
+│   └── xtask/                      # 任务运行器
+└── docs/
+    ├── ARCHITECTURE.md             # 架构文档
+    ├── PLUGIN_SYSTEM.md            # 插件系统文档
+    ├── HEATMAP_SYSTEM.md           # 热图系统文档
+    └── guide/                      # 用户指南（本目录）
 ```
 
 ### 入门后的典型开发路径
@@ -412,6 +393,7 @@ axiom-kernel-project/
 5. **产出 Witness**：在 `handle` 内调用 `ctx.emit_witness(...)` 记录审计。
 6. **接入运行时**（可选）：用 `axiom-runtime` 把 Cell 装进监督树与消息总线。
 7. **构建 Agent**（可选）：用 `axiom-agent` 的 `AgentBuilder` 把 LLM、Tool、Memory 组装成完整智能体。
+8. **编写插件**（可选）：用 `axiom-plugin-wasm-sdk` 编写 WASM 插件扩展功能。
 
 ---
 
@@ -422,5 +404,6 @@ axiom-kernel-project/
 - **[核心概念](./core-concepts.md)**：深入理解 Cell、Signal、Axiom、Witness、Lens 与四层架构的设计原理与层间调用约束。
 - **[创建一个 Agent](./creating-an-agent.md)**：用 `AgentBuilder` 链式构建一个具备 LLM、Tool、Memory、Identity 的完整智能体。
 - **[最佳实践](./best-practices.md)**：学习架构设计原则、性能优化、安全实践、错误处理与测试策略。
+- **[插件系统](../PLUGIN_SYSTEM.md)**：学习如何编写和使用 WASM 插件扩展系统功能。
 
-如果在运行示例时遇到问题，可开启 `RUST_LOG=debug` 查看详细日志，或参考仓库根目录的 `DEVELOPMENT.md` 与 `docs/architecture/00-requirements.md`。
+如果在运行示例时遇到问题，可开启 `RUST_LOG=debug` 查看详细日志，或参考仓库根目录的 `README.md` 与 `docs/ARCHITECTURE.md`。

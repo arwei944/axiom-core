@@ -17,11 +17,13 @@ axiom-identity = { path = "../axiom-identity" }
 
 serde = { workspace = true }
 serde_json = { workspace = true }
+serde_yaml = "0.9"
 thiserror = { workspace = true }
 tracing = { workspace = true }
 tokio = { workspace = true }
 parking_lot = { workspace = true }
 uuid = { workspace = true }
+regex = "1.10"
 
 [build-dependencies]
 archcheck = { path = "../../tools/archcheck" }
