@@ -13,17 +13,14 @@ pub fn witness_to_event(witness: &Witness, layer: Layer) -> Result<Event, Kernel
     let outcome = match &witness.outcome {
         axiom_kernel::witness::TransitionOutcome::Success => axiom_store::EventOutcome::Success,
         axiom_kernel::witness::TransitionOutcome::Failed { reason } => {
-            axiom_store::EventOutcome::Failed {
-                reason: reason.clone(),
+            axiom_store::EventOutcome::Failed { reason: reason.clone() }
+        }
+        axiom_kernel::witness::TransitionOutcome::AxiomViolated { axiom_name, message } => {
+            axiom_store::EventOutcome::AxiomViolated {
+                axiom_name: axiom_name.clone(),
+                message: message.clone(),
             }
         }
-        axiom_kernel::witness::TransitionOutcome::AxiomViolated {
-            axiom_name,
-            message,
-        } => axiom_store::EventOutcome::AxiomViolated {
-            axiom_name: axiom_name.clone(),
-            message: message.clone(),
-        },
     };
 
     let witness_hash_data = axiom_store::WitnessHashData {
@@ -39,10 +36,7 @@ pub fn witness_to_event(witness: &Witness, layer: Layer) -> Result<Event, Kernel
         .cell_id(&witness.cell_id)
         .correlation_id(witness.correlation_id.clone())
         .triggering_msg_id(
-            witness
-                .triggering_msg_id
-                .clone()
-                .unwrap_or_else(|| MsgId::new("unknown")),
+            witness.triggering_msg_id.clone().unwrap_or_else(|| MsgId::new("unknown")),
         )
         .vector_clock(witness.vector_clock.clone())
         .layer(layer)

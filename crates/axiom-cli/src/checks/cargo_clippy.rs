@@ -14,9 +14,8 @@ impl Check for CargoClippyCheck {
     }
 
     fn run(&self) -> CheckResult {
-        let output = Command::new("cargo")
-            .args(["clippy", "--workspace", "--", "-D", "warnings"])
-            .output();
+        let output =
+            Command::new("cargo").args(["clippy", "--workspace", "--", "-D", "warnings"]).output();
 
         match output {
             Ok(o) if o.status.success() => CheckResult {

@@ -42,9 +42,7 @@ struct LatencyTracker {
 
 impl LatencyTracker {
     fn new() -> Self {
-        Self {
-            samples: parking_lot::Mutex::new(Vec::with_capacity(128)),
-        }
+        Self { samples: parking_lot::Mutex::new(Vec::with_capacity(128)) }
     }
 
     fn record(&self, ms: f64) {
@@ -175,8 +173,7 @@ impl<S: EventStore> EventStore for MeteredStore<S> {
         Box::pin(async move {
             let start = Instant::now();
             let res = self.inner.read_all().await;
-            self.metrics
-                .record_read(start.elapsed().as_secs_f64() * 1000.0);
+            self.metrics.record_read(start.elapsed().as_secs_f64() * 1000.0);
             if res.is_err() {
                 self.metrics.record_error();
             }
@@ -188,8 +185,7 @@ impl<S: EventStore> EventStore for MeteredStore<S> {
         Box::pin(async move {
             let start = Instant::now();
             let res = self.inner.read_after(after_ns).await;
-            self.metrics
-                .record_read(start.elapsed().as_secs_f64() * 1000.0);
+            self.metrics.record_read(start.elapsed().as_secs_f64() * 1000.0);
             if res.is_err() {
                 self.metrics.record_error();
             }
@@ -204,8 +200,7 @@ impl<S: EventStore> EventStore for MeteredStore<S> {
         Box::pin(async move {
             let start = Instant::now();
             let res = self.inner.read_after_sequence(seq).await;
-            self.metrics
-                .record_read(start.elapsed().as_secs_f64() * 1000.0);
+            self.metrics.record_read(start.elapsed().as_secs_f64() * 1000.0);
             if res.is_err() {
                 self.metrics.record_error();
             }
@@ -222,8 +217,7 @@ impl<S: EventStore> EventStore for MeteredStore<S> {
         Box::pin(async move {
             let start = Instant::now();
             let res = self.inner.read_range(aggregate_id, from_seq, to_seq).await;
-            self.metrics
-                .record_read(start.elapsed().as_secs_f64() * 1000.0);
+            self.metrics.record_read(start.elapsed().as_secs_f64() * 1000.0);
             if res.is_err() {
                 self.metrics.record_error();
             }
@@ -238,8 +232,7 @@ impl<S: EventStore> EventStore for MeteredStore<S> {
         Box::pin(async move {
             let start = Instant::now();
             let res = self.inner.read_by_correlation(correlation_id).await;
-            self.metrics
-                .record_read(start.elapsed().as_secs_f64() * 1000.0);
+            self.metrics.record_read(start.elapsed().as_secs_f64() * 1000.0);
             if res.is_err() {
                 self.metrics.record_error();
             }
@@ -254,8 +247,7 @@ impl<S: EventStore> EventStore for MeteredStore<S> {
         Box::pin(async move {
             let start = Instant::now();
             let res = self.inner.read_by_cell_id(cell_id).await;
-            self.metrics
-                .record_read(start.elapsed().as_secs_f64() * 1000.0);
+            self.metrics.record_read(start.elapsed().as_secs_f64() * 1000.0);
             if res.is_err() {
                 self.metrics.record_error();
             }
@@ -271,8 +263,7 @@ impl<S: EventStore> EventStore for MeteredStore<S> {
         Box::pin(async move {
             let start = Instant::now();
             let res = self.inner.read_by_time_range(start_ns, end_ns).await;
-            self.metrics
-                .record_read(start.elapsed().as_secs_f64() * 1000.0);
+            self.metrics.record_read(start.elapsed().as_secs_f64() * 1000.0);
             if res.is_err() {
                 self.metrics.record_error();
             }
@@ -320,11 +311,7 @@ mod tests {
         }
         let p50 = tracker.percentile(0.5);
         let p99 = tracker.percentile(0.99);
-        assert!(
-            (p50 - 50.0).abs() < 2.0,
-            "p50 should be around 50, got {}",
-            p50
-        );
+        assert!((p50 - 50.0).abs() < 2.0, "p50 should be around 50, got {}", p50);
         assert!(p99 >= 98.0, "p99 should be high, got {}", p99);
     }
 }

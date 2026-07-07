@@ -37,9 +37,8 @@ fn bench_signal_deserialization(c: &mut Criterion) {
 fn bench_signal_batch_creation(c: &mut Criterion) {
     c.bench_function("signal_batch_100", |b| {
         b.iter(|| {
-            let batch: Vec<SignalEnvelope> = (0..100)
-                .map(|i| make_signal("BenchSignal", &format!("src-{i}"), "dst"))
-                .collect();
+            let batch: Vec<SignalEnvelope> =
+                (0..100).map(|i| make_signal("BenchSignal", &format!("src-{i}"), "dst")).collect();
             black_box(batch);
         });
     });

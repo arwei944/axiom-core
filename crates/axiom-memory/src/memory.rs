@@ -48,11 +48,7 @@ impl WorkingMemory {
 
     pub fn add(&self, item: MemoryItem) {
         for tag in &item.tags {
-            self.tags_index
-                .write()
-                .entry(tag.clone())
-                .or_default()
-                .push(item.id.clone());
+            self.tags_index.write().entry(tag.clone()).or_default().push(item.id.clone());
         }
 
         self.items.write().push(item);
@@ -99,21 +95,14 @@ impl WorkingMemory {
     }
 
     pub fn filter_by_type(&self, item_type: MemoryItemType) -> Vec<MemoryItem> {
-        self.items
-            .read()
-            .iter()
-            .filter(|i| i.item_type == item_type)
-            .cloned()
-            .collect()
+        self.items.read().iter().filter(|i| i.item_type == item_type).cloned().collect()
     }
 
     pub fn filter_by_tag(&self, tag: &str) -> Vec<MemoryItem> {
         let ids = self.tags_index.read().get(tag).cloned().unwrap_or_default();
 
         let items = self.items.read();
-        ids.iter()
-            .filter_map(|id| items.iter().find(|i| i.id == *id).cloned())
-            .collect()
+        ids.iter().filter_map(|id| items.iter().find(|i| i.id == *id).cloned()).collect()
     }
 
     pub fn search(&self, query: &str) -> Vec<(MemoryItem, f64)> {
@@ -177,11 +166,8 @@ impl WorkingMemory {
         let mut indices_to_remove: Vec<usize> = Vec::new();
         let mut summary_text = String::new();
 
-        let mut sorted: Vec<(usize, f64)> = items
-            .iter()
-            .enumerate()
-            .map(|(idx, item)| (idx, item.importance))
-            .collect();
+        let mut sorted: Vec<(usize, f64)> =
+            items.iter().enumerate().map(|(idx, item)| (idx, item.importance)).collect();
         sorted.sort_by(|a, b| a.1.partial_cmp(&b.1).unwrap_or(std::cmp::Ordering::Equal));
 
         let mut removed_tokens = 0;
@@ -219,11 +205,7 @@ impl WorkingMemory {
         if !summary_text.is_empty() {
             let summary = MemoryItem::new(
                 MemoryItemType::Reflection,
-                format!(
-                    "Summary of {} older memory items:\n{}",
-                    items.len(),
-                    summary_text
-                ),
+                format!("Summary of {} older memory items:\n{}", items.len(), summary_text),
             )
             .with_importance(0.3);
             items.push(summary);
@@ -266,11 +248,7 @@ impl WorkingMemory {
                     result
                 );
             } else {
-                result = format!(
-                    "[{}] {}",
-                    item.item_type.as_str().to_uppercase(),
-                    item.content
-                );
+                result = format!("[{}] {}", item.item_type.as_str().to_uppercase(), item.content);
             }
             tokens_used += item_tokens;
         }

@@ -45,9 +45,7 @@ impl Lens for AggregateLensInput {
 
 #[test]
 fn lens_macro_generates_lens_impl() {
-    let lens = TestLensInput {
-        value: "test".to_string(),
-    };
+    let lens = TestLensInput { value: "test".to_string() };
 
     let id = Lens::id(&lens);
     assert_eq!(id, "test-lens");
@@ -55,9 +53,7 @@ fn lens_macro_generates_lens_impl() {
 
 #[test]
 fn lens_macro_generates_dyn_lens_impl() {
-    let lens = TestLensInput {
-        value: "test".to_string(),
-    };
+    let lens = TestLensInput { value: "test".to_string() };
 
     let dyn_lens: &dyn DynLens = &lens;
     assert_eq!(dyn_lens.id(), "test-lens");
@@ -65,9 +61,7 @@ fn lens_macro_generates_dyn_lens_impl() {
 
 #[test]
 fn lens_macro_project_works() {
-    let lens = TestLensInput {
-        value: "test".to_string(),
-    };
+    let lens = TestLensInput { value: "test".to_string() };
     let state = State::empty();
 
     let result = Lens::project(&lens, &state);
@@ -76,9 +70,7 @@ fn lens_macro_project_works() {
 
 #[test]
 fn lens_macro_aggregate_project_works() {
-    let lens = AggregateLensInput {
-        aggregate_id: "agg-1".to_string(),
-    };
+    let lens = AggregateLensInput { aggregate_id: "agg-1".to_string() };
     let state = State::empty();
 
     let result = Lens::project(&lens, &state);

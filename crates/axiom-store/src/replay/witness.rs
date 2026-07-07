@@ -113,11 +113,8 @@ mod tests {
                     self.count += by;
                 }
                 "set_name" => {
-                    self.name = payload
-                        .get("name")
-                        .and_then(|v| v.as_str())
-                        .unwrap_or("")
-                        .to_string();
+                    self.name =
+                        payload.get("name").and_then(|v| v.as_str()).unwrap_or("").to_string();
                 }
                 _ => {}
             }
@@ -135,11 +132,7 @@ mod tests {
         fn from_snapshot(value: &serde_json::Value) -> Result<Self, StoreError> {
             Ok(CounterState {
                 count: value.get("count").and_then(|v| v.as_i64()).unwrap_or(0),
-                name: value
-                    .get("name")
-                    .and_then(|v| v.as_str())
-                    .unwrap_or("")
-                    .to_string(),
+                name: value.get("name").and_then(|v| v.as_str()).unwrap_or("").to_string(),
             })
         }
     }

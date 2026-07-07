@@ -20,11 +20,7 @@ impl McpClient {
 
         let client = ReqwestClient::new();
 
-        Ok(Self {
-            base_url: url,
-            client,
-            capabilities: Arc::new(RwLock::new(None)),
-        })
+        Ok(Self { base_url: url, client, capabilities: Arc::new(RwLock::new(None)) })
     }
 
     pub async fn capabilities(&self) -> Result<McpCapability, McpError> {
@@ -32,10 +28,8 @@ impl McpClient {
             return Ok(cap);
         }
 
-        let url = self
-            .base_url
-            .join("capabilities")
-            .map_err(|e| McpError::Connection(e.to_string()))?;
+        let url =
+            self.base_url.join("capabilities").map_err(|e| McpError::Connection(e.to_string()))?;
 
         let response = self
             .client
@@ -45,10 +39,8 @@ impl McpClient {
             .await
             .map_err(|e| McpError::Connection(e.to_string()))?;
 
-        let response: McpResponse = response
-            .json()
-            .await
-            .map_err(|e| McpError::Serialization(e.to_string()))?;
+        let response: McpResponse =
+            response.json().await.map_err(|e| McpError::Serialization(e.to_string()))?;
 
         match response {
             McpResponse::Capabilities(cap) => {
@@ -71,10 +63,7 @@ impl McpClient {
             id: uuid::Uuid::new_v4().to_string(),
         };
 
-        let url = self
-            .base_url
-            .join("tool")
-            .map_err(|e| McpError::Connection(e.to_string()))?;
+        let url = self.base_url.join("tool").map_err(|e| McpError::Connection(e.to_string()))?;
 
         let response = self
             .client
@@ -85,10 +74,8 @@ impl McpClient {
             .await
             .map_err(|e| McpError::Connection(e.to_string()))?;
 
-        let response: McpResponse = response
-            .json()
-            .await
-            .map_err(|e| McpError::Serialization(e.to_string()))?;
+        let response: McpResponse =
+            response.json().await.map_err(|e| McpError::Serialization(e.to_string()))?;
 
         match response {
             McpResponse::ToolResult(result) => match result.result {
@@ -106,10 +93,8 @@ impl McpClient {
     }
 
     pub async fn shutdown(&self) -> Result<(), McpError> {
-        let url = self
-            .base_url
-            .join("shutdown")
-            .map_err(|e| McpError::Connection(e.to_string()))?;
+        let url =
+            self.base_url.join("shutdown").map_err(|e| McpError::Connection(e.to_string()))?;
 
         let response = self
             .client
@@ -120,10 +105,8 @@ impl McpClient {
             .await
             .map_err(|e| McpError::Connection(e.to_string()))?;
 
-        let response: McpResponse = response
-            .json()
-            .await
-            .map_err(|e| McpError::Serialization(e.to_string()))?;
+        let response: McpResponse =
+            response.json().await.map_err(|e| McpError::Serialization(e.to_string()))?;
 
         match response {
             McpResponse::Shutdown => Ok(()),

@@ -44,14 +44,10 @@ pub fn impl_migration(attr: TokenStream, item: TokenStream) -> TokenStream {
 
     let self_ty = &input.self_ty;
 
-    let reg_fn = syn::Ident::new(
-        &format!("__migration_fn_{}", from_v),
-        proc_macro2::Span::call_site(),
-    );
-    let reg_static = syn::Ident::new(
-        &format!("__MIGRATION_REG_{}", from_v),
-        proc_macro2::Span::call_site(),
-    );
+    let reg_fn =
+        syn::Ident::new(&format!("__migration_fn_{}", from_v), proc_macro2::Span::call_site());
+    let reg_static =
+        syn::Ident::new(&format!("__MIGRATION_REG_{}", from_v), proc_macro2::Span::call_site());
 
     let source_version = quote! {
         fn source_version(&self) -> ::axiom_kernel::version::SchemaVersion {
@@ -64,14 +60,16 @@ pub fn impl_migration(attr: TokenStream, item: TokenStream) -> TokenStream {
         }
     };
 
-    input.items.insert(
-        0,
-        syn::parse2(source_version).expect("valid migration source version"),
-    ); // foxguard: ignore[rs/no-unwrap-in-lib]
-    input.items.insert(
-        1,
-        syn::parse2(target_version).expect("valid migration target version"),
-    ); // foxguard: ignore[rs/no-unwrap-in-lib]
+    let source_item: syn::ImplItem = match syn::parse2(source_version) {
+        Ok(item) => item,
+        Err(e) => return e.to_compile_error().into(),
+    };
+    let target_item: syn::ImplItem = match syn::parse2(target_version) {
+        Ok(item) => item,
+        Err(e) => return e.to_compile_error().into(),
+    };
+    input.items.insert(0, source_item);
+    input.items.insert(1, target_item);
 
     let expanded = quote! {
             #input

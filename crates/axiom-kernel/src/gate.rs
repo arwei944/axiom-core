@@ -22,19 +22,9 @@ impl Architecture {
             .filter_map(|(k, v)| v.as_integer().map(|i| (k.clone(), i as usize)))
             .collect();
 
-        let forbidden_deps = parsed
-            .get("forbidden-deps")?
-            .as_table()?
-            .keys()
-            .cloned()
-            .collect();
+        let forbidden_deps = parsed.get("forbidden-deps")?.as_table()?.keys().cloned().collect();
 
-        let audited_deps = parsed
-            .get("audited-deps")?
-            .as_table()?
-            .keys()
-            .cloned()
-            .collect();
+        let audited_deps = parsed.get("audited-deps")?.as_table()?.keys().cloned().collect();
 
         let proc_macro_exemptions = parsed
             .get("proc-macro-exemptions")?
@@ -78,26 +68,23 @@ impl Architecture {
 
 fn architecture() -> Result<&'static Architecture, crate::KernelError> {
     static ARCH: OnceLock<Architecture> = OnceLock::new();
-    ARCH.get_or_init(|| {
-        Architecture::from_toml(ARCHITECTURE_TOML)
-            .expect("failed to parse .axiom/architecture.toml")
-    });
-    Ok(ARCH.get().expect("architecture initialized"))
+    if ARCH.get().is_none() {
+        let parsed = Architecture::from_toml(ARCHITECTURE_TOML).ok_or(
+            crate::KernelError::InternalError("failed to parse .axiom/architecture.toml".into()),
+        )?;
+        let _ = ARCH.set(parsed);
+    }
+    ARCH.get().ok_or(crate::KernelError::InternalError("architecture initialization failed".into()))
 }
 
 pub fn crate_level(name: &str) -> Option<usize> {
-    architecture().ok().and_then(|arch| {
-        arch.crate_layers
-            .iter()
-            .find(|(n, _)| n == name)
-            .map(|(_, l)| *l)
-    })
+    architecture()
+        .ok()
+        .and_then(|arch| arch.crate_layers.iter().find(|(n, _)| n == name).map(|(_, l)| *l))
 }
 
 pub fn crate_layers() -> &'static [(String, usize)] {
-    architecture()
-        .map(|arch| arch.crate_layers.as_slice())
-        .unwrap_or(&[])
+    architecture().map(|arch| arch.crate_layers.as_slice()).unwrap_or(&[])
 }
 
 pub fn verify_dependencies(crate_name: &str, deps: &[String]) -> Vec<String> {
@@ -112,10 +99,8 @@ pub fn verify_dependencies(crate_name: &str, deps: &[String]) -> Vec<String> {
     let mut violations = Vec::new();
     for dep in deps {
         if dep == "axiom-macros" {
-            let is_exempt = arch
-                .proc_macro_exemptions
-                .iter()
-                .any(|(k, v)| k == crate_name && v.contains(dep));
+            let is_exempt =
+                arch.proc_macro_exemptions.iter().any(|(k, v)| k == crate_name && v.contains(dep));
             if is_exempt {
                 continue;
             }
@@ -155,12 +140,8 @@ mod tests {
 
     #[test]
     fn test_layer_order_is_dag() {
-        let layers = architecture()
-            .unwrap()
-            .crate_layers
-            .iter()
-            .map(|(_, l)| l)
-            .collect::<Vec<_>>();
+        let layers =
+            architecture().unwrap().crate_layers.iter().map(|(_, l)| l).collect::<Vec<_>>();
         assert!(!layers.is_empty(), "crate layers should not be empty");
     }
 
@@ -180,10 +161,7 @@ mod tests {
             "axiom-oversight",
             &["axiom-runtime".into(), "axiom-kernel".into()],
         );
-        assert!(
-            violations.is_empty(),
-            "expected no violations: {violations:?}"
-        );
+        assert!(violations.is_empty(), "expected no violations: {violations:?}");
     }
 
     #[test]

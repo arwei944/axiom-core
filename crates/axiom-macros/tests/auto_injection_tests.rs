@@ -11,11 +11,8 @@ struct TestSignal {
 
 #[test]
 fn test_signal_macro_auto_fields() {
-    let signal = TestSignal::new(
-        MsgId::new("test"),
-        CorrelationId::new("test"),
-        "hello".to_string(),
-    );
+    let signal =
+        TestSignal::new(MsgId::new("test"), CorrelationId::new("test"), "hello".to_string());
     assert_eq!(signal.signal_type(), "TestSignal");
     assert_eq!(signal.payload, "hello");
 }
@@ -35,11 +32,8 @@ fn test_witness_registry_auto_injection() {
     let initial_len = axiom_kernel::registry::WITNESS_REGISTRY.len();
 
     let guard = AutoGuard;
-    let signal = TestSignal::new(
-        MsgId::new("test"),
-        CorrelationId::new("test"),
-        "test payload".to_string(),
-    );
+    let signal =
+        TestSignal::new(MsgId::new("test"), CorrelationId::new("test"), "test payload".to_string());
     let _ = guard.check(&signal);
 
     let after_len = axiom_kernel::registry::WITNESS_REGISTRY.len();

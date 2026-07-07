@@ -52,10 +52,7 @@ impl LlmClient {
     }
 
     fn is_retryable(error: &LlmError) -> bool {
-        matches!(
-            error,
-            LlmError::Connection(_) | LlmError::RateLimited | LlmError::Timeout
-        )
+        matches!(error, LlmError::Connection(_) | LlmError::RateLimited | LlmError::Timeout)
     }
 
     async fn with_retry<F, Fut, T>(&self, f: F) -> Result<T, LlmError>
@@ -94,9 +91,7 @@ impl LlmClient {
             })
             .await?;
 
-        self.token_budget
-            .write()
-            .record_usage(result.usage.total_tokens)?;
+        self.token_budget.write().record_usage(result.usage.total_tokens)?;
 
         Ok(result)
     }
@@ -113,9 +108,7 @@ impl LlmClient {
             })
             .await?;
 
-        self.token_budget
-            .write()
-            .record_usage(result.usage.total_tokens)?;
+        self.token_budget.write().record_usage(result.usage.total_tokens)?;
 
         Ok(result)
     }
@@ -145,11 +138,7 @@ impl LlmClient {
 
     pub fn token_usage(&self) -> TokenUsage {
         let budget = self.token_budget.read();
-        TokenUsage {
-            prompt_tokens: 0,
-            completion_tokens: 0,
-            total_tokens: budget.used_tokens,
-        }
+        TokenUsage { prompt_tokens: 0, completion_tokens: 0, total_tokens: budget.used_tokens }
     }
 
     pub fn remaining_budget(&self) -> u64 {

@@ -46,9 +46,7 @@ pub struct IdempotencyInterceptor {
 
 impl Default for IdempotencyInterceptor {
     fn default() -> Self {
-        Self {
-            seen: RwLock::new(HashSet::with_capacity(1024)),
-        }
+        Self { seen: RwLock::new(HashSet::with_capacity(1024)) }
     }
 }
 
@@ -60,9 +58,7 @@ impl BusInterceptor for IdempotencyInterceptor {
         let id = env.msg_id.as_str().to_string();
         let mut set = self.seen.write();
         if set.contains(&id) {
-            return InterceptDecision::Reject {
-                reason: format!("duplicate message id: {id}"),
-            };
+            return InterceptDecision::Reject { reason: format!("duplicate message id: {id}") };
         }
         if set.len() >= 100_000 {
             set.clear();
@@ -80,9 +76,7 @@ impl BusInterceptor for SchemaVersionInterceptor {
     }
     fn intercept(&self, env: &SignalEnvelope) -> InterceptDecision {
         if env.schema_version.0 == 0 {
-            return InterceptDecision::Reject {
-                reason: "schema version 0 is invalid".into(),
-            };
+            return InterceptDecision::Reject { reason: "schema version 0 is invalid".into() };
         }
         InterceptDecision::Allow
     }
@@ -94,9 +88,7 @@ pub struct LoopDetectInterceptor {
 
 impl Default for LoopDetectInterceptor {
     fn default() -> Self {
-        Self {
-            detector: LoopDetector::new(16, 1024),
-        }
+        Self { detector: LoopDetector::new(16, 1024) }
     }
 }
 
@@ -107,9 +99,7 @@ impl BusInterceptor for LoopDetectInterceptor {
     fn intercept(&self, env: &SignalEnvelope) -> InterceptDecision {
         match self.detector.check_and_record(env) {
             Ok(()) => InterceptDecision::Allow,
-            Err(reason) => InterceptDecision::Reject {
-                reason: reason.to_string(),
-            },
+            Err(reason) => InterceptDecision::Reject { reason: reason.to_string() },
         }
     }
 }

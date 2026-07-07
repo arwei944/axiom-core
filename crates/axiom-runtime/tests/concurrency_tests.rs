@@ -137,10 +137,7 @@ async fn test_concurrent_supervisor_multiple_cells() {
 
     for i in 0..num_cells {
         supervisor
-            .register_cell(
-                &format!("cell-{}", i),
-                SupervisionStrategy::Restart { max_retries: 5 },
-            )
+            .register_cell(&format!("cell-{}", i), SupervisionStrategy::Restart { max_retries: 5 })
             .await;
     }
 

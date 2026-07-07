@@ -53,12 +53,11 @@ use heatmap::run_heatmap;
 mod plugin;
 use plugin::run_plugin;
 
+mod migrate;
+use migrate::run_migrate;
+
 #[derive(Parser)]
-#[command(
-    name = "axm",
-    about = "Axiom CLI - development automation gates",
-    version
-)]
+#[command(name = "axm", about = "Axiom CLI - development automation gates", version)]
 pub struct Cli {
     #[command(subcommand)]
     pub command: Commands,
@@ -98,6 +97,8 @@ pub enum Commands {
     Heatmap(heatmap::HeatmapArgs),
     /// Plugin management commands
     Plugin(plugin::PluginArgs),
+    /// Migrate from axiom-core (v0.3) to axiom-kernel (v0.4)
+    Migrate(migrate::MigrateArgs),
     /// Initialize an axiom project (install hooks, generate constraints lock)
     Init,
     /// Install git hooks (configures core.hooksPath to hooks/)
@@ -139,6 +140,7 @@ pub fn run(cli: &Cli) -> Result<ExitCode, anyhow::Error> {
         Commands::Entropy(args) => run_entropy(args),
         Commands::Heatmap(args) => run_heatmap(args),
         Commands::Plugin(args) => run_plugin(args),
+        Commands::Migrate(args) => run_migrate(args),
         Commands::Init => init::run_init(),
         Commands::InstallHooks => install_hooks_only(),
         Commands::Preflight(args) => run_preflight(args),
@@ -189,10 +191,7 @@ fn run_check() -> Result<ExitCode, anyhow::Error> {
     let warnings = results.iter().filter(|r| !r.passed && !r.blocking).count();
     let failures = results.iter().filter(|r| !r.passed && r.blocking).count();
 
-    println!(
-        "\nResults: {} passed, {} warnings, {} blocking failures",
-        passed, warnings, failures
-    );
+    println!("\nResults: {} passed, {} warnings, {} blocking failures", passed, warnings, failures);
 
     if blocking {
         println!("\nBLOCKING FAILURES - do not commit or push.");

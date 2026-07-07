@@ -25,10 +25,7 @@ fn test_template_missing_variable() {
     let result = template.render(&values);
 
     assert!(result.is_err());
-    assert!(matches!(
-        result.unwrap_err(),
-        PromptError::MissingVariable(_)
-    ));
+    assert!(matches!(result.unwrap_err(), PromptError::MissingVariable(_)));
 }
 
 #[test]
@@ -117,11 +114,9 @@ fn test_required_and_optional_variables() {
 
 #[test]
 fn test_template_composition() {
-    let system = PromptTemplate::new(
-        "system",
-        "You are a helpful assistant.\n{%body%}\nEnd instructions.",
-    )
-    .with_section("body");
+    let system =
+        PromptTemplate::new("system", "You are a helpful assistant.\n{%body%}\nEnd instructions.")
+            .with_section("body");
 
     let body = PromptTemplate::new("body", "Task: {{task}}")
         .with_variable(TemplateVariable::new("task", VariableType::String));
@@ -132,10 +127,7 @@ fn test_template_composition() {
     values.insert("task".to_string(), json!("write code"));
 
     let result = composed.render(&values).unwrap();
-    assert_eq!(
-        result,
-        "You are a helpful assistant.\nTask: write code\nEnd instructions."
-    );
+    assert_eq!(result, "You are a helpful assistant.\nTask: write code\nEnd instructions.");
 }
 
 #[test]
@@ -195,10 +187,7 @@ fn test_registry_version_conflict() {
     let result = registry.register(t2);
 
     assert!(result.is_err());
-    assert!(matches!(
-        result.unwrap_err(),
-        PromptError::VersionConflict(_)
-    ));
+    assert!(matches!(result.unwrap_err(), PromptError::VersionConflict(_)));
 }
 
 #[test]
@@ -249,15 +238,9 @@ fn test_registry_counts() {
     assert_eq!(registry.template_count(), 0);
     assert_eq!(registry.total_versions(), 0);
 
-    registry
-        .register(PromptTemplate::new("a", "A").with_version("1.0.0"))
-        .unwrap();
-    registry
-        .register(PromptTemplate::new("a", "A2").with_version("2.0.0"))
-        .unwrap();
-    registry
-        .register(PromptTemplate::new("b", "B").with_version("1.0.0"))
-        .unwrap();
+    registry.register(PromptTemplate::new("a", "A").with_version("1.0.0")).unwrap();
+    registry.register(PromptTemplate::new("a", "A2").with_version("2.0.0")).unwrap();
+    registry.register(PromptTemplate::new("b", "B").with_version("1.0.0")).unwrap();
 
     assert_eq!(registry.template_count(), 2);
     assert_eq!(registry.total_versions(), 3);
@@ -267,9 +250,7 @@ fn test_registry_counts() {
 fn test_registry_remove() {
     let mut registry = registry::TemplateRegistry::new();
 
-    registry
-        .register(PromptTemplate::new("test", "Test").with_version("1.0.0"))
-        .unwrap();
+    registry.register(PromptTemplate::new("test", "Test").with_version("1.0.0")).unwrap();
 
     assert!(registry.has_template("test"));
     assert!(registry.remove("test"));
@@ -281,12 +262,8 @@ fn test_registry_remove() {
 fn test_registry_remove_version() {
     let mut registry = registry::TemplateRegistry::new();
 
-    registry
-        .register(PromptTemplate::new("test", "v1").with_version("1.0.0"))
-        .unwrap();
-    registry
-        .register(PromptTemplate::new("test", "v2").with_version("2.0.0"))
-        .unwrap();
+    registry.register(PromptTemplate::new("test", "v1").with_version("1.0.0")).unwrap();
+    registry.register(PromptTemplate::new("test", "v2").with_version("2.0.0")).unwrap();
 
     assert!(registry.has_version("test", "1.0.0"));
     assert!(registry.remove_version("test", "1.0.0"));

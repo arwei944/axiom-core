@@ -12,10 +12,7 @@ mod tests {
 
     #[test]
     fn test_threshold_matches() {
-        let t = Threshold {
-            kind: ThresholdKind::Gt,
-            value: 10.0,
-        };
+        let t = Threshold { kind: ThresholdKind::Gt, value: 10.0 };
         assert!(t.matches(11.0));
         assert!(!t.matches(10.0));
     }

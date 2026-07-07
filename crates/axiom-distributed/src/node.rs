@@ -34,16 +34,9 @@ impl NodeInfo {
     pub fn new(address: impl Into<String>, labels: Vec<(String, String)>) -> Self {
         let address = address.into();
         let node_id = NodeId::new(&address);
-        let started_at_ns = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .map(|d| d.as_nanos() as u64)
-            .unwrap_or(0);
-        Self {
-            node_id,
-            address,
-            started_at_ns,
-            labels,
-        }
+        let started_at_ns =
+            SystemTime::now().duration_since(UNIX_EPOCH).map(|d| d.as_nanos() as u64).unwrap_or(0);
+        Self { node_id, address, started_at_ns, labels }
     }
 }
 

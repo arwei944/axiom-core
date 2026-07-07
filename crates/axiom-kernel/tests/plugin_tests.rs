@@ -9,9 +9,7 @@ async fn test_plugin_context_creation() {
         axiom_kernel::AxiomKernel::new(),
         axiom_kernel::WitnessKernel::new(),
         axiom_kernel::PluginRegistry::new(),
-        std::sync::Arc::new(tokio::sync::RwLock::new(
-            axiom_kernel::HeatmapCollector::new(),
-        )),
+        std::sync::Arc::new(tokio::sync::RwLock::new(axiom_kernel::HeatmapCollector::new())),
     );
     assert_eq!(ctx.cells.count().await, 0);
 }

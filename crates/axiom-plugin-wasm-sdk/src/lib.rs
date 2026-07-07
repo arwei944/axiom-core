@@ -1,5 +1,6 @@
 use axiom_kernel::plugin::abi::AxiomPlugin;
-use std::sync::{Arc, Mutex};
+use parking_lot::Mutex;
+use std::sync::Arc;
 
 pub struct WasmPluginBuilder {
     plugin: Arc<Mutex<Option<Box<dyn AxiomPlugin>>>>,
@@ -7,13 +8,11 @@ pub struct WasmPluginBuilder {
 
 impl WasmPluginBuilder {
     pub fn new() -> Self {
-        Self {
-            plugin: Arc::new(Mutex::new(None)),
-        }
+        Self { plugin: Arc::new(Mutex::new(None)) }
     }
 
     pub fn build(self) -> *mut () {
-        let mut plugin = self.plugin.lock().unwrap();
+        let mut plugin = self.plugin.lock();
         if let Some(p) = plugin.take() {
             let raw = Box::into_raw(p);
             raw as *mut ()
@@ -32,7 +31,8 @@ impl Default for WasmPluginBuilder {
 #[macro_export]
 macro_rules! axiom_wasm_plugin {
     ($plugin_type:ty) => {
-        use std::sync::{Arc, Mutex};
+        use parking_lot::Mutex;
+        use std::sync::Arc;
         use $crate::wasm_sdk::WasmPluginBuilder;
 
         #[no_mangle]
@@ -40,7 +40,7 @@ macro_rules! axiom_wasm_plugin {
             let builder = WasmPluginBuilder::new();
             let plugin = <$plugin_type>::default();
             {
-                let mut b = builder.plugin.lock().unwrap();
+                let mut b = builder.plugin.lock();
                 *b = Some(Box::new(plugin));
             }
             builder.build()
@@ -83,7 +83,14 @@ macro_rules! axiom_wasm_plugin {
                     Ok(b) => b,
                     Err(_) => return std::ptr::null_mut(),
                 };
-                let ptr = std::alloc::alloc(std::alloc::Layout::from_vec(bytes.clone()).unwrap());
+                let layout = match std::alloc::Layout::from_vec(bytes.clone()) {
+                    Ok(l) => l,
+                    Err(_) => return std::ptr::null_mut(),
+                };
+                let ptr = std::alloc::alloc(layout);
+                if ptr.is_null() {
+                    return std::ptr::null_mut();
+                }
                 ptr.copy_from(bytes.as_ptr(), bytes.len());
                 std::mem::forget(bytes);
                 ptr

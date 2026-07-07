@@ -192,7 +192,11 @@ impl AgentCell {
     }
 
     /// Route a natural signal based on intent.
-    pub fn route_signal(&self, intent: &str, confidence: f64) -> crate::intent_router::RoutingResult {
+    pub fn route_signal(
+        &self,
+        intent: &str,
+        confidence: f64,
+    ) -> crate::intent_router::RoutingResult {
         if let Some(router) = &self.intent_router {
             router.route(intent, confidence)
         } else {
@@ -221,10 +225,7 @@ impl AgentCell {
             let identity = persona.identity();
             self.memory.add(axiom_memory::MemoryItem::new(
                 axiom_memory::MemoryItemType::System,
-                format!(
-                    "Agent {} started. Role: {}",
-                    identity.name, identity.description
-                ),
+                format!("Agent {} started. Role: {}", identity.name, identity.description),
             ));
         }
 
@@ -269,8 +270,7 @@ impl AgentCell {
         );
 
         // Record user input in memory
-        self.memory
-            .add(axiom_memory::MemoryItem::observation(user_input));
+        self.memory.add(axiom_memory::MemoryItem::observation(user_input));
 
         // Update skills based on context
         if let Some(persona) = &self.persona {
@@ -288,9 +288,7 @@ impl AgentCell {
         let system_prompt = self.build_system_prompt();
 
         // Build the full prompt
-        let memory_context = self
-            .memory
-            .render_with_limit(self.config.memory_token_budget);
+        let memory_context = self.memory.render_with_limit(self.config.memory_token_budget);
         let full_prompt = format!(
             "{}\n\nContext:\n{}\n\nUser: {}\n\nAssistant:",
             system_prompt, memory_context, user_input
@@ -304,9 +302,7 @@ impl AgentCell {
             match planner.plan_and_execute(user_input, &memory_context).await {
                 Ok(result) => {
                     if result.success {
-                        result
-                            .final_output
-                            .unwrap_or_else(|| "Task completed.".to_string())
+                        result.final_output.unwrap_or_else(|| "Task completed.".to_string())
                     } else {
                         self.stats.write().errors += 1;
                         tracing::warn!(
@@ -314,9 +310,7 @@ impl AgentCell {
                             iterations = result.iterations,
                             "Planning did not succeed"
                         );
-                        result
-                            .final_output
-                            .unwrap_or_else(|| "Planning failed.".to_string())
+                        result.final_output.unwrap_or_else(|| "Planning failed.".to_string())
                     }
                 }
                 Err(e) => {
@@ -350,9 +344,7 @@ impl AgentCell {
             })?;
             completion.text
         } else {
-            return Err(AgentError::NotConfigured(
-                "No LLM client or planner available".into(),
-            ));
+            return Err(AgentError::NotConfigured("No LLM client or planner available".into()));
         };
 
         // Record response in memory
@@ -367,7 +359,7 @@ impl AgentCell {
 
         // Record interaction in self-monitor
         if let Some(monitor) = &self.self_monitor {
-            monitor.record_interaction(true, duration_ms, 0.8, intent.as_deref().unwrap_or("unknown"));
+            monitor.record_interaction(true, duration_ms, 0.8, intent.unwrap_or("unknown"));
         }
 
         tracing::debug!(
@@ -432,19 +424,13 @@ impl AgentCell {
 
     /// Get available tools from the persona's active skills.
     pub fn available_tools(&self) -> Vec<String> {
-        self.persona
-            .as_ref()
-            .map(|p| p.available_tools())
-            .unwrap_or_default()
+        self.persona.as_ref().map(|p| p.available_tools()).unwrap_or_default()
     }
 
     /// Register a prompt template.
     pub fn register_template(&self, template: axiom_prompt::PromptTemplate) -> AgentResult<()> {
         if let Some(registry) = &self.prompt_registry {
-            registry
-                .write()
-                .register(template)
-                .map_err(AgentError::from)?;
+            registry.write().register(template).map_err(AgentError::from)?;
         }
         Ok(())
     }
@@ -460,10 +446,7 @@ impl AgentCell {
             .as_ref()
             .ok_or_else(|| AgentError::NotConfigured("Prompt registry not set".into()))?;
 
-        registry
-            .read()
-            .render_latest(name, values)
-            .map_err(AgentError::from)
+        registry.read().render_latest(name, values).map_err(AgentError::from)
     }
 
     fn build_system_prompt(&self) -> String {

@@ -41,9 +41,7 @@ pub struct TracerHandle {
 #[cfg(feature = "telemetry")]
 impl TracerHandle {
     pub fn new(provider: Arc<dyn opentelemetry::trace::TracerProvider>) -> Self {
-        Self {
-            inner: Some(provider),
-        }
+        Self { inner: Some(provider) }
     }
 
     pub fn tracer(
@@ -51,11 +49,9 @@ impl TracerHandle {
         name: &str,
     ) -> Result<impl opentelemetry::trace::Tracer, axiom_kernel::error::AxiomError> {
         let provider =
-            self.inner
-                .as_ref()
-                .ok_or_else(|| axiom_kernel::error::AxiomError::Internal {
-                    message: "tracer provider not initialized".into(),
-                })?;
+            self.inner.as_ref().ok_or_else(|| axiom_kernel::error::AxiomError::Internal {
+                message: "tracer provider not initialized".into(),
+            })?;
         Ok(provider.tracer(name))
     }
 }

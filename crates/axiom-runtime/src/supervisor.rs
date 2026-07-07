@@ -99,9 +99,7 @@ struct CellSupervision {
 
 impl Supervisor {
     pub fn new() -> Self {
-        Self {
-            states: RwLock::new(HashMap::new()),
-        }
+        Self { states: RwLock::new(HashMap::new()) }
     }
 
     pub async fn register_cell(
@@ -182,17 +180,13 @@ impl Supervisor {
                 } else {
                     let attempt = s.restart_count as u32;
                     s.state = CellState::Restarting { attempt };
-                    SupervisionDecision::Restart {
-                        backoff_ms: Self::backoff_ms(attempt),
-                    }
+                    SupervisionDecision::Restart { backoff_ms: Self::backoff_ms(attempt) }
                 }
             }
             axiom_kernel::cell::SupervisionStrategy::CircuitBreak { .. } => {
                 let attempt = s.restart_count as u32;
                 s.state = CellState::Restarting { attempt };
-                SupervisionDecision::Restart {
-                    backoff_ms: Self::backoff_ms(attempt),
-                }
+                SupervisionDecision::Restart { backoff_ms: Self::backoff_ms(attempt) }
             }
         }
     }
@@ -204,21 +198,11 @@ impl Supervisor {
     }
 
     pub async fn restart_count(&self, cell_id: &str) -> u64 {
-        self.states
-            .read()
-            .await
-            .get(cell_id)
-            .map(|s| s.restart_count)
-            .unwrap_or(0)
+        self.states.read().await.get(cell_id).map(|s| s.restart_count).unwrap_or(0)
     }
 
     pub async fn is_circuit_open(&self, cell_id: &str) -> bool {
-        self.states
-            .read()
-            .await
-            .get(cell_id)
-            .map(|s| s.circuit_breaker.is_open())
-            .unwrap_or(false)
+        self.states.read().await.get(cell_id).map(|s| s.circuit_breaker.is_open()).unwrap_or(false)
     }
 }
 
@@ -284,10 +268,7 @@ mod tests {
         let _ = sup.record_panic("test-cell").await;
         let _ = sup.record_panic("test-cell").await;
         let d4 = sup.record_panic("test-cell").await;
-        assert!(
-            matches!(d4, SupervisionDecision::Stop),
-            "after max retries should stop"
-        );
+        assert!(matches!(d4, SupervisionDecision::Stop), "after max retries should stop");
     }
 
     #[tokio::test]

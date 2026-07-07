@@ -22,20 +22,14 @@ pub fn run_new_tool(args: &NewToolArgs) -> Result<std::process::ExitCode> {
     let file_path = PathBuf::from(output_dir).join(&file_name);
 
     if file_path.exists() {
-        return Err(anyhow::anyhow!(
-            "Tool file '{}' already exists",
-            file_path.display()
-        ));
+        return Err(anyhow::anyhow!("Tool file '{}' already exists", file_path.display()));
     }
 
     fs::create_dir_all(output_dir).context("Failed to create output directory")?;
 
     let permission = args.permission.as_deref().unwrap_or("none");
 
-    println!(
-        "Creating Tool '{}' (permission: {})...",
-        args.name, permission
-    );
+    println!("Creating Tool '{}' (permission: {})...", args.name, permission);
 
     create_tool_file(&file_path, &args.name, permission)?;
     update_tools_mod(output_dir, &args.name)?;
@@ -98,7 +92,6 @@ fn create_tool_file(file_path: &Path, name: &str, permission: &str) -> Result<()
     content.push_str("    }\n");
     content.push_str("}\n");
     content.push('\n');
-    content.push_str("#[async_trait::async_trait]\n");
     content.push_str(&format!("impl Tool for {} {{\n", name));
     content.push_str("    fn info(&self) -> ToolInfo {\n");
     content.push_str("        ToolInfo {\n");
@@ -106,10 +99,7 @@ fn create_tool_file(file_path: &Path, name: &str, permission: &str) -> Result<()
         "            name: \"{}\".to_string(),\n",
         snake_name.replace("_", "-")
     ));
-    content.push_str(&format!(
-        "            description: \"{}\".to_string(),\n",
-        description
-    ));
+    content.push_str(&format!("            description: \"{}\".to_string(),\n", description));
     content.push_str("            parameters: vec![\n");
     content.push_str("                ToolParameter {\n");
     content.push_str("                    name: \"input\".to_string(),\n");
@@ -118,10 +108,7 @@ fn create_tool_file(file_path: &Path, name: &str, permission: &str) -> Result<()
     content.push_str("                    schema: serde_json::json!({{\"type\": \"object\"}}),\n");
     content.push_str("                },\n");
     content.push_str("            ],\n");
-    content.push_str(&format!(
-        "            required_permission: {},\n",
-        required_permission_str
-    ));
+    content.push_str(&format!("            required_permission: {},\n", required_permission_str));
     content.push_str("            version: \"1.0.0\".to_string(),\n");
     content.push_str("        }\n");
     content.push_str("    }\n");
@@ -167,8 +154,7 @@ fn create_tool_file(file_path: &Path, name: &str, permission: &str) -> Result<()
     content.push_str("}\n");
 
     let mut file = File::create(file_path).context("Failed to create tool file")?;
-    file.write_all(content.as_bytes())
-        .context("Failed to write tool file")?;
+    file.write_all(content.as_bytes()).context("Failed to write tool file")?;
 
     Ok(())
 }

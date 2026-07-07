@@ -25,10 +25,7 @@ fn parse_local_deps(cargo_path: &Path) -> Result<(String, Vec<String>), std::io:
             && !trimmed.is_empty()
             && !trimmed.starts_with('#')
         {
-            if let Some(dep_name) = trimmed
-                .split(|c: char| c.is_whitespace() || c == '=')
-                .next()
-            {
+            if let Some(dep_name) = trimmed.split(|c: char| c.is_whitespace() || c == '=').next() {
                 if dep_name.starts_with("axiom-") {
                     deps.push(dep_name.to_string());
                 }
@@ -90,10 +87,8 @@ impl Check for VerifyCheck {
             }
         };
 
-        let order: HashMap<&str, usize> = axiom_kernel::gate::crate_layers()
-            .iter()
-            .map(|(n, l)| (n.as_str(), *l))
-            .collect();
+        let order: HashMap<&str, usize> =
+            axiom_kernel::gate::crate_layers().iter().map(|(n, l)| (n.as_str(), *l)).collect();
 
         let mut violations = Vec::new();
         let max_order = axiom_kernel::gate::crate_layers().len();
@@ -106,7 +101,11 @@ impl Check for VerifyCheck {
                 }
                 let dep_level = order.get(dep.as_str()).copied().unwrap_or(max_order);
                 if dep_level < crate_level {
-                    let is_exempt = axiom_kernel::gate::verify_dependencies(crate_name, std::slice::from_ref(dep)).is_empty();
+                    let is_exempt = axiom_kernel::gate::verify_dependencies(
+                        crate_name,
+                        std::slice::from_ref(dep),
+                    )
+                    .is_empty();
                     if !is_exempt {
                         violations.push(format!(
                             "{crate_name} (level {crate_level}) depends on {dep} (level {dep_level}) - REVERSE DEPENDENCY"

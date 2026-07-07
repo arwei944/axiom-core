@@ -40,12 +40,7 @@ pub fn run_entropy(args: &EntropyArgs) -> Result<ExitCode> {
     println!("Plugins: {}", snapshot.plugin_count);
     println!(
         "Heatmap signals: {}",
-        snapshot
-            .heatmap
-            .hot_signals
-            .iter()
-            .map(|(_, v)| v)
-            .sum::<u64>()
+        snapshot.heatmap.hot_signals.iter().map(|(_, v)| v).sum::<u64>()
     );
 
     Ok(ExitCode::SUCCESS)

@@ -16,10 +16,7 @@ fn parse_deps_from_cargo(path: &Path) -> Result<Vec<String>, std::io::Error> {
             continue;
         }
         if in_deps && !trimmed.is_empty() && !trimmed.starts_with('#') {
-            if let Some(name) = trimmed
-                .split(|c: char| c.is_whitespace() || c == '=')
-                .next()
-            {
+            if let Some(name) = trimmed.split(|c: char| c.is_whitespace() || c == '=').next() {
                 if !name.is_empty() && !name.starts_with("axiom-") {
                     deps.push(name.to_string());
                 }

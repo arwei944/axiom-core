@@ -14,12 +14,7 @@ pub struct ReActPlanner {
 
 impl ReActPlanner {
     pub fn new() -> Self {
-        Self {
-            max_iterations: 10,
-            llm_client: None,
-            tool_registry: None,
-            memory: None,
-        }
+        Self { max_iterations: 10, llm_client: None, tool_registry: None, memory: None }
     }
 
     pub fn with_max_iterations(mut self, max: u32) -> Self {
@@ -179,10 +174,7 @@ impl Planner for ReActPlanner {
                 steps.push(step);
             }
 
-            Ok(PlanningResult::failure(
-                steps,
-                "Max iterations reached without final answer",
-            ))
+            Ok(PlanningResult::failure(steps, "Max iterations reached without final answer"))
         })
     }
 }

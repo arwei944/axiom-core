@@ -26,9 +26,7 @@ pub fn verify_migration_chain_completeness(up_to: u16) -> Result<(), Vec<String>
     let chains = registered_migration_chains();
     let mut gaps = Vec::new();
     for v in 1..up_to {
-        let found = chains
-            .iter()
-            .any(|(from, to, _for_type, _name)| *from == v && *to == v + 1);
+        let found = chains.iter().any(|(from, to, _for_type, _name)| *from == v && *to == v + 1);
         if !found {
             gaps.push(format!("missing migration {v}->{}", v + 1));
         }
@@ -76,11 +74,7 @@ impl LensRegistry {
     }
 
     pub fn get_by_aggregate(aggregate_id: &str) -> Vec<&'static dyn DynLens> {
-        LENS_REGISTRY
-            .iter()
-            .filter(|f| f().id().starts_with(aggregate_id))
-            .map(|f| f())
-            .collect()
+        LENS_REGISTRY.iter().filter(|f| f().id().starts_with(aggregate_id)).map(|f| f()).collect()
     }
 }
 
@@ -201,19 +195,11 @@ impl CapabilityVersionRegistry {
     pub fn capabilities_by_dimension(
         dim: &CapabilityDimension,
     ) -> Vec<&'static CapabilityDescriptor> {
-        CAPABILITY_REGISTRY
-            .iter()
-            .filter(|c| c.dimension == *dim)
-            .copied()
-            .collect()
+        CAPABILITY_REGISTRY.iter().filter(|c| c.dimension == *dim).copied().collect()
     }
 
     pub fn latest_version_for_dimension(dim: &CapabilityDimension) -> Option<Version> {
-        CAPABILITY_REGISTRY
-            .iter()
-            .filter(|c| c.dimension == *dim)
-            .map(|c| c.version)
-            .max()
+        CAPABILITY_REGISTRY.iter().filter(|c| c.dimension == *dim).map(|c| c.version).max()
     }
 
     pub fn verify_all() -> Result<(), String> {
@@ -259,9 +245,7 @@ pub struct WitnessRegistry {
 
 impl WitnessRegistry {
     pub const fn new() -> Self {
-        Self {
-            witnesses: Mutex::new(Vec::new()),
-        }
+        Self { witnesses: Mutex::new(Vec::new()) }
     }
 
     pub fn record(&self, witness: Witness) {

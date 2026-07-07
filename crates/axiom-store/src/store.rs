@@ -22,11 +22,7 @@ pub enum StoreError {
     #[error("Duplicate event: {0}")]
     DuplicateEvent(String),
     #[error("Migration chain gap for {event_type}: no migration from v{from} to v{current}")]
-    MigrationChainGap {
-        event_type: String,
-        from: u32,
-        current: u32,
-    },
+    MigrationChainGap { event_type: String, from: u32, current: u32 },
     #[error("Witness chain broken: {0}")]
     WitnessChainBroken(String),
     #[error("Internal error: {message}")]

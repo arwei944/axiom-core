@@ -27,10 +27,7 @@ async fn test_layer_violation_exec_to_agent_rejected() {
     let decision = guardian.intercept(&env);
 
     assert!(
-        matches!(
-            decision,
-            axiom_runtime::bus::InterceptDecision::Reject { .. }
-        ),
+        matches!(decision, axiom_runtime::bus::InterceptDecision::Reject { .. }),
         "Exec -> Agent should be rejected by ArchitectureGuardian"
     );
 }
@@ -84,10 +81,7 @@ async fn test_layer_violation_exec_to_validate_rejected() {
     let decision = guardian.intercept(&env);
 
     assert!(
-        matches!(
-            decision,
-            axiom_runtime::bus::InterceptDecision::Reject { .. }
-        ),
+        matches!(decision, axiom_runtime::bus::InterceptDecision::Reject { .. }),
         "Exec -> Validate should be rejected"
     );
 }
@@ -101,10 +95,7 @@ fn test_witness_chain_valid_chain_passes() {
     let w3 = make_witness("cell-a", 3, Some(w2.hash), "third");
 
     let chain = vec![w1, w2, w3];
-    assert!(
-        Witness::verify_chain_integrity(&chain),
-        "valid chain should verify successfully"
-    );
+    assert!(Witness::verify_chain_integrity(&chain), "valid chain should verify successfully");
 }
 
 #[test]
@@ -114,10 +105,7 @@ fn test_witness_chain_broken_chain_fails() {
     let w3 = make_witness("cell-a", 3, None, "third");
 
     let chain = vec![w1, broken, w3];
-    assert!(
-        !Witness::verify_chain_integrity(&chain),
-        "broken chain should fail verification"
-    );
+    assert!(!Witness::verify_chain_integrity(&chain), "broken chain should fail verification");
 }
 
 #[test]
@@ -176,30 +164,16 @@ async fn test_supervisor_restart_with_exponential_backoff() {
     use axiom_runtime::supervisor::{SupervisionDecision, Supervisor};
 
     let supervisor = Supervisor::new();
-    supervisor
-        .register_cell(
-            "crashy-cell",
-            SupervisionStrategy::Restart { max_retries: 3 },
-        )
-        .await;
+    supervisor.register_cell("crashy-cell", SupervisionStrategy::Restart { max_retries: 3 }).await;
 
     let d1 = supervisor.record_panic("crashy-cell").await;
-    assert!(matches!(
-        d1,
-        SupervisionDecision::Restart { backoff_ms: 100 }
-    ));
+    assert!(matches!(d1, SupervisionDecision::Restart { backoff_ms: 100 }));
 
     let d2 = supervisor.record_panic("crashy-cell").await;
-    assert!(matches!(
-        d2,
-        SupervisionDecision::Restart { backoff_ms: 200 }
-    ));
+    assert!(matches!(d2, SupervisionDecision::Restart { backoff_ms: 200 }));
 
     let d3 = supervisor.record_panic("crashy-cell").await;
-    assert!(matches!(
-        d3,
-        SupervisionDecision::Restart { backoff_ms: 400 }
-    ));
+    assert!(matches!(d3, SupervisionDecision::Restart { backoff_ms: 400 }));
 
     let d4 = supervisor.record_panic("crashy-cell").await;
     assert!(matches!(d4, SupervisionDecision::Stop));
@@ -210,9 +184,7 @@ async fn test_supervisor_stop_strategy() {
     use axiom_runtime::supervisor::{SupervisionDecision, Supervisor};
 
     let supervisor = Supervisor::new();
-    supervisor
-        .register_cell("stop-cell", SupervisionStrategy::Stop)
-        .await;
+    supervisor.register_cell("stop-cell", SupervisionStrategy::Stop).await;
 
     let d = supervisor.record_panic("stop-cell").await;
     assert!(matches!(d, SupervisionDecision::Stop));
@@ -226,10 +198,7 @@ async fn test_supervisor_circuit_breaker_opens_and_resets() {
     supervisor
         .register_cell(
             "cb-cell",
-            SupervisionStrategy::CircuitBreak {
-                failure_threshold: 2,
-                reset_after_ms: 50,
-            },
+            SupervisionStrategy::CircuitBreak { failure_threshold: 2, reset_after_ms: 50 },
         )
         .await;
 
@@ -249,9 +218,7 @@ async fn test_supervisor_escalate_strategy() {
     use axiom_runtime::supervisor::{SupervisionDecision, Supervisor};
 
     let supervisor = Supervisor::new();
-    supervisor
-        .register_cell("esc-cell", SupervisionStrategy::Escalate)
-        .await;
+    supervisor.register_cell("esc-cell", SupervisionStrategy::Escalate).await;
 
     let d = supervisor.record_panic("esc-cell").await;
     assert!(matches!(d, SupervisionDecision::Escalate));

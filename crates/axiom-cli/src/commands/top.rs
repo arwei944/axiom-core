@@ -33,11 +33,7 @@ pub fn run_top(args: &TopArgs) -> Result<ExitCode> {
             let cells = bridge.cell_kernel.status().await;
             let heatmap = bridge.heatmap.read().await.snapshot();
             let plugin_count = bridge.plugin_registry.list_all().await.len();
-            TopSnapshot {
-                cells,
-                heatmap,
-                plugin_count,
-            }
+            TopSnapshot { cells, heatmap, plugin_count }
         });
         let json = serde_json::to_string_pretty(&snapshot)?;
         println!("{}", json);
@@ -53,9 +49,7 @@ pub fn run_top(args: &TopArgs) -> Result<ExitCode> {
         println!("Filtering by layer: {}", layer);
     }
 
-    runtime
-        .block_on(run_tui(args, &bridge))
-        .context("TUI runtime error")?;
+    runtime.block_on(run_tui(args, &bridge)).context("TUI runtime error")?;
 
     Ok(ExitCode::SUCCESS)
 }

@@ -47,13 +47,13 @@ impl IntentRouter {
     pub fn add_route(&self, route: IntentRoute) {
         let mut routes = self.routes.write();
         routes.push(route);
-        routes.sort_by(|a, b| b.priority.cmp(&a.priority));
+        routes.sort_by_key(|r| std::cmp::Reverse(r.priority));
     }
 
     pub fn add_routes(&self, routes: Vec<IntentRoute>) {
         let mut all_routes = self.routes.write();
         all_routes.extend(routes);
-        all_routes.sort_by(|a, b| b.priority.cmp(&a.priority));
+        all_routes.sort_by_key(|r| std::cmp::Reverse(r.priority));
     }
 
     pub fn remove_route(&self, intent_pattern: &str) {

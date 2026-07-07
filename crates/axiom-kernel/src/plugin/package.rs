@@ -23,11 +23,7 @@ const AXIOM_PLUGIN_MAGIC: &[u8] = b"AXMP";
 const AXIOM_PLUGIN_VERSION: u32 = 1;
 
 pub fn pack(manifest: PluginManifest, wasm_bytes: Vec<u8>, signature: Option<Vec<u8>>) -> Vec<u8> {
-    let package = PluginPackage {
-        manifest,
-        wasm_bytes,
-        signature,
-    };
+    let package = PluginPackage { manifest, wasm_bytes, signature };
     let json = serde_json::to_vec(&package).unwrap();
     let mut out = Vec::new();
     out.extend_from_slice(AXIOM_PLUGIN_MAGIC);
@@ -46,9 +42,7 @@ pub fn unpack(data: &[u8]) -> Result<PluginPackage, PluginError> {
     }
     let version = u32::from_le_bytes([data[4], data[5], data[6], data[7]]);
     if version != AXIOM_PLUGIN_VERSION {
-        return Err(PluginError::LoadFailed(format!(
-            "unsupported version: {version}"
-        )));
+        return Err(PluginError::LoadFailed(format!("unsupported version: {version}")));
     }
     let json_len = u32::from_le_bytes([data[8], data[9], data[10], data[11]]) as usize;
     if data.len() < 12 + json_len {

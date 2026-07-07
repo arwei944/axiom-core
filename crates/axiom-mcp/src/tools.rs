@@ -27,15 +27,11 @@ pub struct ToolRegistry {
 
 impl ToolRegistry {
     pub fn new() -> Self {
-        Self {
-            tools: Arc::new(RwLock::new(HashMap::new())),
-        }
+        Self { tools: Arc::new(RwLock::new(HashMap::new())) }
     }
 
     pub fn register<T: AxiomTool>(&self, tool: T) {
-        self.tools
-            .write()
-            .insert(tool.name().to_string(), Arc::new(tool));
+        self.tools.write().insert(tool.name().to_string(), Arc::new(tool));
     }
 
     pub fn get(&self, name: &str) -> Option<Arc<dyn AxiomTool>> {
@@ -61,9 +57,7 @@ impl ToolRegistry {
     }
 
     pub async fn execute(&self, name: &str, arguments: &Value) -> Result<Value, McpError> {
-        let tool = self
-            .get(name)
-            .ok_or_else(|| McpError::ToolNotFound(name.to_string()))?;
+        let tool = self.get(name).ok_or_else(|| McpError::ToolNotFound(name.to_string()))?;
 
         tool.execute(arguments).await
     }
@@ -125,10 +119,7 @@ impl AxiomTool for CellListTool {
 
     fn execute<'a>(&'a self, _arguments: &'a Value) -> BoxMcpFuture<'a> {
         Box::pin(async move {
-            self.runtime
-                .list_cells()
-                .await
-                .map_err(|e| McpError::ToolExecution(e.to_string()))
+            self.runtime.list_cells().await.map_err(|e| McpError::ToolExecution(e.to_string()))
         })
     }
 }
@@ -252,10 +243,7 @@ impl AxiomTool for EntropyStatusTool {
 
     fn execute<'a>(&'a self, _arguments: &'a Value) -> BoxMcpFuture<'a> {
         Box::pin(async move {
-            self.runtime
-                .entropy_status()
-                .await
-                .map_err(|e| McpError::ToolExecution(e.to_string()))
+            self.runtime.entropy_status().await.map_err(|e| McpError::ToolExecution(e.to_string()))
         })
     }
 }

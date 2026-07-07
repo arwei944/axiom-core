@@ -60,9 +60,7 @@ pub struct PrometheusRegistry {
 #[cfg(feature = "metrics")]
 impl PrometheusRegistry {
     pub fn new() -> Self {
-        Self {
-            registry: prometheus::Registry::new(),
-        }
+        Self { registry: prometheus::Registry::new() }
     }
 }
 
@@ -90,11 +88,7 @@ pub struct HealthResponse {
 
 impl Default for HealthResponse {
     fn default() -> Self {
-        Self {
-            status: "ok",
-            cells_running: 0,
-            preflight_passed: false,
-        }
+        Self { status: "ok", cells_running: 0, preflight_passed: false }
     }
 }
 
@@ -122,21 +116,15 @@ impl MetricsServer {
                 health: health.clone(),
             }));
 
-        let listener = tokio::net::TcpListener::bind("0.0.0.0:9090")
-            .await
-            .map_err(|e| crate::AxiomError::Io {
-                message: format!("failed to bind metrics server: {}", e),
-            })?;
+        let listener = tokio::net::TcpListener::bind("0.0.0.0:9090").await.map_err(|e| {
+            crate::AxiomError::Io { message: format!("failed to bind metrics server: {}", e) }
+        })?;
 
         let handle = tokio::spawn(async move {
             axum::serve(listener, app).await.ok();
         });
 
-        Ok(Self {
-            registry,
-            health,
-            _handle: Some(handle),
-        })
+        Ok(Self { registry, health, _handle: Some(handle) })
     }
 
     pub fn update_health(&self, response: HealthResponse) {

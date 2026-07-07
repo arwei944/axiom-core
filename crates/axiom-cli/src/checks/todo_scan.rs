@@ -73,12 +73,7 @@ fn scan_file(path: &Path) -> Vec<String> {
 
         for pattern in TODO_PATTERNS {
             if code_no_comment.contains(pattern) {
-                hits.push(format!(
-                    "{}:{}: {}",
-                    path.display(),
-                    line_no + 1,
-                    trimmed.trim()
-                ));
+                hits.push(format!("{}:{}: {}", path.display(), line_no + 1, trimmed.trim()));
                 break;
             }
         }
@@ -133,11 +128,7 @@ impl Check for TodoScanCheck {
                 message: format!(
                     "{} placeholder(s) found:\n    {}",
                     count,
-                    all_hits
-                        .into_iter()
-                        .take(10)
-                        .collect::<Vec<_>>()
-                        .join("\n    ")
+                    all_hits.into_iter().take(10).collect::<Vec<_>>().join("\n    ")
                 ),
             }
         }
@@ -200,11 +191,7 @@ mod tests {
         let file = dir.join("sample.rs");
         fs::write(&file, r#"const MSG: &str = "todo!() placeholder";"#).unwrap();
         let hits = scan_file(&file);
-        assert!(
-            hits.is_empty(),
-            "string literal todo should not be flagged: {:?}",
-            hits
-        );
+        assert!(hits.is_empty(), "string literal todo should not be flagged: {:?}", hits);
         let _ = fs::remove_dir_all(&dir);
     }
 }

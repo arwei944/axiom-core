@@ -103,23 +103,11 @@ impl Architecture {
                 .get("allowed_deps")
                 .and_then(|x| x.as_array())
                 .map(|arr| {
-                    arr.iter()
-                        .filter_map(|x| x.as_str().map(|s| s.to_string()))
-                        .collect::<Vec<_>>()
+                    arr.iter().filter_map(|x| x.as_str().map(|s| s.to_string())).collect::<Vec<_>>()
                 })
                 .unwrap_or_default();
-            let reason = v
-                .get("reason")
-                .and_then(|x| x.as_str())
-                .unwrap_or("")
-                .to_string();
-            map.insert(
-                k.clone(),
-                ProcMacroExemption {
-                    allowed_deps: allowed,
-                    reason,
-                },
-            );
+            let reason = v.get("reason").and_then(|x| x.as_str()).unwrap_or("").to_string();
+            map.insert(k.clone(), ProcMacroExemption { allowed_deps: allowed, reason });
         }
         Ok(map)
     }

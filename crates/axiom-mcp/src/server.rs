@@ -30,13 +30,7 @@ impl McpServer {
             description: Some("Axiom Kernel runtime capabilities exposed as MCP tools".to_string()),
         };
 
-        Self {
-            state: McpServerState {
-                registry,
-                capability,
-            },
-            addr,
-        }
+        Self { state: McpServerState { registry, capability }, addr }
     }
 
     pub async fn serve(self) -> Result<(), std::io::Error> {
@@ -73,10 +67,7 @@ async fn tool_handler(
         ));
     };
 
-    let result = state
-        .registry
-        .execute(&tool_call.tool_name, &tool_call.arguments)
-        .await;
+    let result = state.registry.execute(&tool_call.tool_name, &tool_call.arguments).await;
 
     Json(McpResponse::ToolResult(crate::protocol::McpToolResult {
         id: tool_call.id,

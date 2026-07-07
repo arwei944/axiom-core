@@ -9,6 +9,7 @@ repository.workspace = true
 
 [dependencies]
 axiom-kernel = { path = "../axiom-kernel" }
+parking_lot = { workspace = true }
 postcard = { version = "1", optional = true }
 
 [features]

@@ -12,17 +12,12 @@ async fn test_echo_plugin_basic() {
         axiom_kernel::AxiomKernel::new(),
         axiom_kernel::WitnessKernel::new(),
         axiom_kernel::PluginRegistry::new(),
-        std::sync::Arc::new(tokio::sync::RwLock::new(
-            axiom_kernel::HeatmapCollector::new(),
-        )),
+        std::sync::Arc::new(tokio::sync::RwLock::new(axiom_kernel::HeatmapCollector::new())),
     );
     plugin.init(ctx).unwrap();
 
     let reply = plugin
-        .handle_message(PluginMessage::Custom {
-            kind: "echo".into(),
-            payload: b"hello".to_vec(),
-        })
+        .handle_message(PluginMessage::Custom { kind: "echo".into(), payload: b"hello".to_vec() })
         .unwrap();
 
     match reply {
@@ -41,23 +36,15 @@ async fn test_counter_plugin_increments() {
         axiom_kernel::AxiomKernel::new(),
         axiom_kernel::WitnessKernel::new(),
         axiom_kernel::PluginRegistry::new(),
-        std::sync::Arc::new(tokio::sync::RwLock::new(
-            axiom_kernel::HeatmapCollector::new(),
-        )),
+        std::sync::Arc::new(tokio::sync::RwLock::new(axiom_kernel::HeatmapCollector::new())),
     );
     plugin.init(ctx).unwrap();
 
     let reply1 = plugin
-        .handle_message(PluginMessage::Custom {
-            kind: "inc".into(),
-            payload: Vec::new(),
-        })
+        .handle_message(PluginMessage::Custom { kind: "inc".into(), payload: Vec::new() })
         .unwrap();
     let reply2 = plugin
-        .handle_message(PluginMessage::Custom {
-            kind: "inc".into(),
-            payload: Vec::new(),
-        })
+        .handle_message(PluginMessage::Custom { kind: "inc".into(), payload: Vec::new() })
         .unwrap();
 
     match (reply1, reply2) {

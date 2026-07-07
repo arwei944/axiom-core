@@ -18,10 +18,7 @@ pub struct Threshold {
 
 impl Default for Threshold {
     fn default() -> Self {
-        Self {
-            kind: ThresholdKind::Gt,
-            value: 0.0,
-        }
+        Self { kind: ThresholdKind::Gt, value: 0.0 }
     }
 }
 
@@ -52,9 +49,6 @@ pub struct Window {
 
 impl Default for Window {
     fn default() -> Self {
-        Self {
-            kind: WindowKind::Count(1),
-            min_hits: 1,
-        }
+        Self { kind: WindowKind::Count(1), min_hits: 1 }
     }
 }

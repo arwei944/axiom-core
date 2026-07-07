@@ -109,11 +109,7 @@ mod tests {
                 name: self.name,
                 passed: self.passed,
                 blocking: self.blocking,
-                message: if self.passed {
-                    "ok".into()
-                } else {
-                    "failed".into()
-                },
+                message: if self.passed { "ok".into() } else { "failed".into() },
             }
         }
     }
@@ -121,16 +117,8 @@ mod tests {
     #[test]
     fn test_all_pass() {
         let checks: Vec<&dyn Check> = vec![
-            &MockCheck {
-                name: "a",
-                passed: true,
-                blocking: true,
-            },
-            &MockCheck {
-                name: "b",
-                passed: true,
-                blocking: true,
-            },
+            &MockCheck { name: "a", passed: true, blocking: true },
+            &MockCheck { name: "b", passed: true, blocking: true },
         ];
         let (results, blocking) = run_all_checks(&checks);
         assert_eq!(results.len(), 2);
@@ -141,16 +129,8 @@ mod tests {
     #[test]
     fn test_blocking_failure() {
         let checks: Vec<&dyn Check> = vec![
-            &MockCheck {
-                name: "a",
-                passed: true,
-                blocking: true,
-            },
-            &MockCheck {
-                name: "b",
-                passed: false,
-                blocking: true,
-            },
+            &MockCheck { name: "a", passed: true, blocking: true },
+            &MockCheck { name: "b", passed: false, blocking: true },
         ];
         let (_, blocking) = run_all_checks(&checks);
         assert!(blocking);
@@ -159,16 +139,8 @@ mod tests {
     #[test]
     fn test_non_blocking_failure() {
         let checks: Vec<&dyn Check> = vec![
-            &MockCheck {
-                name: "a",
-                passed: true,
-                blocking: true,
-            },
-            &MockCheck {
-                name: "b",
-                passed: false,
-                blocking: false,
-            },
+            &MockCheck { name: "a", passed: true, blocking: true },
+            &MockCheck { name: "b", passed: false, blocking: false },
         ];
         let (_, blocking) = run_all_checks(&checks);
         assert!(!blocking);

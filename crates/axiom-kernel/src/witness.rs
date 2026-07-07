@@ -162,28 +162,25 @@ impl WitnessBuilder {
                 }
                 TransitionOutcome::Failed { reason }
             }
-            TransitionOutcome::AxiomViolated {
-                axiom_name,
-                message,
-            } => TransitionOutcome::AxiomViolated {
-                axiom_name,
-                message: {
-                    let mut message = message;
-                    if message.len() > MAX_REASON_LEN {
-                        message.truncate(MAX_REASON_LEN);
-                    }
-                    message
-                },
-            },
+            TransitionOutcome::AxiomViolated { axiom_name, message } => {
+                TransitionOutcome::AxiomViolated {
+                    axiom_name,
+                    message: {
+                        let mut message = message;
+                        if message.len() > MAX_REASON_LEN {
+                            message.truncate(MAX_REASON_LEN);
+                        }
+                        message
+                    },
+                }
+            }
             other => other,
         };
         self
     }
 
     pub fn failed(self, reason: impl Into<String>) -> Self {
-        self.outcome(TransitionOutcome::Failed {
-            reason: reason.into(),
-        })
+        self.outcome(TransitionOutcome::Failed { reason: reason.into() })
     }
 
     pub fn axiom_violated(self, name: impl Into<String>, msg: impl Into<String>) -> Self {
@@ -222,23 +219,20 @@ impl WitnessBuilder {
         let cell_id = ctx.cell_id.as_str().to_string();
         let version_info = crate::version::VersionInfo::current();
 
-        let signal_fingerprint = match (
-            &ctx.current_signal_type,
-            ctx.current_schema_version,
-            &ctx.current_payload,
-        ) {
-            (Some(st), Some(sv), Some(pl)) => {
-                let mut hasher = DefaultHasher::new();
-                hasher.write(st.as_bytes());
-                hasher.write(sv.to_string().as_bytes());
-                hasher.write(serde_json::to_string(pl).unwrap_or_default().as_bytes());
-                let hash = hasher.finish();
-                let mut fingerprint = [0u8; 32];
-                fingerprint[0..8].copy_from_slice(&hash.to_be_bytes());
-                fingerprint
-            }
-            _ => [0u8; 32],
-        };
+        let signal_fingerprint =
+            match (&ctx.current_signal_type, ctx.current_schema_version, &ctx.current_payload) {
+                (Some(st), Some(sv), Some(pl)) => {
+                    let mut hasher = DefaultHasher::new();
+                    hasher.write(st.as_bytes());
+                    hasher.write(sv.to_string().as_bytes());
+                    hasher.write(serde_json::to_string(pl).unwrap_or_default().as_bytes());
+                    let hash = hasher.finish();
+                    let mut fingerprint = [0u8; 32];
+                    fingerprint[0..8].copy_from_slice(&hash.to_be_bytes());
+                    fingerprint
+                }
+                _ => [0u8; 32],
+            };
 
         let prev_hash = ctx.last_witness_hash;
 
@@ -312,9 +306,7 @@ pub struct WitnessKernel {
 
 impl WitnessKernel {
     pub fn new() -> Self {
-        Self {
-            witnesses: RwLock::new(Vec::new()),
-        }
+        Self { witnesses: RwLock::new(Vec::new()) }
     }
 
     pub fn with_heatmap(_heatmap: std::sync::Arc<RwLock<HeatmapCollector>>) -> Self {

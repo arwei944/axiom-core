@@ -129,9 +129,6 @@ mod tests {
 
         mb.push(make_env("m1")).await.unwrap();
         let result = mb.push(make_env("m2")).await;
-        assert!(
-            result.is_err(),
-            "second push should be rejected at capacity 1"
-        );
+        assert!(result.is_err(), "second push should be rejected at capacity 1");
     }
 }

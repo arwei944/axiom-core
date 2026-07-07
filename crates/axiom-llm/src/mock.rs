@@ -73,11 +73,7 @@ impl super::LlmProvider for MockProvider {
 
             Ok(CompletionResponse {
                 text: self.completion_response.read().clone(),
-                usage: TokenUsage {
-                    prompt_tokens: 10,
-                    completion_tokens: 20,
-                    total_tokens: 30,
-                },
+                usage: TokenUsage { prompt_tokens: 10, completion_tokens: 20, total_tokens: 30 },
                 model: "mock-model".to_string(),
             })
         })
@@ -97,11 +93,7 @@ impl super::LlmProvider for MockProvider {
                     name: None,
                     tool_call_id: None,
                 },
-                usage: TokenUsage {
-                    prompt_tokens: 50,
-                    completion_tokens: 30,
-                    total_tokens: 80,
-                },
+                usage: TokenUsage { prompt_tokens: 50, completion_tokens: 30, total_tokens: 80 },
                 model: "mock-model".to_string(),
             })
         })

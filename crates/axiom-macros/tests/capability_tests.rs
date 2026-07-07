@@ -38,10 +38,7 @@ fn test_capability_macro_auto_registration() {
     let caps = CAPABILITY_REGISTRY.iter().copied().collect::<Vec<_>>();
     assert!(caps.len() >= 8);
 
-    let witness_caps: Vec<_> = caps
-        .iter()
-        .filter(|c| c.name == "WitnessCapability")
-        .collect();
+    let witness_caps: Vec<_> = caps.iter().filter(|c| c.name == "WitnessCapability").collect();
     assert!(!witness_caps.is_empty());
 }
 
@@ -58,10 +55,7 @@ fn test_capability_version_parsing() {
 #[test]
 fn test_capability_layer_association() {
     let caps = CAPABILITY_REGISTRY.iter().copied().collect::<Vec<_>>();
-    let exec_layer_cap = caps
-        .iter()
-        .find(|c| c.name == "ExecLayerCapability")
-        .unwrap();
+    let exec_layer_cap = caps.iter().find(|c| c.name == "ExecLayerCapability").unwrap();
     let guard_cap = caps.iter().find(|c| c.name == "GuardCapability").unwrap();
 
     assert_eq!(exec_layer_cap.applies_to_layer, Some(Layer::Exec));

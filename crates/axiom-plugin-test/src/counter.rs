@@ -1,5 +1,5 @@
 use axiom_kernel::plugin::abi::{AxiomPlugin, PluginContext, PluginMessage, PluginReply};
-use std::sync::Mutex;
+use parking_lot::Mutex;
 
 #[derive(Default)]
 pub struct CounterPlugin {
@@ -26,13 +26,11 @@ impl AxiomPlugin for CounterPlugin {
         &mut self,
         _msg: PluginMessage,
     ) -> axiom_kernel::plugin::abi::PluginResult<PluginReply> {
-        let mut count = self.count.lock().unwrap();
+        let mut count = self.count.lock();
         *count += 1;
         Ok(PluginReply::Ok(count.to_string().into_bytes()))
     }
     fn clone_box(&self) -> Box<dyn AxiomPlugin> {
-        Box::new(CounterPlugin {
-            count: Mutex::new(*self.count.lock().unwrap()),
-        })
+        Box::new(CounterPlugin { count: Mutex::new(*self.count.lock()) })
     }
 }

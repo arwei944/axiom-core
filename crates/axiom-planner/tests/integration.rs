@@ -5,9 +5,7 @@ use std::sync::Arc;
 async fn test_react_planner_basic() {
     let planner = ReActPlanner::new().with_max_iterations(5);
 
-    let result = planner
-        .plan_and_execute("What is 2 + 2?", "Basic math question")
-        .await;
+    let result = planner.plan_and_execute("What is 2 + 2?", "Basic math question").await;
 
     assert!(result.is_ok());
     let result = result.unwrap();
@@ -39,13 +37,9 @@ async fn test_react_with_tools() {
 
     registry.register(SearchTool);
 
-    let planner = ReActPlanner::new()
-        .with_max_iterations(5)
-        .with_tools(registry);
+    let planner = ReActPlanner::new().with_max_iterations(5).with_tools(registry);
 
-    let result = planner
-        .plan_and_execute("Calculate something", "Need to use search tool")
-        .await;
+    let result = planner.plan_and_execute("Calculate something", "Need to use search tool").await;
 
     assert!(result.is_ok());
     let result = result.unwrap();

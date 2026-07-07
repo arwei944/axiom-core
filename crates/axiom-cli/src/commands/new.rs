@@ -98,8 +98,7 @@ tokio = {{ version = "1.0", features = ["full"] }}
 
     let mut file =
         File::create(project_path.join("Cargo.toml")).context("Failed to create Cargo.toml")?;
-    file.write_all(content.as_bytes())
-        .context("Failed to write Cargo.toml")?;
+    file.write_all(content.as_bytes()).context("Failed to write Cargo.toml")?;
 
     Ok(())
 }
@@ -137,8 +136,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let mut file =
         File::create(project_path.join("src/main.rs")).context("Failed to create main.rs")?;
-    file.write_all(content.as_bytes())
-        .context("Failed to write main.rs")?;
+    file.write_all(content.as_bytes()).context("Failed to write main.rs")?;
 
     Ok(())
 }
@@ -149,8 +147,7 @@ fn create_cells_mod(project_path: &Path) -> Result<()> {
 
     let mut file = File::create(project_path.join("src/cells/mod.rs"))
         .context("Failed to create cells/mod.rs")?;
-    file.write_all(content.as_bytes())
-        .context("Failed to write cells/mod.rs")?;
+    file.write_all(content.as_bytes()).context("Failed to write cells/mod.rs")?;
 
     let hello_cell_content = r#"use axiom_kernel::cell::Cell;
 use axiom_kernel::context::CellContext;
@@ -160,7 +157,6 @@ use axiom_kernel::layer::ExecLayer;
 #[derive(Debug, Default)]
 pub struct HelloCell;
 
-#[async_trait::async_trait]
 impl Cell for HelloCell {
     type Message = HelloSignal;
     type Layer = ExecLayer;
@@ -194,8 +190,7 @@ impl axiom_kernel::signal::Signal for HelloSignal {
 
     let mut file = File::create(project_path.join("src/cells/hello_cell.rs"))
         .context("Failed to create hello_cell.rs")?;
-    file.write_all(hello_cell_content.as_bytes())
-        .context("Failed to write hello_cell.rs")?;
+    file.write_all(hello_cell_content.as_bytes()).context("Failed to write hello_cell.rs")?;
 
     Ok(())
 }
@@ -206,8 +201,7 @@ fn create_signals_mod(project_path: &Path) -> Result<()> {
 
     let mut file = File::create(project_path.join("src/signals/mod.rs"))
         .context("Failed to create signals/mod.rs")?;
-    file.write_all(content.as_bytes())
-        .context("Failed to write signals/mod.rs")?;
+    file.write_all(content.as_bytes()).context("Failed to write signals/mod.rs")?;
 
     let hello_signal_content = r#"#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct HelloSignal {
@@ -223,8 +217,7 @@ impl axiom_kernel::signal::Signal for HelloSignal {
 
     let mut file = File::create(project_path.join("src/signals/hello_signal.rs"))
         .context("Failed to create hello_signal.rs")?;
-    file.write_all(hello_signal_content.as_bytes())
-        .context("Failed to write hello_signal.rs")?;
+    file.write_all(hello_signal_content.as_bytes()).context("Failed to write hello_signal.rs")?;
 
     Ok(())
 }
@@ -235,8 +228,7 @@ fn create_axioms_mod(project_path: &Path) -> Result<()> {
 
     let mut file = File::create(project_path.join("src/axioms/mod.rs"))
         .context("Failed to create axioms/mod.rs")?;
-    file.write_all(content.as_bytes())
-        .context("Failed to write axioms/mod.rs")?;
+    file.write_all(content.as_bytes()).context("Failed to write axioms/mod.rs")?;
 
     let example_axiom_content = r#"use axiom_kernel::axiom::Axiom;
 use axiom_kernel::id::CellId;
@@ -261,8 +253,7 @@ impl Axiom for ExampleAxiom {
 
     let mut file = File::create(project_path.join("src/axioms/example_axiom.rs"))
         .context("Failed to create example_axiom.rs")?;
-    file.write_all(example_axiom_content.as_bytes())
-        .context("Failed to write example_axiom.rs")?;
+    file.write_all(example_axiom_content.as_bytes()).context("Failed to write example_axiom.rs")?;
 
     Ok(())
 }
@@ -283,8 +274,7 @@ format = "pretty"
 
     let mut file = File::create(project_path.join(".axiom/config.toml"))
         .context("Failed to create .axiom/config.toml")?;
-    file.write_all(content.as_bytes())
-        .context("Failed to write .axiom/config.toml")?;
+    file.write_all(content.as_bytes()).context("Failed to write .axiom/config.toml")?;
 
     Ok(())
 }
@@ -303,8 +293,7 @@ Cargo.lock
 
     let mut file =
         File::create(project_path.join(".gitignore")).context("Failed to create .gitignore")?;
-    file.write_all(gitignore_content.as_bytes())
-        .context("Failed to write .gitignore")?;
+    file.write_all(gitignore_content.as_bytes()).context("Failed to write .gitignore")?;
 
     Ok(())
 }

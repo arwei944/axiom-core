@@ -175,10 +175,8 @@ fn test_activation_condition_not() {
 
 #[test]
 fn test_skill_can_activate() {
-    let skill =
-        Skill::new("s1", "Test").with_activation(ActivationCondition::KeywordTrigger(vec![
-            "test".to_string()
-        ]));
+    let skill = Skill::new("s1", "Test")
+        .with_activation(ActivationCondition::KeywordTrigger(vec!["test".to_string()]));
 
     let ctx = skill::SkillContext::new("this is a test");
     assert!(skill.can_activate(&ctx));
@@ -278,12 +276,14 @@ fn test_agent_persona_update_skills_for_context() {
     let identity = AgentIdentity::new("id", "Agent");
     let persona = AgentPersona::new(identity);
 
-    persona.add_skill(Skill::new("s1", "Coding").with_activation(
-        ActivationCondition::KeywordTrigger(vec!["code".to_string()]),
-    ));
-    persona.add_skill(Skill::new("s2", "Research").with_activation(
-        ActivationCondition::KeywordTrigger(vec!["research".to_string()]),
-    ));
+    persona.add_skill(
+        Skill::new("s1", "Coding")
+            .with_activation(ActivationCondition::KeywordTrigger(vec!["code".to_string()])),
+    );
+    persona.add_skill(
+        Skill::new("s2", "Research")
+            .with_activation(ActivationCondition::KeywordTrigger(vec!["research".to_string()])),
+    );
 
     let newly = persona.update_skills_for_context("write code", false);
     assert_eq!(newly.len(), 1);
@@ -389,9 +389,8 @@ fn test_identity_with_metadata() {
 
 #[test]
 fn test_skill_with_cooldown() {
-    let mut skill = Skill::new("s1", "Test")
-        .with_activation(ActivationCondition::Always)
-        .with_cooldown(1000);
+    let mut skill =
+        Skill::new("s1", "Test").with_activation(ActivationCondition::Always).with_cooldown(1000);
 
     let ctx = skill::SkillContext::new("test");
     assert!(skill.activate(&ctx));

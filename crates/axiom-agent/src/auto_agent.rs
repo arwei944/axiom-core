@@ -10,18 +10,13 @@ use crate::error::{AgentError, AgentResult};
 use crate::intent_router::{IntentRoute, IntentRouter};
 use crate::self_monitor::{HealthStatus, SelfMonitor, SelfReport};
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum AutoMode {
     Conservative,
+    #[default]
     Balanced,
     Aggressive,
-}
-
-impl Default for AutoMode {
-    fn default() -> Self {
-        AutoMode::Balanced
-    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -172,7 +167,10 @@ impl AutoAgent {
         }
     }
 
-    pub async fn process_natural(&self, signal: crate::natural_signal::NaturalSignal) -> AgentResult<String> {
+    pub async fn process_natural(
+        &self,
+        signal: crate::natural_signal::NaturalSignal,
+    ) -> AgentResult<String> {
         self.process(&signal.content).await
     }
 
@@ -322,7 +320,7 @@ impl AutoAgent {
             _ => base_confidence,
         };
 
-        adjusted.min(0.99).max(0.1)
+        adjusted.clamp(0.1, 0.99)
     }
 
     fn record_interaction(&self, success: bool, intent: &str, confidence: f64) {
@@ -341,7 +339,7 @@ impl AutoAgent {
         let count = *self.interaction_count.read();
         let interval = self.config.read().tune_interval_interactions;
 
-        if count > 0 && count % interval == 0 {
+        if count > 0 && count.is_multiple_of(interval) {
             self.auto_tune();
         }
     }
@@ -368,7 +366,9 @@ impl AutoAgent {
                 }
             }
             AutoMode::Aggressive => {
-                if report.confidence_summary.confidence_trend == crate::self_monitor::ConfidenceTrend::Increasing {
+                if report.confidence_summary.confidence_trend
+                    == crate::self_monitor::ConfidenceTrend::Increasing
+                {
                     tracing::info!(agent_id = %self.id(), "Aggressive mode: pushing for higher performance");
                 }
             }

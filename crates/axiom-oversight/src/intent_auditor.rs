@@ -26,10 +26,7 @@ pub struct BehaviorSample {
 
 impl BehaviorSample {
     pub fn record_signal(&mut self, signal_type: &str, target: Option<&str>, is_error: bool) {
-        *self
-            .signal_types
-            .entry(signal_type.to_string())
-            .or_insert(0) += 1;
+        *self.signal_types.entry(signal_type.to_string()).or_insert(0) += 1;
         if let Some(t) = target {
             *self.targets.entry(t.to_string()).or_insert(0) += 1;
         }
@@ -85,9 +82,7 @@ impl IntentAuditorCell {
     }
 
     pub fn register_intent(&self, profile: IntentProfile) {
-        self.profiles
-            .lock()
-            .insert(profile.agent_id.clone(), profile);
+        self.profiles.lock().insert(profile.agent_id.clone(), profile);
     }
 
     pub fn record_behavior(
@@ -97,11 +92,11 @@ impl IntentAuditorCell {
         target: Option<&str>,
         is_error: bool,
     ) {
-        self.samples
-            .lock()
-            .entry(agent_id.to_string())
-            .or_default()
-            .record_signal(signal_type, target, is_error);
+        self.samples.lock().entry(agent_id.to_string()).or_default().record_signal(
+            signal_type,
+            target,
+            is_error,
+        );
     }
 
     fn jaccard(a: &HashSet<String>, b: &HashSet<String>) -> f64 {
@@ -146,19 +141,13 @@ impl IntentAuditorCell {
         let j_sig = Self::jaccard(&profile.expected_signal_types, &observed_signals);
         let j_tgt = Self::jaccard(&profile.expected_targets, &observed_targets);
 
-        let unexpected_signals: Vec<String> = observed_signals
-            .difference(&profile.expected_signal_types)
-            .cloned()
-            .collect();
-        let unexpected_targets: Vec<String> = observed_targets
-            .difference(&profile.expected_targets)
-            .cloned()
-            .collect();
+        let unexpected_signals: Vec<String> =
+            observed_signals.difference(&profile.expected_signal_types).cloned().collect();
+        let unexpected_targets: Vec<String> =
+            observed_targets.difference(&profile.expected_targets).cloned().collect();
 
-        let forbidden_hits: Vec<String> = observed_signals
-            .intersection(&profile.forbidden_actions)
-            .cloned()
-            .collect();
+        let forbidden_hits: Vec<String> =
+            observed_signals.intersection(&profile.forbidden_actions).cloned().collect();
 
         let mut history = self.history_error_rates.lock();
         let hist = history.entry(agent_id.to_string()).or_default();
@@ -242,9 +231,7 @@ mod tests {
         a.record_behavior("agent1", "DeleteDatabase", None, false);
         let report = a.audit("agent1").unwrap();
         assert!(report.drifted);
-        assert!(report
-            .unexpected_signal_types
-            .contains(&"DeleteDatabase".to_string()));
+        assert!(report.unexpected_signal_types.contains(&"DeleteDatabase".to_string()));
     }
 
     #[test]

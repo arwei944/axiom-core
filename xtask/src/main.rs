@@ -42,16 +42,14 @@ fn main() -> Result<()> {
                 ),
         )
         .subcommand(
-            Command::new("state")
-                .about("Generate architecture state snapshot")
-                .arg(
-                    Arg::new("output")
-                        .long("output")
-                        .short('o')
-                        .value_name("FILE")
-                        .default_value(".axiom/state.toml")
-                        .help("Output path for state file"),
-                ),
+            Command::new("state").about("Generate architecture state snapshot").arg(
+                Arg::new("output")
+                    .long("output")
+                    .short('o')
+                    .value_name("FILE")
+                    .default_value(".axiom/state.toml")
+                    .help("Output path for state file"),
+            ),
         )
         .subcommand(
             Command::new("precommit")
@@ -85,9 +83,7 @@ fn main() -> Result<()> {
 
     match matches.subcommand() {
         Some(("gatecheck", args)) => {
-            let format = args
-                .get_one::<String>("format")
-                .expect("format is required");
+            let format = args.get_one::<String>("format").expect("format is required");
             let output = args.get_one::<String>("output").map(|s| s.as_str());
             let strict = args.get_flag("strict");
             let list_crates = args.get_flag("list-crates");
@@ -118,9 +114,7 @@ fn main() -> Result<()> {
             Ok(())
         }
         Some(("state", args)) => {
-            let output = args
-                .get_one::<String>("output")
-                .expect("output is required");
+            let output = args.get_one::<String>("output").expect("output is required");
             let state_path = PathBuf::from(output); // foxguard: ignore[rs/no-path-traversal] — output is CLI arg, default is relative
 
             let arch_path = std::env::var("AXIOM_ARCHITECTURE_TOML")

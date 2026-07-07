@@ -6,20 +6,15 @@ pub fn run(strict: bool, fix: bool) -> Result<()> {
 
     // 1. 检查 staging area 中的 Cargo.toml 变更
     let staged_files = get_staged_files()?;
-    let cargo_toml_files: Vec<_> = staged_files
-        .iter()
-        .filter(|f| f.ends_with("Cargo.toml"))
-        .collect();
+    let cargo_toml_files: Vec<_> =
+        staged_files.iter().filter(|f| f.ends_with("Cargo.toml")).collect();
 
     if cargo_toml_files.is_empty() {
         println!("✅ 没有检测到 Cargo.toml 变更，跳过架构检查");
         return Ok(());
     }
 
-    println!(
-        "📋 检测到 {} 个 Cargo.toml 文件变更:",
-        cargo_toml_files.len()
-    );
+    println!("📋 检测到 {} 个 Cargo.toml 文件变更:", cargo_toml_files.len());
     for file in &cargo_toml_files {
         println!("  - {}", file);
     }
@@ -71,11 +66,8 @@ fn get_staged_files() -> Result<Vec<String>> {
     }
 
     let stdout = String::from_utf8_lossy(&output.stdout);
-    let files: Vec<String> = stdout
-        .lines()
-        .filter(|line| !line.is_empty())
-        .map(|s| s.to_string())
-        .collect();
+    let files: Vec<String> =
+        stdout.lines().filter(|line| !line.is_empty()).map(|s| s.to_string()).collect();
 
     Ok(files)
 }

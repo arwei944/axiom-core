@@ -93,9 +93,7 @@ impl TokenBucket {
         let mut cur = self.tokens.load(Ordering::Relaxed);
         loop {
             let new = (cur + add).min(self.capacity);
-            match self
-                .tokens
-                .compare_exchange_weak(cur, new, Ordering::Relaxed, Ordering::Relaxed)
+            match self.tokens.compare_exchange_weak(cur, new, Ordering::Relaxed, Ordering::Relaxed)
             {
                 Ok(_) => break,
                 Err(v) => cur = v,
@@ -130,11 +128,7 @@ pub struct ConcurrencyLimiter {
 
 impl ConcurrencyLimiter {
     pub fn new(max: u64) -> Self {
-        Self {
-            active: AtomicU64::new(0),
-            max,
-            rejected: AtomicU64::new(0),
-        }
+        Self { active: AtomicU64::new(0), max, rejected: AtomicU64::new(0) }
     }
     pub fn try_enter(&self) -> bool {
         let cur = self.active.fetch_add(1, Ordering::Relaxed);

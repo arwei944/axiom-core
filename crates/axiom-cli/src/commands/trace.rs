@@ -22,11 +22,7 @@ pub fn run_trace(args: &TraceArgs) -> Result<ExitCode> {
     let snapshot = runtime.block_on(async {
         let cells = bridge.cell_kernel.list().await;
         let heatmap = bridge.heatmap.read().await.snapshot();
-        TraceSnapshot {
-            cells: cells.len(),
-            queued: cells.iter().map(|(_, q)| *q).sum(),
-            heatmap,
-        }
+        TraceSnapshot { cells: cells.len(), queued: cells.iter().map(|(_, q)| *q).sum(), heatmap }
     });
 
     if args.json {
@@ -43,12 +39,7 @@ pub fn run_trace(args: &TraceArgs) -> Result<ExitCode> {
     println!("Queued: {}", snapshot.queued);
     println!(
         "Heatmap signals: {}",
-        snapshot
-            .heatmap
-            .hot_signals
-            .iter()
-            .map(|(_, v)| v)
-            .sum::<u64>()
+        snapshot.heatmap.hot_signals.iter().map(|(_, v)| v).sum::<u64>()
     );
 
     Ok(ExitCode::SUCCESS)

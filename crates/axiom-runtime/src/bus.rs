@@ -36,19 +36,12 @@ pub struct RoutingTable {
 
 impl RoutingTable {
     pub fn new() -> Self {
-        Self {
-            cell_id_to_name: HashMap::new(),
-            layer_subscribers: HashMap::new(),
-        }
+        Self { cell_id_to_name: HashMap::new(), layer_subscribers: HashMap::new() }
     }
 
     pub fn register_cell(&mut self, cell_id: &str, layer: Layer) {
-        self.cell_id_to_name
-            .insert(cell_id.to_string(), cell_id.to_string());
-        self.layer_subscribers
-            .entry(layer)
-            .or_default()
-            .push(cell_id.to_string());
+        self.cell_id_to_name.insert(cell_id.to_string(), cell_id.to_string());
+        self.layer_subscribers.entry(layer).or_default().push(cell_id.to_string());
     }
 
     pub fn resolve(&self, env: &SignalEnvelope) -> Vec<String> {
@@ -58,10 +51,7 @@ impl RoutingTable {
             }
             return vec![];
         }
-        self.layer_subscribers
-            .get(&env.target_layer)
-            .cloned()
-            .unwrap_or_default()
+        self.layer_subscribers.get(&env.target_layer).cloned().unwrap_or_default()
     }
 }
 
@@ -118,10 +108,7 @@ impl MessageBus {
     }
 
     pub fn with_codec(codec: Arc<dyn SignalCodec>) -> Self {
-        Self {
-            codec,
-            ..Self::new()
-        }
+        Self { codec, ..Self::new() }
     }
 
     pub fn codec(&self) -> &dyn SignalCodec {
@@ -145,13 +132,7 @@ impl MessageBus {
 
     pub async fn register_cell(&self, cell_id: &CellId, mailbox: Arc<Mailbox>, layer: Layer) {
         let id_str = cell_id.as_str().to_string();
-        self.cells.write().await.insert(
-            id_str.clone(),
-            CellEntry {
-                mailbox,
-                _layer: layer,
-            },
-        );
+        self.cells.write().await.insert(id_str.clone(), CellEntry { mailbox, _layer: layer });
         self.routing.write().await.register_cell(&id_str, layer);
     }
 
@@ -159,8 +140,7 @@ impl MessageBus {
         env.validate_layer_transition()?;
 
         env = self.signal_kernel.send(env).await.inspect_err(|_e| {
-            self.rejected_count
-                .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+            self.rejected_count.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
         })?;
 
         if env.hop_count > 8 {
@@ -180,8 +160,7 @@ impl MessageBus {
                 match entry.mailbox.push(env.clone()).await {
                     Ok(()) => {
                         delivered += 1;
-                        self.delivered_count
-                            .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+                        self.delivered_count.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
                     }
                     Err(_) => {
                         tracing::warn!(
@@ -198,13 +177,11 @@ impl MessageBus {
     }
 
     pub fn rejected_count(&self) -> u64 {
-        self.rejected_count
-            .load(std::sync::atomic::Ordering::Relaxed)
+        self.rejected_count.load(std::sync::atomic::Ordering::Relaxed)
     }
 
     pub fn delivered_count(&self) -> u64 {
-        self.delivered_count
-            .load(std::sync::atomic::Ordering::Relaxed)
+        self.delivered_count.load(std::sync::atomic::Ordering::Relaxed)
     }
 
     pub async fn cell_count(&self) -> usize {
@@ -251,9 +228,7 @@ mod tests {
         }
         fn intercept(&self, env: &SignalEnvelope) -> InterceptDecision {
             if env.source_layer == Layer::Exec && env.target_layer == Layer::Agent {
-                InterceptDecision::Reject {
-                    reason: "exec cannot talk to agent".into(),
-                }
+                InterceptDecision::Reject { reason: "exec cannot talk to agent".into() }
             } else {
                 InterceptDecision::Allow
             }

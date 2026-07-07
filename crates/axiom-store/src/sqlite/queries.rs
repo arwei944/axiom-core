@@ -14,16 +14,9 @@ impl EventStore for SqliteStore {
                 .map_err(|e| StoreError::Serialization(e.to_string()))?;
             let outcome_json = serde_json::to_string(&event.metadata.outcome)
                 .map_err(|e| StoreError::Serialization(e.to_string()))?;
-            let witness_hash_bytes = event
-                .metadata
-                .witness_hash
-                .as_ref()
-                .map(|h| h.hash.to_vec());
-            let witness_hash_prev = event
-                .metadata
-                .witness_hash
-                .as_ref()
-                .and_then(|h| h.prev_hash.map(|b| b.to_vec()));
+            let witness_hash_bytes = event.metadata.witness_hash.as_ref().map(|h| h.hash.to_vec());
+            let witness_hash_prev =
+                event.metadata.witness_hash.as_ref().and_then(|h| h.prev_hash.map(|b| b.to_vec()));
             let witness_hash_before = event
                 .metadata
                 .witness_hash
@@ -34,11 +27,8 @@ impl EventStore for SqliteStore {
                 .witness_hash
                 .as_ref()
                 .and_then(|h| h.state_after_hash.map(|b| b.to_vec()));
-            let signal_fingerprint = event
-                .metadata
-                .witness_hash
-                .as_ref()
-                .map(|h| h.signal_fingerprint.to_vec());
+            let signal_fingerprint =
+                event.metadata.witness_hash.as_ref().map(|h| h.signal_fingerprint.to_vec());
 
             let seq = sqlx::query(
                 r#"
@@ -108,11 +98,8 @@ impl EventStore for SqliteStore {
                     .map_err(|e| StoreError::Serialization(e.to_string()))?;
                 let outcome_json = serde_json::to_string(&event.metadata.outcome)
                     .map_err(|e| StoreError::Serialization(e.to_string()))?;
-                let witness_hash_bytes = event
-                    .metadata
-                    .witness_hash
-                    .as_ref()
-                    .map(|h| h.hash.to_vec());
+                let witness_hash_bytes =
+                    event.metadata.witness_hash.as_ref().map(|h| h.hash.to_vec());
                 let witness_hash_prev = event
                     .metadata
                     .witness_hash
@@ -128,11 +115,8 @@ impl EventStore for SqliteStore {
                     .witness_hash
                     .as_ref()
                     .and_then(|h| h.state_after_hash.map(|b| b.to_vec()));
-                let signal_fingerprint = event
-                    .metadata
-                    .witness_hash
-                    .as_ref()
-                    .map(|h| h.signal_fingerprint.to_vec());
+                let signal_fingerprint =
+                    event.metadata.witness_hash.as_ref().map(|h| h.signal_fingerprint.to_vec());
 
                 let seq = sqlx::query(
                     r#"
@@ -174,9 +158,7 @@ impl EventStore for SqliteStore {
                 let arc_event = std::sync::Arc::new(event.clone());
                 let _ = self.sender.send(arc_event);
             }
-            tx.commit()
-                .await
-                .map_err(|e| StoreError::Storage(format!("sqlite tx commit: {e}")))?;
+            tx.commit().await.map_err(|e| StoreError::Storage(format!("sqlite tx commit: {e}")))?;
             Ok(seqs)
         })
     }

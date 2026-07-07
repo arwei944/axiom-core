@@ -2,22 +2,10 @@ use std::fmt;
 
 #[derive(Debug)]
 pub enum OversightError {
-    LayerViolation {
-        from: String,
-        to: String,
-        message: String,
-    },
-    ResourceExhausted {
-        resource: String,
-        message: String,
-    },
-    ComplianceViolation {
-        pattern: String,
-        message: String,
-    },
-    StartupFailed {
-        checks_failed: Vec<String>,
-    },
+    LayerViolation { from: String, to: String, message: String },
+    ResourceExhausted { resource: String, message: String },
+    ComplianceViolation { pattern: String, message: String },
+    StartupFailed { checks_failed: Vec<String> },
     Internal(String),
 }
 

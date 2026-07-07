@@ -78,11 +78,7 @@ impl From<McpError> for McpErrorInfo {
             McpError::Server(_) => "server_error",
             McpError::Unknown => "unknown",
         };
-        McpErrorInfo {
-            code: code.to_string(),
-            message: e.to_string(),
-            details: None,
-        }
+        McpErrorInfo { code: code.to_string(), message: e.to_string(), details: None }
     }
 }
 

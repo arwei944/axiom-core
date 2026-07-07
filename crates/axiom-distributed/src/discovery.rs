@@ -45,16 +45,9 @@ impl NodeDiscovery {
         let (tx, _rx) = broadcast::channel(64);
         let (shutdown, _shutdown_rx) = watch::channel(false);
         let mut view = ClusterView::default();
-        view.nodes
-            .push((local.node_id, local.clone(), NodeState::Alive));
+        view.nodes.push((local.node_id, local.clone(), NodeState::Alive));
 
-        Self {
-            config,
-            local,
-            view,
-            tx,
-            shutdown,
-        }
+        Self { config, local, view, tx, shutdown }
     }
 
     pub fn subscribe(&self) -> broadcast::Receiver<DiscoveryEvent> {

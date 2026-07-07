@@ -14,9 +14,7 @@ impl Check for CargoFmtCheck {
     }
 
     fn run(&self) -> CheckResult {
-        let output = Command::new("cargo")
-            .args(["fmt", "--all", "--", "--check"])
-            .output();
+        let output = Command::new("cargo").args(["fmt", "--all", "--", "--check"]).output();
 
         match output {
             Ok(o) if o.status.success() => CheckResult {

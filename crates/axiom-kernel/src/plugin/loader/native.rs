@@ -25,9 +25,7 @@ impl NativePluginLoader {
 
             let ptr = create();
             if ptr.is_null() {
-                return Err(PluginError::LoadFailed(
-                    "axiom_plugin_create returned null".into(),
-                ));
+                return Err(PluginError::LoadFailed("axiom_plugin_create returned null".into()));
             }
 
             Ok(Box::from_raw(ptr))

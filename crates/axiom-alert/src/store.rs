@@ -28,9 +28,6 @@ impl MemoryAlertStore {
     }
 
     pub fn query(&self, status: Option<AlertStatus>) -> Vec<&Alert> {
-        self.alerts
-            .iter()
-            .filter(|a| status.map(|s| s == a.status).unwrap_or(true))
-            .collect()
+        self.alerts.iter().filter(|a| status.map(|s| s == a.status).unwrap_or(true)).collect()
     }
 }

@@ -102,12 +102,7 @@ fn run_list(args: &ListArgs) -> Result<ExitCode> {
     }
 
     for plugin in plugins {
-        println!(
-            "  - {} v{} (kind: {:?})",
-            plugin.id(),
-            plugin.version(),
-            guess_kind(plugin.id())
-        );
+        println!("  - {} v{} (kind: {:?})", plugin.id(), plugin.version(), guess_kind(plugin.id()));
     }
 
     Ok(ExitCode::SUCCESS)
@@ -123,14 +118,8 @@ fn run_install(args: &InstallArgs) -> Result<ExitCode> {
 
     if args.path.ends_with(".axmp") {
         let package = unpack_from_file(path).map_err(|e| anyhow::anyhow!(e))?;
-        println!(
-            "Installing plugin: {} v{}",
-            package.manifest.id, package.manifest.version
-        );
-        println!(
-            "  description: {}",
-            package.manifest.description.as_deref().unwrap_or("")
-        );
+        println!("Installing plugin: {} v{}", package.manifest.id, package.manifest.version);
+        println!("  description: {}", package.manifest.description.as_deref().unwrap_or(""));
         println!("  kind: {:?}", package.manifest.kind);
     } else {
         let loader = axiom_kernel::plugin::NativePluginLoader::new();
@@ -172,19 +161,11 @@ fn run_info(args: &InfoArgs) -> Result<ExitCode> {
     println!("  version: {}", plugin.version());
     println!(
         "  description: {}",
-        plugin
-            .capabilities()
-            .first()
-            .map(|c| c.description.as_deref().unwrap_or(""))
-            .unwrap_or("")
+        plugin.capabilities().first().map(|c| c.description.as_deref().unwrap_or("")).unwrap_or("")
     );
     println!(
         "  kind: {:?}",
-        plugin
-            .capabilities()
-            .first()
-            .map(|c| c.name.as_str())
-            .unwrap_or("unknown")
+        plugin.capabilities().first().map(|c| c.name.as_str()).unwrap_or("unknown")
     );
 
     let deps = plugin.dependencies();

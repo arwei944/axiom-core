@@ -6,10 +6,7 @@ pub fn report_text(violations: &[Violation]) -> String {
     }
 
     let mut out = String::new();
-    out.push_str(&format!(
-        "Architecture violations: {}\n\n",
-        violations.len()
-    ));
+    out.push_str(&format!("Architecture violations: {}\n\n", violations.len()));
 
     for (i, v) in violations.iter().enumerate() {
         out.push_str(&format!("{}. [{}] {}\n", i + 1, v.severity, v.category));

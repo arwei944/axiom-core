@@ -129,7 +129,8 @@ impl SelfMonitor {
         let n = *count as f64;
         metrics.avg_response_time_ms =
             ((n - 1.0) * metrics.avg_response_time_ms + response_time_ms as f64) / n;
-        metrics.error_rate = behavior.failed_interactions as f64 / behavior.total_interactions as f64;
+        metrics.error_rate =
+            behavior.failed_interactions as f64 / behavior.total_interactions as f64;
 
         conf.avg_confidence = ((n - 1.0) * conf.avg_confidence + confidence) / n;
         if confidence < 0.5 {

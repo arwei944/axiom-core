@@ -55,9 +55,7 @@ struct HelloCell {
 
 impl HelloCell {
     fn new() -> Self {
-        Self {
-            greetings: Vec::new(),
-        }
+        Self { greetings: Vec::new() }
     }
 
     fn process(&mut self, message: String) {

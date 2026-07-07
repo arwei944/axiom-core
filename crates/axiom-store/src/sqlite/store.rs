@@ -23,10 +23,7 @@ impl SqliteStore {
             .await
             .map_err(|e| StoreError::Storage(format!("sqlite connect: {e}")))?;
 
-        let store = Self {
-            pool,
-            sender: broadcast::channel(1024).0,
-        };
+        let store = Self { pool, sender: broadcast::channel(1024).0 };
         store.run_migrations().await?;
         Ok(store)
     }

@@ -67,9 +67,7 @@ pub struct SnapshotRetention {
 
 impl Default for SnapshotRetention {
     fn default() -> Self {
-        Self {
-            max_snapshots_per_aggregate: 5,
-        }
+        Self { max_snapshots_per_aggregate: 5 }
     }
 }
 
@@ -106,8 +104,7 @@ impl MemorySnapshotStore {
         events_since_last_snapshot: u64,
         state_size_bytes: usize,
     ) -> bool {
-        self.policy
-            .should_snapshot(events_since_last_snapshot, state_size_bytes)
+        self.policy.should_snapshot(events_since_last_snapshot, state_size_bytes)
     }
 }
 
@@ -121,9 +118,7 @@ impl SnapshotStore for MemorySnapshotStore {
     fn save_snapshot<'a>(&'a self, snapshot: Snapshot) -> BoxFuture<'a, Result<(), StoreError>> {
         Box::pin(async move {
             let mut map = self.snapshots.write().await;
-            let list = map
-                .entry(snapshot.aggregate_id.clone())
-                .or_insert_with(Vec::new);
+            let list = map.entry(snapshot.aggregate_id.clone()).or_insert_with(Vec::new);
             list.push(snapshot);
             list.sort_by_key(|s| s.sequence_number);
 
@@ -151,12 +146,9 @@ impl SnapshotStore for MemorySnapshotStore {
     ) -> BoxFuture<'a, Result<Option<Snapshot>, StoreError>> {
         Box::pin(async move {
             let map = self.snapshots.read().await;
-            Ok(map.get(aggregate_id).and_then(|list| {
-                list.iter()
-                    .rev()
-                    .find(|s| s.sequence_number <= seq)
-                    .cloned()
-            }))
+            Ok(map
+                .get(aggregate_id)
+                .and_then(|list| list.iter().rev().find(|s| s.sequence_number <= seq).cloned()))
         })
     }
 }
@@ -169,10 +161,7 @@ pub struct FileSnapshotStoreConfig {
 
 impl Default for FileSnapshotStoreConfig {
     fn default() -> Self {
-        Self {
-            snapshot_dir: PathBuf::from("snapshots"),
-            max_snapshots_per_aggregate: 5,
-        }
+        Self { snapshot_dir: PathBuf::from("snapshots"), max_snapshots_per_aggregate: 5 }
     }
 }
 
@@ -188,9 +177,7 @@ impl FileSnapshotStore {
     }
 
     fn snapshot_path(&self, aggregate_id: &str, seq: u64) -> PathBuf {
-        self.config
-            .snapshot_dir
-            .join(format!("{}-{}.snap", aggregate_id, seq))
+        self.config.snapshot_dir.join(format!("{}-{}.snap", aggregate_id, seq))
     }
 
     fn enforce_retention(&self, aggregate_id: &str) -> Result<(), StoreError> {
@@ -357,13 +344,7 @@ mod tests {
 
         let mut count = 0;
         for entry in fs::read_dir(dir.path()).unwrap() {
-            if entry
-                .unwrap()
-                .path()
-                .extension()
-                .map(|e| e == "snap")
-                .unwrap_or(false)
-            {
+            if entry.unwrap().path().extension().map(|e| e == "snap").unwrap_or(false) {
                 count += 1;
             }
         }

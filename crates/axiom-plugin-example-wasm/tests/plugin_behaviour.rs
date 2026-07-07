@@ -22,10 +22,7 @@ async fn test_wasm_echo_plugin_basic() {
     plugin.init(ctx).unwrap();
 
     let reply = plugin
-        .handle_message(PluginMessage::Custom {
-            kind: "echo".into(),
-            payload: b"hello".to_vec(),
-        })
+        .handle_message(PluginMessage::Custom { kind: "echo".into(), payload: b"hello".to_vec() })
         .unwrap();
 
     match reply {
@@ -49,16 +46,10 @@ async fn test_wasm_counter_plugin_increments() {
     plugin.init(ctx).unwrap();
 
     let reply1 = plugin
-        .handle_message(PluginMessage::Custom {
-            kind: "inc".into(),
-            payload: Vec::new(),
-        })
+        .handle_message(PluginMessage::Custom { kind: "inc".into(), payload: Vec::new() })
         .unwrap();
     let reply2 = plugin
-        .handle_message(PluginMessage::Custom {
-            kind: "inc".into(),
-            payload: Vec::new(),
-        })
+        .handle_message(PluginMessage::Custom { kind: "inc".into(), payload: Vec::new() })
         .unwrap();
 
     match (reply1, reply2) {

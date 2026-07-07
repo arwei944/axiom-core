@@ -11,10 +11,7 @@ pub fn parse_layer_marker(lit: &syn::LitStr) -> Result<TokenStream2, syn::Error>
         "oversight" => Ok(quote! { ::axiom_kernel::sealed::OversightLayer }),
         other => Err(syn::Error::new(
             lit.span(),
-            format!(
-                "invalid layer '{}': expected exec|validate|agent|oversight",
-                other
-            ),
+            format!("invalid layer '{}': expected exec|validate|agent|oversight", other),
         )),
     }
 }
@@ -27,10 +24,7 @@ pub fn parse_layer_variant(lit: &syn::LitStr) -> Result<TokenStream2, syn::Error
         "oversight" => Ok(quote! { ::axiom_kernel::Layer::Oversight }),
         other => Err(syn::Error::new(
             lit.span(),
-            format!(
-                "invalid layer '{}': expected exec|validate|agent|oversight",
-                other
-            ),
+            format!("invalid layer '{}': expected exec|validate|agent|oversight", other),
         )),
     }
 }
@@ -43,10 +37,7 @@ pub fn parse_signal_kind(lit: &syn::LitStr) -> Result<TokenStream2, syn::Error> 
         "response" => Ok(quote! { ::axiom_kernel::signal::SignalKind::Response }),
         other => Err(syn::Error::new(
             lit.span(),
-            format!(
-                "invalid signal kind '{}': expected command|event|query|response",
-                other
-            ),
+            format!("invalid signal kind '{}': expected command|event|query|response", other),
         )),
     }
 }

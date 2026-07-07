@@ -39,13 +39,7 @@ pub struct TemplateVariable {
 
 impl TemplateVariable {
     pub fn new(name: impl Into<String>, var_type: VariableType) -> Self {
-        Self {
-            name: name.into(),
-            var_type,
-            required: true,
-            default: None,
-            description: None,
-        }
+        Self { name: name.into(), var_type, required: true, default: None, description: None }
     }
 
     pub fn with_default(mut self, default: serde_json::Value) -> Self {
@@ -250,10 +244,8 @@ fn value_to_string(value: &serde_json::Value) -> String {
             items.join(", ")
         }
         serde_json::Value::Object(obj) => {
-            let pairs: Vec<String> = obj
-                .iter()
-                .map(|(k, v)| format!("{}: {}", k, value_to_string(v)))
-                .collect();
+            let pairs: Vec<String> =
+                obj.iter().map(|(k, v)| format!("{}: {}", k, value_to_string(v))).collect();
             pairs.join("\n")
         }
         serde_json::Value::Null => "".to_string(),

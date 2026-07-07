@@ -15,9 +15,7 @@ use std::time::{Duration, Instant};
 #[tokio::test]
 async fn test_memory_store_roundtrip() {
     let store = MemoryStore::new();
-    let event = EventBuilder::new("agg-1", "test", json!({"x": 1}))
-        .cell_id("c1")
-        .build();
+    let event = EventBuilder::new("agg-1", "test", json!({"x": 1})).cell_id("c1").build();
     let seq = store.append(event.clone()).await.unwrap();
     assert_eq!(seq, 1);
     let events = store.read("agg-1").await.unwrap();
@@ -159,14 +157,7 @@ async fn test_snapshot_retention_enforced() {
     }
     let count = std::fs::read_dir(dir.path())
         .unwrap()
-        .filter(|e| {
-            e.as_ref()
-                .unwrap()
-                .path()
-                .extension()
-                .map(|x| x == "snap")
-                .unwrap_or(false)
-        })
+        .filter(|e| e.as_ref().unwrap().path().extension().map(|x| x == "snap").unwrap_or(false))
         .count();
     assert_eq!(count, 2);
 }
@@ -210,12 +201,8 @@ async fn test_verify_witness_chain_accepts_valid_chain() {
 
     let payload_a = json!(witness_a.clone());
     let payload_b = json!(witness_b.clone());
-    let event_a = EventBuilder::new("c1", "witness", payload_a)
-        .cell_id("c1")
-        .build();
-    let event_b = EventBuilder::new("c1", "witness", payload_b)
-        .cell_id("c1")
-        .build();
+    let event_a = EventBuilder::new("c1", "witness", payload_a).cell_id("c1").build();
+    let event_b = EventBuilder::new("c1", "witness", payload_b).cell_id("c1").build();
     store.append_batch(vec![event_a, event_b]).await.unwrap();
 
     let all = store.read_all().await.unwrap();
@@ -224,9 +211,7 @@ async fn test_verify_witness_chain_accepts_valid_chain() {
 
 #[tokio::test]
 async fn test_store_factory_memory_default() {
-    let factory = StoreFactory::from_config(axiom_store::StoreConfig::Memory)
-        .await
-        .unwrap();
+    let factory = StoreFactory::from_config(axiom_store::StoreConfig::Memory).await.unwrap();
     let store = factory.event_store();
     let event = EventBuilder::new("agg", "e", json!({})).build();
     let seq = store.append(event).await.unwrap();
@@ -259,11 +244,7 @@ async fn test_performance_append_throughput() {
     let seqs = store.append_batch(events).await.unwrap();
     let elapsed = start.elapsed();
     assert_eq!(seqs.len(), 1000);
-    assert!(
-        elapsed < Duration::from_millis(500),
-        "append batch took {:?}",
-        elapsed
-    );
+    assert!(elapsed < Duration::from_millis(500), "append batch took {:?}", elapsed);
 }
 
 #[tokio::test]
@@ -277,9 +258,5 @@ async fn test_performance_read_latency() {
     let events = store.read("perf-read").await.unwrap();
     let elapsed = start.elapsed();
     assert_eq!(events.len(), 500);
-    assert!(
-        elapsed < Duration::from_millis(100),
-        "read took {:?}",
-        elapsed
-    );
+    assert!(elapsed < Duration::from_millis(100), "read took {:?}", elapsed);
 }

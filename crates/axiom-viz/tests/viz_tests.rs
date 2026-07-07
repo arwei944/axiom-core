@@ -6,10 +6,7 @@ mod tests {
 
     #[test]
     fn test_topology_graph_serializes() {
-        let graph = TopologyGraph {
-            cells: vec![],
-            edges: vec![],
-        };
+        let graph = TopologyGraph { cells: vec![], edges: vec![] };
         let json = serde_json::to_string(&graph).unwrap();
         assert!(json.contains("cells"));
     }
@@ -28,10 +25,7 @@ mod tests {
     #[test]
     fn test_viz_snapshot_serializes() {
         let snapshot = VizSnapshot {
-            topology: TopologyGraph {
-                cells: vec![],
-                edges: vec![],
-            },
+            topology: TopologyGraph { cells: vec![], edges: vec![] },
             timeline: Timeline { entries: vec![] },
             entropy: EntropyData {
                 system_entropy: 0.0,

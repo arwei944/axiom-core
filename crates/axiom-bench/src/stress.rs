@@ -58,11 +58,7 @@ fn parse_args() -> Args {
         }
     }
 
-    Args {
-        duration_secs,
-        num_cells,
-        msg_rate_per_sec,
-    }
+    Args { duration_secs, num_cells, msg_rate_per_sec }
 }
 
 fn make_signal(src: &str, dst: &str) -> SignalEnvelope {
@@ -93,16 +89,12 @@ async fn main() {
     println!("  Duration:   {}s", args.duration_secs);
     println!("  Cells:      {}", args.num_cells);
     println!("  Rate/cell:  {} msg/s", args.msg_rate_per_sec);
-    println!(
-        "  Total rate: {} msg/s",
-        args.num_cells * args.msg_rate_per_sec as usize
-    );
+    println!("  Total rate: {} msg/s", args.num_cells * args.msg_rate_per_sec as usize);
     println!();
 
     // Create mailboxes for each cell
-    let mailboxes: Vec<Arc<Mailbox>> = (0..args.num_cells)
-        .map(|_| Arc::new(Mailbox::new(8192)))
-        .collect();
+    let mailboxes: Vec<Arc<Mailbox>> =
+        (0..args.num_cells).map(|_| Arc::new(Mailbox::new(8192))).collect();
 
     let total_sent = Arc::new(AtomicU64::new(0));
     let total_received = Arc::new(AtomicU64::new(0));
@@ -211,24 +203,12 @@ async fn main() {
     println!("  Messages sent:  {}", sent);
     println!("  Messages recv:  {}", received);
     println!("  Errors:         {}", errors);
-    println!(
-        "  Throughput:     {:.0} msg/s",
-        sent as f64 / elapsed.as_secs_f64()
-    );
-    println!(
-        "  Avg latency:    {:.2}µs",
-        elapsed.as_secs_f64() * 1_000_000.0 / sent as f64
-    );
-    println!(
-        "  Loss rate:      {:.4}%",
-        (sent - received) as f64 / sent as f64 * 100.0
-    );
+    println!("  Throughput:     {:.0} msg/s", sent as f64 / elapsed.as_secs_f64());
+    println!("  Avg latency:    {:.2}µs", elapsed.as_secs_f64() * 1_000_000.0 / sent as f64);
+    println!("  Loss rate:      {:.4}%", (sent - received) as f64 / sent as f64 * 100.0);
 
     if errors > 0 {
-        println!(
-            "  ⚠ {} errors occurred (mailbox overflow expected under high load)",
-            errors
-        );
+        println!("  ⚠ {} errors occurred (mailbox overflow expected under high load)", errors);
     }
 
     if received == sent {

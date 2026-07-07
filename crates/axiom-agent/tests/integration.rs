@@ -84,10 +84,7 @@ async fn test_agent_basic_query() {
 
 #[tokio::test]
 async fn test_agent_not_started_error() {
-    let agent = AgentBuilder::new("test-agent")
-        .with_llm(LlmClient::mock())
-        .build()
-        .unwrap();
+    let agent = AgentBuilder::new("test-agent").with_llm(LlmClient::mock()).build().unwrap();
 
     let result = agent.query("Hello", None).await;
     assert!(result.is_err());
@@ -106,15 +103,11 @@ async fn test_agent_with_tools() {
         .build_and_start()
         .unwrap();
 
-    let result = agent
-        .execute_tool("echo", &json!({ "message": "test" }))
-        .await;
+    let result = agent.execute_tool("echo", &json!({ "message": "test" })).await;
     assert!(result.is_ok());
     assert_eq!(result.unwrap()["echo"], "test");
 
-    let calc_result = agent
-        .execute_tool("calculate", &json!({ "expression": "2 + 3" }))
-        .await;
+    let calc_result = agent.execute_tool("calculate", &json!({ "expression": "2 + 3" })).await;
     assert!(calc_result.is_ok());
     assert_eq!(calc_result.unwrap()["result"], 5.0);
 
@@ -130,10 +123,7 @@ async fn test_agent_memory_integration() {
         .build_and_start()
         .unwrap();
 
-    agent.remember(MemoryItem::new(
-        MemoryItemType::Goal,
-        "Answer user questions accurately",
-    ));
+    agent.remember(MemoryItem::new(MemoryItemType::Goal, "Answer user questions accurately"));
 
     let _ = agent.query("What is your goal?", None).await.unwrap();
     let items = agent.memory_items();
@@ -164,9 +154,7 @@ async fn test_agent_with_identity() {
 async fn test_agent_with_skill() {
     let skill = Skill::new("coding", "Code Assistant")
         .with_description("Help with coding tasks")
-        .with_activation(ActivationCondition::KeywordTrigger(
-            vec!["code".to_string()],
-        ))
+        .with_activation(ActivationCondition::KeywordTrigger(vec!["code".to_string()]))
         .with_tools(vec!["echo".to_string()])
         .with_prompt_fragments(vec!["You can write code.".to_string()]);
 
@@ -242,10 +230,8 @@ async fn test_agent_full_integration() {
         .build_and_start()
         .unwrap();
 
-    let tool_result = agent
-        .execute_tool("echo", &json!({ "message": "integration" }))
-        .await
-        .unwrap();
+    let tool_result =
+        agent.execute_tool("echo", &json!({ "message": "integration" })).await.unwrap();
     assert_eq!(tool_result["echo"], "integration");
 
     let query_response = agent.query("Hello", None).await.unwrap();
@@ -261,10 +247,7 @@ async fn test_agent_full_integration() {
 
 #[tokio::test]
 async fn test_agent_start_stop_lifecycle() {
-    let agent = AgentBuilder::new("lifecycle-agent")
-        .with_llm(LlmClient::mock())
-        .build()
-        .unwrap();
+    let agent = AgentBuilder::new("lifecycle-agent").with_llm(LlmClient::mock()).build().unwrap();
 
     assert!(!agent.is_started());
 
@@ -290,10 +273,8 @@ async fn test_agent_query_without_llm() {
 
 #[tokio::test]
 async fn test_agent_stats_tracking() {
-    let agent = AgentBuilder::new("stats-agent")
-        .with_llm(LlmClient::mock())
-        .build_and_start()
-        .unwrap();
+    let agent =
+        AgentBuilder::new("stats-agent").with_llm(LlmClient::mock()).build_and_start().unwrap();
 
     let initial = agent.stats();
     assert_eq!(initial.queries_processed, 0);
@@ -338,10 +319,7 @@ async fn test_agent_config_defaults() {
 
 #[tokio::test]
 async fn test_agent_debug_format() {
-    let agent = AgentBuilder::new("debug-agent")
-        .with_llm(LlmClient::mock())
-        .build()
-        .unwrap();
+    let agent = AgentBuilder::new("debug-agent").with_llm(LlmClient::mock()).build().unwrap();
 
     let debug_str = format!("{:?}", agent);
     assert!(debug_str.contains("debug-agent"));

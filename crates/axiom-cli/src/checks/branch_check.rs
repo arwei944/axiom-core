@@ -16,9 +16,7 @@ impl Check for BranchCheck {
     }
 
     fn run(&self) -> CheckResult {
-        let output = match Command::new("git")
-            .args(["rev-parse", "--abbrev-ref", "HEAD"])
-            .output()
+        let output = match Command::new("git").args(["rev-parse", "--abbrev-ref", "HEAD"]).output()
         {
             Ok(o) => o,
             Err(e) => {

@@ -70,10 +70,8 @@ pub struct HealthCollectorCell {
 
 impl HealthCollectorCell {
     pub fn new() -> Self {
-        let now_unix = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .map(|d| d.as_secs())
-            .unwrap_or(0);
+        let now_unix =
+            SystemTime::now().duration_since(UNIX_EPOCH).map(|d| d.as_secs()).unwrap_or(0);
         Self {
             id: CellId::new("oversight:health-collector"),
             started_at: Instant::now(),
@@ -161,16 +159,13 @@ impl HealthCollectorCell {
             status = HealthStatus::Critical;
         }
 
-        let any_stopped = cells
-            .iter()
-            .any(|c| c.state == "Stopped" || c.state == "Crashed");
+        let any_stopped = cells.iter().any(|c| c.state == "Stopped" || c.state == "Crashed");
         if any_stopped {
             status = HealthStatus::Critical;
         }
 
-        let any_restarting = cells
-            .iter()
-            .any(|c| c.state == "Restarting" || c.state == "CircuitOpen");
+        let any_restarting =
+            cells.iter().any(|c| c.state == "Restarting" || c.state == "CircuitOpen");
         if any_restarting && status == HealthStatus::Healthy {
             status = HealthStatus::Degraded;
         }

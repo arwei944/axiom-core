@@ -100,20 +100,14 @@ fn run_list(args: &ListArgs) -> Result<ExitCode> {
 fn run_restart(args: &RestartArgs) -> Result<ExitCode> {
     println!("=== axiom cell restart ===");
     println!("Cell ID: {}", args.cell_id);
-    println!(
-        "Cell '{}' restart requested (requires running runtime to apply).",
-        args.cell_id
-    );
+    println!("Cell '{}' restart requested (requires running runtime to apply).", args.cell_id);
     Ok(ExitCode::SUCCESS)
 }
 
 fn run_stop(args: &StopArgs) -> Result<ExitCode> {
     println!("=== axiom cell stop ===");
     println!("Cell ID: {}", args.cell_id);
-    println!(
-        "Cell '{}' stop requested (requires running runtime to apply).",
-        args.cell_id
-    );
+    println!("Cell '{}' stop requested (requires running runtime to apply).", args.cell_id);
     Ok(ExitCode::SUCCESS)
 }
 
@@ -135,10 +129,7 @@ fn run_status(args: &StatusArgs) -> Result<ExitCode> {
 fn run_start(args: &StartArgs) -> Result<ExitCode> {
     println!("=== axiom cell start ===");
     println!("Cell ID: {}", args.cell_id);
-    println!(
-        "Cell '{}' start requested (requires running runtime to apply).",
-        args.cell_id
-    );
+    println!("Cell '{}' start requested (requires running runtime to apply).", args.cell_id);
     Ok(ExitCode::SUCCESS)
 }
 

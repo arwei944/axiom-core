@@ -63,10 +63,7 @@ struct GreeterCell {
 
 impl GreeterCell {
     fn new() -> Self {
-        Self {
-            id: CellId::new("greeter"),
-            greeted: Vec::new(),
-        }
+        Self { id: CellId::new("greeter"), greeted: Vec::new() }
     }
 }
 
@@ -152,9 +149,7 @@ impl Axiom for TestAxiom {
 
     fn check(&self, _current: &i32, new: &i32, _msg: &GreetCmd) -> KernelResult<()> {
         if *new < 0 {
-            Err(KernelError::InvariantViolated {
-                message: "negative value not allowed".into(),
-            })
+            Err(KernelError::InvariantViolated { message: "negative value not allowed".into() })
         } else {
             Ok(())
         }
@@ -182,10 +177,7 @@ async fn test_cell_macro_adds_exec_marker() {
 
 #[test]
 fn test_schema_version_macro() {
-    assert_eq!(
-        <V2Signal as Versioned>::schema_version(),
-        SchemaVersion::new(2)
-    );
+    assert_eq!(<V2Signal as Versioned>::schema_version(), SchemaVersion::new(2));
 }
 
 #[test]
@@ -198,13 +190,8 @@ fn test_migration_macro_versions() {
 #[test]
 fn test_migration_registry_discovery() {
     let migrations = registered_migration_chains();
-    assert!(
-        !migrations.is_empty(),
-        "migration registry should contain at least MigrateV1toV2"
-    );
-    let found_v1_to_v2 = migrations
-        .iter()
-        .any(|(from, to, _, _)| *from == 1 && *to == 2);
+    assert!(!migrations.is_empty(), "migration registry should contain at least MigrateV1toV2");
+    let found_v1_to_v2 = migrations.iter().any(|(from, to, _, _)| *from == 1 && *to == 2);
     assert!(
         found_v1_to_v2,
         "expected migration 1->2 to be registered via linkme, got: {:?}",
@@ -215,11 +202,7 @@ fn test_migration_registry_discovery() {
 #[test]
 fn test_axiom_registry_discovery() {
     let count = count_registered_axioms();
-    assert!(
-        count >= 1,
-        "expected at least 1 axiom registered, got {}",
-        count
-    );
+    assert!(count >= 1, "expected at least 1 axiom registered, got {}", count);
 }
 
 #[test]

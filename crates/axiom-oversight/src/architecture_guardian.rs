@@ -65,10 +65,7 @@ impl ArchitectureGuardianCell {
                 from: Some(env.source_layer),
                 to: Some(env.target_layer),
                 signal_type: env.signal_type.clone(),
-                reason: format!(
-                    "illegal cross-layer {} -> {}",
-                    env.source_layer, env.target_layer
-                ),
+                reason: format!("illegal cross-layer {} -> {}", env.source_layer, env.target_layer),
                 timestamp_ns: env.timestamp_ns,
             };
             drop(stats);
@@ -181,15 +178,9 @@ mod tests {
     #[test]
     fn test_legal_direction_allowed() {
         let c = ArchitectureGuardianCell::new();
-        assert!(c
-            .check_envelope(&env(Layer::Oversight, Layer::Agent, 0))
-            .is_ok());
-        assert!(c
-            .check_envelope(&env(Layer::Agent, Layer::Validate, 0))
-            .is_ok());
-        assert!(c
-            .check_envelope(&env(Layer::Validate, Layer::Exec, 0))
-            .is_ok());
+        assert!(c.check_envelope(&env(Layer::Oversight, Layer::Agent, 0)).is_ok());
+        assert!(c.check_envelope(&env(Layer::Agent, Layer::Validate, 0)).is_ok());
+        assert!(c.check_envelope(&env(Layer::Validate, Layer::Exec, 0)).is_ok());
         assert_eq!(c.stats().total_allowed, 3);
         assert_eq!(c.stats().total_rejected, 0);
     }
@@ -197,12 +188,8 @@ mod tests {
     #[test]
     fn test_illegal_direction_rejected() {
         let c = ArchitectureGuardianCell::new();
-        assert!(c
-            .check_envelope(&env(Layer::Exec, Layer::Agent, 0))
-            .is_err());
-        assert!(c
-            .check_envelope(&env(Layer::Exec, Layer::Oversight, 0))
-            .is_err());
+        assert!(c.check_envelope(&env(Layer::Exec, Layer::Agent, 0)).is_err());
+        assert!(c.check_envelope(&env(Layer::Exec, Layer::Oversight, 0)).is_err());
         assert_eq!(c.stats().total_rejected, 2);
         assert_eq!(c.stats().layer_violations.len(), 2);
     }

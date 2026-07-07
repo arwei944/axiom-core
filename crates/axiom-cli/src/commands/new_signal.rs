@@ -28,15 +28,11 @@ pub fn run_new_signal(args: &NewSignalArgs) -> Result<std::process::ExitCode> {
     let layer = args.layer.to_lowercase();
 
     if !["command", "event", "query", "reply"].contains(&kind.as_str()) {
-        return Err(anyhow::anyhow!(
-            "Kind must be one of: command, event, query, reply"
-        ));
+        return Err(anyhow::anyhow!("Kind must be one of: command, event, query, reply"));
     }
 
     if !["oversight", "agent", "validate", "exec"].contains(&layer.as_str()) {
-        return Err(anyhow::anyhow!(
-            "Layer must be one of: oversight, agent, validate, exec"
-        ));
+        return Err(anyhow::anyhow!("Layer must be one of: oversight, agent, validate, exec"));
     }
 
     let output_dir = args.output_dir.as_deref().unwrap_or("src/signals");
@@ -44,18 +40,12 @@ pub fn run_new_signal(args: &NewSignalArgs) -> Result<std::process::ExitCode> {
     let file_path = PathBuf::from(output_dir).join(&file_name);
 
     if file_path.exists() {
-        return Err(anyhow::anyhow!(
-            "Signal file '{}' already exists",
-            file_path.display()
-        ));
+        return Err(anyhow::anyhow!("Signal file '{}' already exists", file_path.display()));
     }
 
     fs::create_dir_all(output_dir).context("Failed to create output directory")?;
 
-    println!(
-        "Creating Signal '{}' (kind: {}, layer: {})...",
-        args.name, kind, layer
-    );
+    println!("Creating Signal '{}' (kind: {}, layer: {})...", args.name, kind, layer);
 
     create_signal_file(&file_path, &args.name, &kind, &layer)?;
     update_signals_mod(output_dir, &args.name)?;
@@ -126,8 +116,7 @@ fn create_signal_file(file_path: &Path, name: &str, kind: &str, layer: &str) -> 
     );
 
     let mut file = File::create(file_path).context("Failed to create signal file")?;
-    file.write_all(content.as_bytes())
-        .context("Failed to write signal file")?;
+    file.write_all(content.as_bytes()).context("Failed to write signal file")?;
 
     Ok(())
 }

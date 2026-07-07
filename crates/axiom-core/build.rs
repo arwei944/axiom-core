@@ -51,10 +51,6 @@ fn parse_rustc_version(output: &str) -> Option<(u32, u32, u32)> {
     let major: u32 = parts.next()?.parse().ok()?;
     let minor: u32 = parts.next()?.parse().ok()?;
     let patch_part = parts.next()?;
-    let patch: u32 = patch_part
-        .split(|c: char| !c.is_ascii_digit())
-        .next()?
-        .parse()
-        .ok()?;
+    let patch: u32 = patch_part.split(|c: char| !c.is_ascii_digit()).next()?.parse().ok()?;
     Some((major, minor, patch))
 }

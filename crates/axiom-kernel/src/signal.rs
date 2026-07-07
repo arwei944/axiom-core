@@ -139,10 +139,7 @@ impl SignalKernel {
     }
 
     pub fn with_heatmap(heatmap: std::sync::Arc<RwLock<HeatmapCollector>>) -> Self {
-        Self {
-            handlers: RwLock::new(Vec::new()),
-            heatmap,
-        }
+        Self { handlers: RwLock::new(Vec::new()), heatmap }
     }
 
     pub fn heatmap(&self) -> std::sync::Arc<RwLock<HeatmapCollector>> {
@@ -155,10 +152,7 @@ impl SignalKernel {
             handler.handle(&mut envelope)?;
         }
         drop(handlers);
-        self.heatmap
-            .write()
-            .await
-            .record_signal_send(envelope.signal_type.clone());
+        self.heatmap.write().await.record_signal_send(envelope.signal_type.clone());
         Ok(envelope)
     }
 

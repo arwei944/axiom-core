@@ -10,13 +10,8 @@ use tokio::sync::RwLock;
 
 pub type BoxHandleFuture<'a> = Pin<
     Box<
-        dyn Future<
-                Output = (
-                    KernelResult<()>,
-                    Vec<OutgoingEnvelope>,
-                    Vec<OutgoingWitness>,
-                ),
-            > + Send
+        dyn Future<Output = (KernelResult<()>, Vec<OutgoingEnvelope>, Vec<OutgoingWitness>)>
+            + Send
             + 'a,
     >,
 >;
@@ -31,15 +26,10 @@ pub enum CellKind {
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 pub enum SupervisionStrategy {
-    Restart {
-        max_retries: u32,
-    },
+    Restart { max_retries: u32 },
     Stop,
     Escalate,
-    CircuitBreak {
-        failure_threshold: u32,
-        reset_after_ms: u64,
-    },
+    CircuitBreak { failure_threshold: u32, reset_after_ms: u64 },
 }
 
 impl Default for SupervisionStrategy {
@@ -121,10 +111,7 @@ impl CellKernel {
     }
 
     pub fn with_heatmap(heatmap: std::sync::Arc<RwLock<HeatmapCollector>>) -> Self {
-        Self {
-            cells: RwLock::new(Vec::new()),
-            heatmap,
-        }
+        Self { cells: RwLock::new(Vec::new()), heatmap }
     }
 
     pub fn heatmap(&self) -> std::sync::Arc<RwLock<HeatmapCollector>> {
@@ -132,10 +119,7 @@ impl CellKernel {
     }
 
     pub async fn create(&self, kind: CellKind) -> CellHandle {
-        let handle = CellHandle {
-            id: CellId::new(uuid::Uuid::new_v4().to_string()),
-            kind,
-        };
+        let handle = CellHandle { id: CellId::new(uuid::Uuid::new_v4().to_string()), kind };
         let mut cells = self.cells.write().await;
         cells.push((handle.clone(), CellState::new()));
         handle
@@ -146,10 +130,7 @@ impl CellKernel {
         if let Some((_, state)) = cells.iter_mut().find(|(h, _)| h.id == handle.id) {
             state.inbox.push_back(msg);
             drop(cells);
-            self.heatmap
-                .write()
-                .await
-                .record_cell_message(handle.id.to_string());
+            self.heatmap.write().await.record_cell_message(handle.id.to_string());
             Ok(())
         } else {
             Err(KernelError::CellNotFound(handle.id.to_string()))
@@ -171,10 +152,7 @@ impl CellKernel {
 
     pub async fn list(&self) -> Vec<(CellHandle, usize)> {
         let cells = self.cells.read().await;
-        cells
-            .iter()
-            .map(|(handle, state)| (handle.clone(), state.inbox.len()))
-            .collect()
+        cells.iter().map(|(handle, state)| (handle.clone(), state.inbox.len())).collect()
     }
 }
 
@@ -191,9 +169,7 @@ struct CellState {
 
 impl CellState {
     fn new() -> Self {
-        Self {
-            inbox: std::collections::VecDeque::new(),
-        }
+        Self { inbox: std::collections::VecDeque::new() }
     }
 }
 
@@ -206,11 +182,7 @@ pub struct CellStatus {
 
 impl From<(CellHandle, usize)> for CellStatus {
     fn from((handle, queued): (CellHandle, usize)) -> Self {
-        Self {
-            id: handle.id.to_string(),
-            kind: format!("{:?}", handle.kind),
-            queued,
-        }
+        Self { id: handle.id.to_string(), kind: format!("{:?}", handle.kind), queued }
     }
 }
 

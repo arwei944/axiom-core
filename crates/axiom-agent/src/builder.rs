@@ -135,11 +135,7 @@ impl AgentBuilder {
 
     /// Set the agent identity (creates a persona if not already set).
     pub fn with_identity(mut self, identity: axiom_identity::AgentIdentity) -> Self {
-        if self.persona.is_some() {
-            let persona = self
-                .persona
-                .take()
-                .expect("persona must be set when identity is provided"); // foxguard: ignore[rs/no-unwrap-in-lib]
+        if let Some(persona) = self.persona.take() {
             persona.set_identity(identity);
             self.persona = Some(persona);
         } else {
@@ -167,7 +163,10 @@ impl AgentBuilder {
     }
 
     /// Set the intent router from Arc.
-    pub fn with_intent_router_arc(mut self, router: Arc<crate::intent_router::IntentRouter>) -> Self {
+    pub fn with_intent_router_arc(
+        mut self,
+        router: Arc<crate::intent_router::IntentRouter>,
+    ) -> Self {
         self.intent_router = Some(router);
         self
     }
@@ -228,7 +227,9 @@ impl AgentBuilder {
             }
         }
 
-        builder.with_intent_router(router).with_self_monitor(crate::self_monitor::SelfMonitor::new(&manifest.id))
+        builder
+            .with_intent_router(router)
+            .with_self_monitor(crate::self_monitor::SelfMonitor::new(&manifest.id))
     }
 
     /// Build the AgentCell.

@@ -18,10 +18,7 @@ impl LensKernel {
     }
 
     pub fn with_heatmap(heatmap: std::sync::Arc<RwLock<HeatmapCollector>>) -> Self {
-        Self {
-            lenses: RwLock::new(HashMap::new()),
-            heatmap,
-        }
+        Self { lenses: RwLock::new(HashMap::new()), heatmap }
     }
 
     pub fn heatmap(&self) -> std::sync::Arc<RwLock<HeatmapCollector>> {
@@ -43,9 +40,7 @@ impl LensKernel {
             }
             result
         } else {
-            Err(KernelError::LensNotFound {
-                lens_id: id.to_string(),
-            })
+            Err(KernelError::LensNotFound { lens_id: id.to_string() })
         }
     }
 }

@@ -14,9 +14,7 @@ pub struct TemplateRegistry {
 
 impl TemplateRegistry {
     pub fn new() -> Self {
-        Self {
-            templates: HashMap::new(),
-        }
+        Self { templates: HashMap::new() }
     }
 
     pub fn register(&mut self, template: PromptTemplate) -> Result<(), PromptError> {
@@ -44,7 +42,7 @@ impl TemplateRegistry {
                     if latest.is_none()
                         || compare_versions(
                             &template.version,
-                            latest.expect("latest must exist").version.as_str(),
+                            latest.map(|l| l.version.as_str()).unwrap_or(""),
                         ) == std::cmp::Ordering::Greater
                     {
                         latest = Some(template);
@@ -68,10 +66,7 @@ impl TemplateRegistry {
     }
 
     pub fn has_version(&self, name: &str, version: &str) -> bool {
-        self.templates
-            .get(name)
-            .map(|v| v.contains_key(version))
-            .unwrap_or(false)
+        self.templates.get(name).map(|v| v.contains_key(version)).unwrap_or(false)
     }
 
     pub fn list_templates(&self) -> Vec<String> {
@@ -81,11 +76,8 @@ impl TemplateRegistry {
     }
 
     pub fn list_versions(&self, name: &str) -> Vec<String> {
-        let mut versions: Vec<String> = self
-            .templates
-            .get(name)
-            .map(|v| v.keys().cloned().collect())
-            .unwrap_or_default();
+        let mut versions: Vec<String> =
+            self.templates.get(name).map(|v| v.keys().cloned().collect()).unwrap_or_default();
         versions.sort_by(|a, b| compare_versions(b, a));
         versions
     }
@@ -96,9 +88,8 @@ impl TemplateRegistry {
         version: Option<&str>,
         values: &HashMap<String, serde_json::Value>,
     ) -> Result<String, PromptError> {
-        let template = self
-            .get(name, version)
-            .ok_or_else(|| PromptError::NotFound(name.to_string()))?;
+        let template =
+            self.get(name, version).ok_or_else(|| PromptError::NotFound(name.to_string()))?;
         template.render(values)
     }
 
@@ -142,14 +133,8 @@ fn compare_versions(a: &str, b: &str) -> std::cmp::Ordering {
     let parts_b: Vec<&str> = b.split('.').collect();
 
     for i in 0..parts_a.len().max(parts_b.len()) {
-        let num_a = parts_a
-            .get(i)
-            .and_then(|p| p.parse::<u64>().ok())
-            .unwrap_or(0);
-        let num_b = parts_b
-            .get(i)
-            .and_then(|p| p.parse::<u64>().ok())
-            .unwrap_or(0);
+        let num_a = parts_a.get(i).and_then(|p| p.parse::<u64>().ok()).unwrap_or(0);
+        let num_b = parts_b.get(i).and_then(|p| p.parse::<u64>().ok()).unwrap_or(0);
 
         match num_a.cmp(&num_b) {
             std::cmp::Ordering::Equal => continue,

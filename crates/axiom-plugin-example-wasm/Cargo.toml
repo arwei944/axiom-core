@@ -13,6 +13,7 @@ crate-type = ["rlib", "cdylib"]
 [dependencies]
 axiom-plugin-wasm-sdk = { path = "../axiom-plugin-wasm-sdk" }
 axiom-kernel = { path = "../axiom-kernel" }
+parking_lot = { workspace = true }
 
 [dev-dependencies]
 axiom-kernel = { path = "../axiom-kernel" }

@@ -30,11 +30,7 @@ pub struct Version {
 
 impl Version {
     pub const fn new(major: u16, minor: u16, patch: u16) -> Self {
-        Self {
-            major,
-            minor,
-            patch,
-        }
+        Self { major, minor, patch }
     }
 
     pub const CURRENT: Self = Self::new(0, 1, 0);
@@ -114,10 +110,7 @@ pub enum Compatibility {
 
 impl Compatibility {
     pub fn is_compatible(self) -> bool {
-        matches!(
-            self,
-            Compatibility::Exact | Compatibility::Patch | Compatibility::NewerMinor
-        )
+        matches!(self, Compatibility::Exact | Compatibility::Patch | Compatibility::NewerMinor)
     }
 }
 

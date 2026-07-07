@@ -46,9 +46,7 @@ pub(crate) fn install_hooks(project_root: &Path) -> Result<()> {
         }
     }
 
-    let hooks_abs = hooks_src
-        .canonicalize()
-        .context("Failed to resolve hooks/ absolute path")?;
+    let hooks_abs = hooks_src.canonicalize().context("Failed to resolve hooks/ absolute path")?;
     let hooks_str = hooks_abs
         .to_str()
         .ok_or_else(|| anyhow::anyhow!("hooks path contains non-UTF-8 characters"))?;
@@ -59,10 +57,7 @@ pub(crate) fn install_hooks(project_root: &Path) -> Result<()> {
         .context("Failed to run 'git config core.hooksPath'")?;
 
     if !status.success() {
-        anyhow::bail!(
-            "git config core.hooksPath failed with exit code: {:?}",
-            status.code()
-        );
+        anyhow::bail!("git config core.hooksPath failed with exit code: {:?}", status.code());
     }
 
     println!("  ✓ configured core.hooksPath -> hooks/");

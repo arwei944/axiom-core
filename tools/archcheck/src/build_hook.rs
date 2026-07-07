@@ -27,11 +27,7 @@ fn architecture() -> &'static Architecture {
 }
 
 fn crate_level_of(name: &str) -> Option<usize> {
-    architecture()
-        .crate_layers
-        .iter()
-        .find(|(n, _)| *n == name)
-        .map(|(_, l)| *l)
+    architecture().crate_layers.iter().find(|(n, _)| *n == name).map(|(_, l)| *l)
 }
 
 fn parse_local_axiom_deps(cargo_toml: &Path) -> Vec<String> {
@@ -51,10 +47,7 @@ fn parse_local_axiom_deps(cargo_toml: &Path) -> Vec<String> {
             && !trimmed.is_empty()
             && !trimmed.starts_with('#')
         {
-            if let Some(dep_name) = trimmed
-                .split(|c: char| c.is_whitespace() || c == '=')
-                .next()
-            {
+            if let Some(dep_name) = trimmed.split(|c: char| c.is_whitespace() || c == '=').next() {
                 if dep_name.starts_with("axiom-") {
                     deps.push(dep_name.to_string());
                 }
@@ -83,10 +76,7 @@ fn parse_third_party_deps(cargo_toml: &Path) -> Vec<(String, String)> {
             && !trimmed.is_empty()
             && !trimmed.starts_with('#')
         {
-            if let Some(dep_name) = trimmed
-                .split(|c: char| c.is_whitespace() || c == '=')
-                .next()
-            {
+            if let Some(dep_name) = trimmed.split(|c: char| c.is_whitespace() || c == '=').next() {
                 if !dep_name.is_empty() && !dep_name.starts_with("axiom-") {
                     deps.push((dep_name.to_string(), format!("Cargo.toml:{}", line_num + 1)));
                 }
@@ -165,10 +155,7 @@ pub fn check_current_crate(crate_name: &str) {
     let arch = architecture();
     for (dep, location) in &third_party {
         if arch.forbidden_deps.contains_key(dep) {
-            let reason = arch
-                .forbidden_deps
-                .get(dep)
-                .map_or("No reason provided", |v| v.as_str());
+            let reason = arch.forbidden_deps.get(dep).map_or("No reason provided", |v| v.as_str());
             panic!(
                 "\n\n\
                 ╔══════════════════════════════════════════════════════════════╗\n\
@@ -215,9 +202,8 @@ pub fn check_current_crate(crate_name: &str) {
                 continue;
             }
             if section == "dev-dependencies" && !trimmed.is_empty() && !trimmed.starts_with('#') {
-                if let Some(dep_name) = trimmed
-                    .split(|c: char| c.is_whitespace() || c == '=')
-                    .next()
+                if let Some(dep_name) =
+                    trimmed.split(|c: char| c.is_whitespace() || c == '=').next()
                 {
                     if !dep_name.is_empty() && !dep_name.starts_with("axiom-") {
                         dev_dep_names.push(dep_name.to_string());

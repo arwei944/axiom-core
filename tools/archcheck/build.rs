@@ -7,10 +7,7 @@ fn main() {
     let content = match std::fs::read_to_string(&cargo_toml) {
         Ok(c) => c,
         Err(e) => {
-            eprintln!(
-                "warning: cannot read archcheck Cargo.toml for self-check: {}",
-                e
-            );
+            eprintln!("warning: cannot read archcheck Cargo.toml for self-check: {}", e);
             return;
         }
     };
@@ -26,10 +23,7 @@ fn main() {
             && !trimmed.is_empty()
             && !trimmed.starts_with('#')
         {
-            if let Some(dep_name) = trimmed
-                .split(|c: char| c.is_whitespace() || c == '=')
-                .next()
-            {
+            if let Some(dep_name) = trimmed.split(|c: char| c.is_whitespace() || c == '=').next() {
                 if dep_name == "async-trait" {
                     panic!(
                         "\n\n\

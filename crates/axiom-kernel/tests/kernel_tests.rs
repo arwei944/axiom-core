@@ -13,10 +13,7 @@ use axiom_kernel::witness::{
 async fn test_cell_kernel_send_receive() {
     let kernel = CellKernel::new();
     let handle = kernel.create(CellKind::Exec).await;
-    kernel
-        .send(&handle, Message::new(b"hello".to_vec()))
-        .await
-        .unwrap();
+    kernel.send(&handle, Message::new(b"hello".to_vec())).await.unwrap();
     let received = kernel.receive(&handle).await.unwrap();
     assert_eq!(received.unwrap().payload, b"hello");
 }

@@ -67,9 +67,7 @@ impl ToolRegistry {
         parameters: &Value,
         caller: Option<&str>,
     ) -> Result<Value, ToolError> {
-        let tool = self
-            .get(name)
-            .ok_or_else(|| ToolError::NotFound(name.to_string()))?;
+        let tool = self.get(name).ok_or_else(|| ToolError::NotFound(name.to_string()))?;
 
         let start = std::time::Instant::now();
         let id = uuid::Uuid::new_v4().to_string();
@@ -111,12 +109,7 @@ impl ToolRegistry {
     }
 
     pub fn history_for_tool(&self, tool_name: &str) -> Vec<ToolInvocation> {
-        self.history
-            .read()
-            .iter()
-            .filter(|inv| inv.tool_name == tool_name)
-            .cloned()
-            .collect()
+        self.history.read().iter().filter(|inv| inv.tool_name == tool_name).cloned().collect()
     }
 
     pub fn clear_history(&self) {

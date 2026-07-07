@@ -134,17 +134,21 @@ pub fn impl_signal(attr: TokenStream, item: TokenStream) -> TokenStream {
                 if let Some(proc_macro2::TokenTree::Literal(lit)) = iter.next() {
                     let s = lit.to_string();
                     let s = s.trim_matches('"').to_string();
-                    kind = parse_signal_kind(&syn::LitStr::new(&s, proc_macro2::Span::call_site()))
-                        .unwrap();
+                    match parse_signal_kind(&syn::LitStr::new(&s, proc_macro2::Span::call_site())) {
+                        Ok(ts) => kind = ts,
+                        Err(e) => return e.to_compile_error().into(),
+                    }
                 }
             } else if ident == "layer" {
                 let _eq = iter.next();
                 if let Some(proc_macro2::TokenTree::Literal(lit)) = iter.next() {
                     let s = lit.to_string();
                     let s = s.trim_matches('"').to_string();
-                    layer =
-                        parse_layer_variant(&syn::LitStr::new(&s, proc_macro2::Span::call_site()))
-                            .expect("valid layer variant");
+                    match parse_layer_variant(&syn::LitStr::new(&s, proc_macro2::Span::call_site()))
+                    {
+                        Ok(ts) => layer = ts,
+                        Err(e) => return e.to_compile_error().into(),
+                    }
                 }
             } else if ident == "trace" {
                 has_trace = true;

@@ -44,9 +44,5 @@ impl<S: ReplayableState + Clone> StateDiff<S> {
 pub async fn validate_migration_chains_at_startup(
     _store: &dyn EventStore,
 ) -> Result<StartupValidation, StoreError> {
-    Ok(StartupValidation {
-        validated_types: Vec::new(),
-        warnings: Vec::new(),
-        errors: Vec::new(),
-    })
+    Ok(StartupValidation { validated_types: Vec::new(), warnings: Vec::new(), errors: Vec::new() })
 }

@@ -75,12 +75,7 @@ pub struct RetryConfig {
 
 impl Default for RetryConfig {
     fn default() -> Self {
-        Self {
-            max_retries: 3,
-            initial_delay_ms: 100,
-            max_delay_ms: 10000,
-            backoff_factor: 2.0,
-        }
+        Self { max_retries: 3, initial_delay_ms: 100, max_delay_ms: 10000, backoff_factor: 2.0 }
     }
 }
 
@@ -92,10 +87,7 @@ pub struct TokenBudget {
 
 impl TokenBudget {
     pub fn new(budget: u64) -> Self {
-        Self {
-            total_budget: budget,
-            used_tokens: 0,
-        }
+        Self { total_budget: budget, used_tokens: 0 }
     }
 
     pub fn can_use(&self, tokens: u64) -> bool {

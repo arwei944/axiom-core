@@ -40,9 +40,7 @@ pub struct MockClock {
 
 impl Default for MockClock {
     fn default() -> Self {
-        Self {
-            now: Arc::new(Mutex::new(0)),
-        }
+        Self { now: Arc::new(Mutex::new(0)) }
     }
 }
 

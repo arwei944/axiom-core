@@ -39,10 +39,7 @@ pub struct ReplayEngine {
 
 impl ReplayEngine {
     pub fn new(event_store: Arc<dyn EventStore>, snapshot_store: Arc<dyn SnapshotStore>) -> Self {
-        Self {
-            event_store,
-            snapshot_store,
-        }
+        Self { event_store, snapshot_store }
     }
 
     pub async fn replay_aggregate<S: ReplayableState>(
@@ -60,10 +57,7 @@ impl ReplayEngine {
     ) -> Result<ReplayResult<S>, StoreError> {
         let start_ns = global_clock().now_ns();
 
-        let snapshot = self
-            .snapshot_store
-            .load_snapshot_at(aggregate_id, up_to_seq)
-            .await?;
+        let snapshot = self.snapshot_store.load_snapshot_at(aggregate_id, up_to_seq).await?;
 
         let (mut state, start_seq, mut vc, snapshot_used) = if let Some(snap) = snapshot {
             if snap.schema_version > S::current_schema_version() {
@@ -92,10 +86,7 @@ impl ReplayEngine {
             state.apply_event(&event.event_type, &event.payload)?;
         }
 
-        let last_sequence = applicable
-            .last()
-            .map(|e| e.sequence_number)
-            .unwrap_or(start_seq);
+        let last_sequence = applicable.last().map(|e| e.sequence_number).unwrap_or(start_seq);
 
         let duration_ms = (global_clock().now_ns() - start_ns) / 1_000_000;
 
@@ -139,11 +130,7 @@ impl ReplayEngine {
         cell_id: &str,
     ) -> Result<ReplayResult<S>, StoreError> {
         let all_events = self.event_store.read_by_cell_id(cell_id).await?;
-        let latest_seq = all_events
-            .iter()
-            .map(|e| e.sequence_number)
-            .max()
-            .unwrap_or(0);
+        let latest_seq = all_events.iter().map(|e| e.sequence_number).max().unwrap_or(0);
         self.replay_with_events::<S>(&all_events, latest_seq).await
     }
 
@@ -152,15 +139,8 @@ impl ReplayEngine {
         start_ns: u64,
         end_ns: u64,
     ) -> Result<ReplayResult<S>, StoreError> {
-        let all_events = self
-            .event_store
-            .read_by_time_range(start_ns, end_ns)
-            .await?;
-        let latest_seq = all_events
-            .iter()
-            .map(|e| e.sequence_number)
-            .max()
-            .unwrap_or(0);
+        let all_events = self.event_store.read_by_time_range(start_ns, end_ns).await?;
+        let latest_seq = all_events.iter().map(|e| e.sequence_number).max().unwrap_or(0);
         self.replay_with_events::<S>(&all_events, latest_seq).await
     }
 
@@ -204,11 +184,7 @@ impl ReplayEngine {
         correlation_id: &str,
     ) -> Result<ReplayResult<S>, StoreError> {
         let all_events = self.event_store.read_by_correlation(correlation_id).await?;
-        let latest_seq = all_events
-            .iter()
-            .map(|e| e.sequence_number)
-            .max()
-            .unwrap_or(0);
+        let latest_seq = all_events.iter().map(|e| e.sequence_number).max().unwrap_or(0);
         self.replay_with_events::<S>(&all_events, latest_seq).await
     }
 
@@ -247,10 +223,7 @@ impl ReplayEngine {
             state.apply_event(&event.event_type, &event.payload)?;
         }
 
-        let last_sequence = applicable
-            .last()
-            .map(|e| e.sequence_number)
-            .unwrap_or(start_seq);
+        let last_sequence = applicable.last().map(|e| e.sequence_number).unwrap_or(start_seq);
 
         let duration_ms = (global_clock().now_ns() - start_ns) / 1_000_000;
 
@@ -291,11 +264,8 @@ mod tests {
                     self.count += by;
                 }
                 "set_name" => {
-                    self.name = payload
-                        .get("name")
-                        .and_then(|v| v.as_str())
-                        .unwrap_or("")
-                        .to_string();
+                    self.name =
+                        payload.get("name").and_then(|v| v.as_str()).unwrap_or("").to_string();
                 }
                 _ => {}
             }
@@ -313,11 +283,7 @@ mod tests {
         fn from_snapshot(value: &serde_json::Value) -> Result<Self, StoreError> {
             Ok(CounterState {
                 count: value.get("count").and_then(|v| v.as_i64()).unwrap_or(0),
-                name: value
-                    .get("name")
-                    .and_then(|v| v.as_str())
-                    .unwrap_or("")
-                    .to_string(),
+                name: value.get("name").and_then(|v| v.as_str()).unwrap_or("").to_string(),
             })
         }
     }
@@ -356,10 +322,7 @@ mod tests {
         populate(&store, "c2").await;
 
         let mid: ReplayResult<CounterState> = engine.replay_to("c2", 3).await.unwrap();
-        engine
-            .save_snapshot("c2", "cell", &mid.state, 3, mid.vector_clock.clone())
-            .await
-            .unwrap();
+        engine.save_snapshot("c2", "cell", &mid.state, 3, mid.vector_clock.clone()).await.unwrap();
 
         for _ in 0..5 {
             let e = EventBuilder::new("c2", "increment", serde_json::json!({"by": 2})).build();
@@ -388,10 +351,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_snapshot_roundtrip() {
-        let state = CounterState {
-            count: 42,
-            name: "alice".into(),
-        };
+        let state = CounterState { count: 42, name: "alice".into() };
         let snap_val = state.to_snapshot();
         let restored = CounterState::from_snapshot(&snap_val).unwrap();
         assert_eq!(restored, state);
@@ -443,10 +403,7 @@ mod tests {
             store.append(e).await.unwrap();
         }
 
-        let diff = engine
-            .diff_between::<CounterState>("diff-agg", 2, 5)
-            .await
-            .unwrap();
+        let diff = engine.diff_between::<CounterState>("diff-agg", 2, 5).await.unwrap();
         assert_eq!(diff.from_state.count, 2);
         assert_eq!(diff.to_state.count, 5);
         assert_eq!(diff.from_sequence, 2);

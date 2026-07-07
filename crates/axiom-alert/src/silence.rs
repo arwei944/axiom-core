@@ -21,10 +21,8 @@ impl Silence {
         created_by: &str,
         comment: &str,
     ) -> Self {
-        let now = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .map(|d| d.as_nanos() as u64)
-            .unwrap_or(0);
+        let now =
+            SystemTime::now().duration_since(UNIX_EPOCH).map(|d| d.as_nanos() as u64).unwrap_or(0);
         Self {
             id: format!("silence-{}", Uuid::new_v4()),
             matchers,

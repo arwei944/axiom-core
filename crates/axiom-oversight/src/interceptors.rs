@@ -71,9 +71,7 @@ impl BusInterceptor for ResourceInterceptor {
         if self.manager.global_tokens().try_acquire(1) {
             InterceptDecision::Allow
         } else {
-            InterceptDecision::Reject {
-                reason: "global token bucket exhausted; throttling".into(),
-            }
+            InterceptDecision::Reject { reason: "global token bucket exhausted; throttling".into() }
         }
     }
 }
@@ -95,12 +93,9 @@ impl BusInterceptor for OversightReportInterceptor {
     }
     fn intercept(&self, env: &axiom_kernel::signal::SignalEnvelope) -> InterceptDecision {
         if let Err(_violation) = self.arch.check_envelope(env) {
-            let cell_id = env
-                .target_cell
-                .clone()
-                .unwrap_or_else(|| format!("{:?}", env.target_layer));
-            self.entropy
-                .record(EntropyEvent::AxiomViolation { cell_id });
+            let cell_id =
+                env.target_cell.clone().unwrap_or_else(|| format!("{:?}", env.target_layer));
+            self.entropy.record(EntropyEvent::AxiomViolation { cell_id });
         }
         InterceptDecision::Allow
     }
@@ -139,14 +134,10 @@ pub async fn wire_oversight_interceptors(bus: &MessageBus, supervisor: &Oversigh
         supervisor.entropy_governor(),
     )))
     .await;
-    bus.register_interceptor(Arc::new(ResourceInterceptor::new(
-        supervisor.resource_manager(),
-    )))
-    .await;
-    bus.register_interceptor(Arc::new(ComplianceInterceptor::new(
-        supervisor.compliance_guard(),
-    )))
-    .await;
+    bus.register_interceptor(Arc::new(ResourceInterceptor::new(supervisor.resource_manager())))
+        .await;
+    bus.register_interceptor(Arc::new(ComplianceInterceptor::new(supervisor.compliance_guard())))
+        .await;
     bus.register_interceptor(Arc::new(MetaOversightInterceptor::new(
         supervisor.meta_oversight(),
         supervisor.health_collector(),
@@ -197,10 +188,7 @@ mod tests {
             Layer::Exec,
             serde_json::json!({"token":"ghp_abcdefghijklmnopqrstuvwxyz0123456789ABCD"}),
         );
-        assert!(matches!(
-            i.intercept(&env),
-            InterceptDecision::Reject { .. }
-        ));
+        assert!(matches!(i.intercept(&env), InterceptDecision::Reject { .. }));
     }
 
     #[test]
@@ -217,10 +205,7 @@ mod tests {
         let i = ResourceInterceptor::new(mgr.clone());
         let env = make_env(Layer::Exec, Layer::Exec, serde_json::Value::Null);
         assert!(matches!(i.intercept(&env), InterceptDecision::Allow));
-        assert!(matches!(
-            i.intercept(&env),
-            InterceptDecision::Reject { .. }
-        ));
+        assert!(matches!(i.intercept(&env), InterceptDecision::Reject { .. }));
         tokio::time::sleep(Duration::from_millis(50)).await;
     }
 }

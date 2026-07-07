@@ -82,11 +82,7 @@ fn check_rustfmt() -> bool {
 fn check_clippy() -> bool {
     print!("Checking clippy... ");
 
-    let output = match Command::new("cargo")
-        .arg("clippy")
-        .arg("--version")
-        .output()
-    {
+    let output = match Command::new("cargo").arg("clippy").arg("--version").output() {
         Ok(o) => o,
         Err(_) => {
             println!("❌ not found (run: rustup component add clippy)");
@@ -106,11 +102,7 @@ fn check_clippy() -> bool {
 fn check_git_hooks() -> bool {
     print!("Checking git hooks... ");
 
-    let output = match Command::new("git")
-        .arg("config")
-        .arg("core.hooksPath")
-        .output()
-    {
+    let output = match Command::new("git").arg("config").arg("core.hooksPath").output() {
         Ok(o) => o,
         Err(_) => {
             println!("❌ not a git repository");
@@ -136,11 +128,7 @@ fn check_git_hooks() -> bool {
 fn check_dependencies() -> bool {
     print!("Checking dependencies... ");
 
-    let output = match Command::new("cargo")
-        .arg("check")
-        .arg("--workspace")
-        .arg("--quiet")
-        .output()
+    let output = match Command::new("cargo").arg("check").arg("--workspace").arg("--quiet").output()
     {
         Ok(o) => o,
         Err(_) => {

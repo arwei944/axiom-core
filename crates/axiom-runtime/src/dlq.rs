@@ -19,10 +19,7 @@ pub struct DeadLetterQueue {
 
 impl DeadLetterQueue {
     pub fn new(capacity: usize) -> Self {
-        Self {
-            letters: RwLock::new(VecDeque::with_capacity(capacity)),
-            capacity,
-        }
+        Self { letters: RwLock::new(VecDeque::with_capacity(capacity)), capacity }
     }
 
     pub fn enqueue(&self, envelope: SignalEnvelope, reason: &str) {

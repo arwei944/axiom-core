@@ -37,10 +37,8 @@ pub struct Alert {
 impl Alert {
     pub fn new(rule_id: &str, severity: Severity, message: impl Into<String>) -> Self {
         let id = format!("alert-{}", Uuid::new_v4());
-        let now = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .map(|d| d.as_nanos() as u64)
-            .unwrap_or(0);
+        let now =
+            SystemTime::now().duration_since(UNIX_EPOCH).map(|d| d.as_nanos() as u64).unwrap_or(0);
         Self {
             id,
             rule_id: rule_id.to_string(),

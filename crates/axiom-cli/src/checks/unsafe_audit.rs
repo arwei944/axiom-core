@@ -167,11 +167,7 @@ impl Check for UnsafeAuditCheck {
                 message: format!(
                     "{} unsafe violation(s):\n    {}",
                     count,
-                    all_hits
-                        .into_iter()
-                        .take(10)
-                        .collect::<Vec<_>>()
-                        .join("\n    ")
+                    all_hits.into_iter().take(10).collect::<Vec<_>>().join("\n    ")
                 ),
             }
         }

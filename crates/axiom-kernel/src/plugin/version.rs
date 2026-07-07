@@ -29,9 +29,7 @@ impl Default for RepositoryIndex {
 
 impl RepositoryIndex {
     pub fn new() -> Self {
-        Self {
-            plugins: Vec::new(),
-        }
+        Self { plugins: Vec::new() }
     }
 
     pub fn add(&mut self, plugin: PluginVersion) {
@@ -39,9 +37,7 @@ impl RepositoryIndex {
     }
 
     pub fn resolve(&self, id: &str, version_req: &semver::VersionReq) -> Option<&PluginVersion> {
-        self.plugins
-            .iter()
-            .find(|p| p.id == id && version_req.matches(&p.version))
+        self.plugins.iter().find(|p| p.id == id && version_req.matches(&p.version))
     }
 }
 

@@ -119,11 +119,7 @@ impl ComplianceGuardCell {
 
         for (pat, re) in self.patterns.lock().iter() {
             for m in re.find_iter(text) {
-                *self
-                    .violation_counts
-                    .lock()
-                    .entry(pat.name.to_string())
-                    .or_insert(0) += 1;
+                *self.violation_counts.lock().entry(pat.name.to_string()).or_insert(0) += 1;
 
                 let preview: String = m.as_str().chars().take(8).collect();
                 violations.push(ComplianceViolation {
@@ -146,11 +142,7 @@ impl ComplianceGuardCell {
 
         ComplianceResult {
             violations,
-            redacted_text: if redacted != text {
-                Some(redacted)
-            } else {
-                None
-            },
+            redacted_text: if redacted != text { Some(redacted) } else { None },
             rejected,
         }
     }
@@ -197,10 +189,7 @@ mod tests {
         let fake = "ghp_".to_string() + &"a".repeat(40);
         let r = c.check_text(&format!("token is {}", fake));
         assert!(r.rejected);
-        assert!(r
-            .violations
-            .iter()
-            .any(|v| v.severity == Severity::Critical));
+        assert!(r.violations.iter().any(|v| v.severity == Severity::Critical));
     }
 
     #[test]

@@ -52,10 +52,7 @@ impl MetaOversightCell {
 
     pub fn register_expected_cell(&self, cell_id: &str) {
         self.expected_cells.lock().push(cell_id.to_string());
-        self.heartbeats
-            .lock()
-            .entry(cell_id.to_string())
-            .or_default();
+        self.heartbeats.lock().entry(cell_id.to_string()).or_default();
     }
 
     pub fn set_interceptor_count(&self, n: usize) {

@@ -30,19 +30,11 @@ pub struct ValidationError {
 
 impl ValidationError {
     pub fn error(field: impl Into<String>, message: impl Into<String>) -> Self {
-        Self {
-            field: field.into(),
-            message: message.into(),
-            severity: ValidationSeverity::Error,
-        }
+        Self { field: field.into(), message: message.into(), severity: ValidationSeverity::Error }
     }
 
     pub fn warning(field: impl Into<String>, message: impl Into<String>) -> Self {
-        Self {
-            field: field.into(),
-            message: message.into(),
-            severity: ValidationSeverity::Warning,
-        }
+        Self { field: field.into(), message: message.into(), severity: ValidationSeverity::Warning }
     }
 }
 
@@ -63,21 +55,15 @@ impl ValidationResult {
     }
 
     pub fn is_valid(&self) -> bool {
-        self.errors
-            .iter()
-            .all(|e| e.severity != ValidationSeverity::Error)
+        self.errors.iter().all(|e| e.severity != ValidationSeverity::Error)
     }
 
     pub fn has_errors(&self) -> bool {
-        self.errors
-            .iter()
-            .any(|e| e.severity == ValidationSeverity::Error)
+        self.errors.iter().any(|e| e.severity == ValidationSeverity::Error)
     }
 
     pub fn has_warnings(&self) -> bool {
-        self.errors
-            .iter()
-            .any(|e| e.severity == ValidationSeverity::Warning)
+        self.errors.iter().any(|e| e.severity == ValidationSeverity::Warning)
     }
 
     pub fn extend(&mut self, other: ValidationResult) {
@@ -87,11 +73,8 @@ impl ValidationResult {
 
 impl std::fmt::Display for ValidationResult {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let messages: Vec<String> = self
-            .errors
-            .iter()
-            .map(|e| format!("{}: {}", e.field, e.message))
-            .collect();
+        let messages: Vec<String> =
+            self.errors.iter().map(|e| format!("{}: {}", e.field, e.message)).collect();
         write!(f, "{}", messages.join("; "))
     }
 }
@@ -130,16 +113,10 @@ pub enum KernelError {
     InvariantViolated { message: String },
 
     #[error("Schema validation failed for {signal_type}: {message}")]
-    SchemaValidation {
-        signal_type: String,
-        message: String,
-    },
+    SchemaValidation { signal_type: String, message: String },
 
     #[error("Signal validation failed for {signal_type}: {message}")]
-    SignalValidation {
-        signal_type: String,
-        message: String,
-    },
+    SignalValidation { signal_type: String, message: String },
 
     #[error("Layer violation: {from} cannot send to {to} (signal: {signal_type}, source_cell: {source_cell})")]
     LayerViolation {
@@ -150,11 +127,7 @@ pub enum KernelError {
     },
 
     #[error("Handoff limit exceeded: message {msg_id} hopped {hops} times (max 8, correlation: {correlation_id})")]
-    HandoffLimitExceeded {
-        msg_id: String,
-        hops: u32,
-        correlation_id: String,
-    },
+    HandoffLimitExceeded { msg_id: String, hops: u32, correlation_id: String },
 
     #[error("Cell {cell_id} heartbeat timeout (last seen {last_seen_ms}ms ago)")]
     HeartbeatTimeout { cell_id: String, last_seen_ms: u64 },
@@ -169,17 +142,10 @@ pub enum KernelError {
     CircuitBreak { cell_id: String, failures: u32 },
 
     #[error("Stale state detected for cell {cell_id}: expected version {expected}, got {actual}")]
-    StaleState {
-        cell_id: String,
-        expected: u64,
-        actual: u64,
-    },
+    StaleState { cell_id: String, expected: u64, actual: u64 },
 
     #[error("Duplicate message {msg_id} (idempotency violation, correlation: {correlation_id})")]
-    DuplicateMessage {
-        msg_id: String,
-        correlation_id: String,
-    },
+    DuplicateMessage { msg_id: String, correlation_id: String },
 
     #[error("Version incompatibility: {compatibility:?} (required: {required}, found: {found})")]
     VersionMismatch {
@@ -191,90 +157,48 @@ pub enum KernelError {
     #[error(
         "Schema version too new for {signal_type}: found v{found}, max supported v{max_supported}"
     )]
-    SchemaVersionTooNew {
-        signal_type: String,
-        found: u16,
-        max_supported: u16,
-    },
+    SchemaVersionTooNew { signal_type: String, found: u16, max_supported: u16 },
 
     #[error(
         "Schema version too old for {signal_type}: found v{found}, no migration path to v{current}"
     )]
-    MigrationPathNotFound {
-        signal_type: String,
-        found: u16,
-        current: u16,
-    },
+    MigrationPathNotFound { signal_type: String, found: u16, current: u16 },
 
     #[error("Migration chain incomplete for {signal_type}: missing migration v{from} to v{to}")]
-    MigrationChainGap {
-        signal_type: String,
-        from: u16,
-        to: u16,
-    },
+    MigrationChainGap { signal_type: String, from: u16, to: u16 },
 
     #[error("Protocol version mismatch: expected v{expected}, got v{got}")]
     ProtocolMismatch { expected: u16, got: u16 },
 
     #[error("Migration failed from v{from} to v{to} for {signal_type}: {reason}")]
-    MigrationFailed {
-        signal_type: String,
-        from: u16,
-        to: u16,
-        reason: String,
-    },
+    MigrationFailed { signal_type: String, from: u16, to: u16, reason: String },
 
     #[error("Permission denied: {action} requires {required} permission")]
     PermissionDenied { action: String, required: String },
 
     #[error("Correlation chain broken: {message} (correlation_id: {correlation_id})")]
-    CorrelationBroken {
-        message: String,
-        correlation_id: String,
-    },
+    CorrelationBroken { message: String, correlation_id: String },
 
     #[error("Witness chain broken: {message} (cell_id: {cell_id}, witness_id: {witness_id})")]
-    WitnessChainBroken {
-        message: String,
-        cell_id: String,
-        witness_id: String,
-    },
+    WitnessChainBroken { message: String, cell_id: String, witness_id: String },
 
     #[error("Entropy threshold exceeded: {score} > {threshold} (cell_id: {cell_id})")]
-    EntropyExceeded {
-        score: f64,
-        threshold: f64,
-        cell_id: String,
-    },
+    EntropyExceeded { score: f64, threshold: f64, cell_id: String },
 
     #[error("Token budget exceeded for {cell_id}: used {used}, budget {budget}")]
-    TokenBudgetExceeded {
-        cell_id: String,
-        used: u64,
-        budget: u64,
-    },
+    TokenBudgetExceeded { cell_id: String, used: u64, budget: u64 },
 
     #[error("Message loop detected: {message} (correlation: {correlation_id})")]
-    LoopDetected {
-        message: String,
-        correlation_id: String,
-    },
+    LoopDetected { message: String, correlation_id: String },
 
     #[error("Timeout after {timeout_ms}ms (cell_id: {cell_id}, operation: {operation})")]
-    Timeout {
-        timeout_ms: u64,
-        cell_id: String,
-        operation: String,
-    },
+    Timeout { timeout_ms: u64, cell_id: String, operation: String },
 
     #[error("Resource exhausted: {resource} (cell_id: {cell_id})")]
     ResourceExhausted { resource: String, cell_id: String },
 
     #[error("Invalid signal type: {signal_type} (expected one of: {expected_types})")]
-    InvalidSignalType {
-        signal_type: String,
-        expected_types: String,
-    },
+    InvalidSignalType { signal_type: String, expected_types: String },
 
     #[error("Shutdown in progress: {message}")]
     ShutdownInProgress { message: String },
@@ -289,19 +213,13 @@ pub enum KernelError {
     Serde(#[from] serde_json::Error),
 
     #[error("Type mismatch: expected {expected}, got {actual}")]
-    TypeMismatch {
-        expected: &'static str,
-        actual: &'static str,
-    },
+    TypeMismatch { expected: &'static str, actual: &'static str },
 
     #[error("Witness serialization failed for {cell_id}: {message}")]
     WitnessSerialization { cell_id: String, message: String },
 
     #[error("Signal serialization failed for {signal_type}: {message}")]
-    SignalSerialization {
-        signal_type: String,
-        message: String,
-    },
+    SignalSerialization { signal_type: String, message: String },
 
     #[error("Lens not found: {lens_id}")]
     LensNotFound { lens_id: String },
@@ -342,10 +260,7 @@ pub struct Message {
 
 impl Message {
     pub fn new(payload: Vec<u8>) -> Self {
-        Self {
-            payload,
-            metadata: std::collections::HashMap::new(),
-        }
+        Self { payload, metadata: std::collections::HashMap::new() }
     }
 
     pub fn with_metadata(mut self, key: impl Into<String>, value: impl Into<String>) -> Self {
@@ -413,24 +328,18 @@ impl<T: Axiom + 'static> DynAxiom for T {
         msg: &dyn std::any::Any,
     ) -> KernelResult<()> {
         let current =
-            current
-                .downcast_ref::<T::State>()
-                .ok_or_else(|| KernelError::TypeMismatch {
-                    expected: std::any::type_name::<T::State>(),
-                    actual: "unknown",
-                })?;
-        let new = new
-            .downcast_ref::<T::State>()
-            .ok_or_else(|| KernelError::TypeMismatch {
+            current.downcast_ref::<T::State>().ok_or_else(|| KernelError::TypeMismatch {
                 expected: std::any::type_name::<T::State>(),
                 actual: "unknown",
             })?;
-        let msg = msg
-            .downcast_ref::<T::Message>()
-            .ok_or_else(|| KernelError::TypeMismatch {
-                expected: std::any::type_name::<T::Message>(),
-                actual: "unknown",
-            })?;
+        let new = new.downcast_ref::<T::State>().ok_or_else(|| KernelError::TypeMismatch {
+            expected: std::any::type_name::<T::State>(),
+            actual: "unknown",
+        })?;
+        let msg = msg.downcast_ref::<T::Message>().ok_or_else(|| KernelError::TypeMismatch {
+            expected: std::any::type_name::<T::Message>(),
+            actual: "unknown",
+        })?;
         <T as Axiom>::check(self, current, new, msg)
     }
 
@@ -519,10 +428,7 @@ pub struct Projection {
 
 impl Projection {
     pub fn new(data: Vec<u8>) -> Self {
-        Self {
-            data,
-            metadata: std::collections::HashMap::new(),
-        }
+        Self { data, metadata: std::collections::HashMap::new() }
     }
 
     pub fn with_metadata(mut self, key: impl Into<String>, value: impl Into<String>) -> Self {
@@ -549,10 +455,7 @@ impl AxiomKernel {
     }
 
     pub fn with_heatmap(heatmap: std::sync::Arc<RwLock<HeatmapCollector>>) -> Self {
-        Self {
-            axioms: RwLock::new(Vec::new()),
-            heatmap,
-        }
+        Self { axioms: RwLock::new(Vec::new()), heatmap }
     }
 
     pub fn heatmap(&self) -> std::sync::Arc<RwLock<HeatmapCollector>> {

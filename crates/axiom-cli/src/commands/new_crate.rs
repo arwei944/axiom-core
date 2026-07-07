@@ -42,11 +42,7 @@ pub fn run_new_crate(args: &NewCrateArgs) -> Result<std::process::ExitCode> {
 
     println!("Creating crate '{}' at layer {}...", crate_name, args.layer);
 
-    let template = if args.full || !args.minimal {
-        "full"
-    } else {
-        "minimal"
-    };
+    let template = if args.full || !args.minimal { "full" } else { "minimal" };
 
     let allowed_deps = get_allowed_deps_for_layer(args.layer);
 
@@ -57,13 +53,7 @@ pub fn run_new_crate(args: &NewCrateArgs) -> Result<std::process::ExitCode> {
     create_crate_structure(&crate_path, template)?;
 
     // 生成所有文件
-    create_cargo_toml(
-        &crate_path,
-        &crate_name,
-        args.layer,
-        &allowed_deps,
-        template,
-    )?;
+    create_cargo_toml(&crate_path, &crate_name, args.layer, &allowed_deps, template)?;
     create_build_rs(&crate_path, &crate_name)?;
     create_lib_rs(&crate_path, &crate_name)?;
     update_architecture_toml(&crate_name, args.layer)?;
@@ -196,8 +186,7 @@ fn create_cargo_toml(
 
     let mut file =
         File::create(crate_path.join("Cargo.toml")).context("Failed to create Cargo.toml")?;
-    file.write_all(content.as_bytes())
-        .context("Failed to write Cargo.toml")?;
+    file.write_all(content.as_bytes()).context("Failed to write Cargo.toml")?;
 
     Ok(())
 }
@@ -215,8 +204,7 @@ fn create_build_rs(crate_path: &Path, crate_name: &str) -> Result<()> {
 
     let mut file =
         File::create(crate_path.join("build.rs")).context("Failed to create build.rs")?;
-    file.write_all(content.as_bytes())
-        .context("Failed to write build.rs")?;
+    file.write_all(content.as_bytes()).context("Failed to write build.rs")?;
 
     Ok(())
 }
@@ -258,8 +246,7 @@ fn create_lib_rs(crate_path: &Path, name: &str) -> Result<()> {
 
     let mut file =
         File::create(crate_path.join("src/lib.rs")).context("Failed to create lib.rs")?;
-    file.write_all(content.as_bytes())
-        .context("Failed to write lib.rs")?;
+    file.write_all(content.as_bytes()).context("Failed to write lib.rs")?;
 
     let struct_name = module_name
         .replace("-", "_")
@@ -322,8 +309,7 @@ fn create_lib_rs(crate_path: &Path, name: &str) -> Result<()> {
 
     let mut file = File::create(crate_path.join(format!("src/{}.rs", module_name)))
         .context("Failed to create module.rs")?;
-    file.write_all(module_content.as_bytes())
-        .context("Failed to write module.rs")?;
+    file.write_all(module_content.as_bytes()).context("Failed to write module.rs")?;
 
     Ok(())
 }
@@ -362,10 +348,7 @@ fn update_architecture_toml(crate_name: &str, layer: usize) -> Result<()> {
 
     // Find the [crate-layers] section and add the new crate
     if !content.contains(&crate_name.to_string()) {
-        content = content.replace(
-            "[crate-layers]",
-            &format!("[crate-layers]\n{}", insert_line),
-        );
+        content = content.replace("[crate-layers]", &format!("[crate-layers]\n{}", insert_line));
     }
 
     fs::write(&arch_path, content).context("Failed to write architecture.toml")?;
@@ -386,8 +369,7 @@ async fn test_integration() {
 
     let mut file = File::create(crate_path.join("tests/integration.rs"))
         .context("Failed to create integration.rs")?;
-    file.write_all(content.as_bytes())
-        .context("Failed to write integration.rs")?;
+    file.write_all(content.as_bytes()).context("Failed to write integration.rs")?;
 
     Ok(())
 }
@@ -403,8 +385,7 @@ fn main() {
 
     let mut file = File::create(crate_path.join("examples/example.rs"))
         .context("Failed to create example.rs")?;
-    file.write_all(content.as_bytes())
-        .context("Failed to write example.rs")?;
+    file.write_all(content.as_bytes()).context("Failed to write example.rs")?;
 
     Ok(())
 }
@@ -439,8 +420,7 @@ jobs:
     }
 
     let mut file = File::create(workflow_path).context("Failed to create CI workflow")?;
-    file.write_all(content.as_bytes())
-        .context("Failed to write CI workflow")?;
+    file.write_all(content.as_bytes()).context("Failed to write CI workflow")?;
 
     Ok(())
 }

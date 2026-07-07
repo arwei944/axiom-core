@@ -19,10 +19,8 @@ impl Check for CargoTestCheck {
         match output {
             Ok(o) if o.status.success() => {
                 let stdout = String::from_utf8_lossy(&o.stdout);
-                let passed: Vec<&str> = stdout
-                    .lines()
-                    .filter(|l| l.contains("test result: ok"))
-                    .collect();
+                let passed: Vec<&str> =
+                    stdout.lines().filter(|l| l.contains("test result: ok")).collect();
                 let total: usize = stdout
                     .lines()
                     .filter(|l| l.starts_with("test result:"))
@@ -37,11 +35,7 @@ impl Check for CargoTestCheck {
                     name: self.name(),
                     passed: true,
                     blocking: true,
-                    message: format!(
-                        "{} test suites passed ({} tests total)",
-                        passed.len(),
-                        total
-                    ),
+                    message: format!("{} test suites passed ({} tests total)", passed.len(), total),
                 }
             }
             Ok(o) => {

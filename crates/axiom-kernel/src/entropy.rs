@@ -333,11 +333,7 @@ mod tests {
         for _ in 0..20 {
             score.record_axiom_violation();
         }
-        assert!(
-            score.value > 0.0,
-            "violations should increase entropy, got {}",
-            score.value
-        );
+        assert!(score.value > 0.0, "violations should increase entropy, got {}", score.value);
     }
 
     #[test]

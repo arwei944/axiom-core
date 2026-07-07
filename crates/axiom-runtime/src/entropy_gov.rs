@@ -18,16 +18,9 @@ use std::sync::Arc;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum GovernanceAction {
     None,
-    Warn {
-        message: String,
-    },
-    Throttle {
-        target_cell: Option<String>,
-        factor: f64,
-    },
-    Emergency {
-        reason: String,
-    },
+    Warn { message: String },
+    Throttle { target_cell: Option<String>, factor: f64 },
+    Emergency { reason: String },
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -213,12 +206,7 @@ impl EntropyGovernorCell {
         let now = global_clock().now_ns();
         let g = *self.global.lock();
         let level = g.level();
-        let per_cell = self
-            .per_cell
-            .lock()
-            .iter()
-            .map(|(k, v)| (k.clone(), v.value))
-            .collect();
+        let per_cell = self.per_cell.lock().iter().map(|(k, v)| (k.clone(), v.value)).collect();
         let last_action_ns = *self.last_action_ns.lock();
         let cooldown_remaining = (last_action_ns + self.cooldown_ns).saturating_sub(now);
         EntropySnapshot {
@@ -250,10 +238,7 @@ impl EntropyGovernorCell {
                     .iter()
                     .max_by(|a, b| a.1.partial_cmp(b.1).unwrap_or(std::cmp::Ordering::Equal))
                     .map(|(k, _)| k.clone());
-                GovernanceAction::Throttle {
-                    target_cell: hottest,
-                    factor: 0.5,
-                }
+                GovernanceAction::Throttle { target_cell: hottest, factor: 0.5 }
             }
             EntropyLevel::Critical => GovernanceAction::Emergency {
                 reason: format!("entropy critical: {:.3}", snap.global.value),
@@ -300,12 +285,7 @@ impl EntropyGovernorCell {
 
 impl Default for EntropyGovernorCell {
     fn default() -> Self {
-        Self::new(
-            GREEN_THRESHOLD,
-            YELLOW_THRESHOLD,
-            RED_THRESHOLD,
-            CRITICAL_THRESHOLD,
-        )
+        Self::new(GREEN_THRESHOLD, YELLOW_THRESHOLD, RED_THRESHOLD, CRITICAL_THRESHOLD)
     }
 }
 
@@ -325,21 +305,12 @@ mod tests {
     fn test_red_after_multiple_events() {
         let g = EntropyGovernorCell::new(1.0, 5.0, 10.0, 20.0);
         for _ in 0..10 {
-            g.record(EntropyEvent::AxiomViolation {
-                cell_id: "c1".into(),
-            });
-            g.record(EntropyEvent::CellRestart {
-                cell_id: "c1".into(),
-            });
-            g.record(EntropyEvent::CircuitBreak {
-                cell_id: "c1".into(),
-            });
+            g.record(EntropyEvent::AxiomViolation { cell_id: "c1".into() });
+            g.record(EntropyEvent::CellRestart { cell_id: "c1".into() });
+            g.record(EntropyEvent::CircuitBreak { cell_id: "c1".into() });
         }
         let s = g.snapshot();
-        assert!(matches!(
-            s.level,
-            EntropyLevel::Red | EntropyLevel::Critical
-        ));
+        assert!(matches!(s.level, EntropyLevel::Red | EntropyLevel::Critical));
         let action = g.take_action();
         assert!(matches!(
             action,
@@ -351,9 +322,7 @@ mod tests {
     fn test_cooldown_prevents_spam() {
         let g = EntropyGovernorCell::new(0.0, 0.0, 0.0, 0.0);
         for _ in 0..50 {
-            g.record(EntropyEvent::AxiomViolation {
-                cell_id: "c1".into(),
-            });
+            g.record(EntropyEvent::AxiomViolation { cell_id: "c1".into() });
         }
         let a1 = g.take_action();
         assert!(!matches!(a1, GovernanceAction::None));
@@ -365,9 +334,7 @@ mod tests {
     fn test_reset_returns_green() {
         let g = EntropyGovernorCell::default();
         for _ in 0..20 {
-            g.record(EntropyEvent::AxiomViolation {
-                cell_id: "c1".into(),
-            });
+            g.record(EntropyEvent::AxiomViolation { cell_id: "c1".into() });
         }
         g.reset();
         assert_eq!(g.snapshot().level, EntropyLevel::Green);
@@ -377,13 +344,9 @@ mod tests {
     fn test_per_cell_tracking() {
         let g = EntropyGovernorCell::default();
         for _ in 0..5 {
-            g.record(EntropyEvent::AxiomViolation {
-                cell_id: "hot".into(),
-            });
+            g.record(EntropyEvent::AxiomViolation { cell_id: "hot".into() });
         }
-        g.record(EntropyEvent::AxiomViolation {
-            cell_id: "cold".into(),
-        });
+        g.record(EntropyEvent::AxiomViolation { cell_id: "cold".into() });
         let s = g.snapshot();
         assert!(s.per_cell.get("hot").unwrap() > s.per_cell.get("cold").unwrap());
     }
@@ -391,30 +354,14 @@ mod tests {
     #[test]
     fn test_all_entropy_event_types() {
         let g = EntropyGovernorCell::default();
-        g.record(EntropyEvent::AxiomViolation {
-            cell_id: "c".into(),
-        });
-        g.record(EntropyEvent::DroppedMessage {
-            cell_id: "c".into(),
-        });
-        g.record(EntropyEvent::RejectedByGuardian {
-            cell_id: "c".into(),
-        });
-        g.record(EntropyEvent::CellRestart {
-            cell_id: "c".into(),
-        });
-        g.record(EntropyEvent::CircuitBreak {
-            cell_id: "c".into(),
-        });
-        g.record(EntropyEvent::Timeout {
-            cell_id: "c".into(),
-        });
-        g.record(EntropyEvent::DuplicateMessage {
-            cell_id: "c".into(),
-        });
-        g.record(EntropyEvent::StaleStateViolation {
-            cell_id: "c".into(),
-        });
+        g.record(EntropyEvent::AxiomViolation { cell_id: "c".into() });
+        g.record(EntropyEvent::DroppedMessage { cell_id: "c".into() });
+        g.record(EntropyEvent::RejectedByGuardian { cell_id: "c".into() });
+        g.record(EntropyEvent::CellRestart { cell_id: "c".into() });
+        g.record(EntropyEvent::CircuitBreak { cell_id: "c".into() });
+        g.record(EntropyEvent::Timeout { cell_id: "c".into() });
+        g.record(EntropyEvent::DuplicateMessage { cell_id: "c".into() });
+        g.record(EntropyEvent::StaleStateViolation { cell_id: "c".into() });
         let s = g.snapshot();
         assert!(s.global.value > 0.0);
     }
@@ -422,15 +369,9 @@ mod tests {
     #[test]
     fn test_entropy_accumulates() {
         let g = EntropyGovernorCell::new(100.0, 100.0, 100.0, 100.0);
-        g.record(EntropyEvent::DroppedMessage {
-            cell_id: "c".into(),
-        });
-        g.record(EntropyEvent::DroppedMessage {
-            cell_id: "c".into(),
-        });
-        g.record(EntropyEvent::RejectedByGuardian {
-            cell_id: "c".into(),
-        });
+        g.record(EntropyEvent::DroppedMessage { cell_id: "c".into() });
+        g.record(EntropyEvent::DroppedMessage { cell_id: "c".into() });
+        g.record(EntropyEvent::RejectedByGuardian { cell_id: "c".into() });
         let s = g.snapshot();
         assert_eq!(s.global.dropped_messages, 2);
         assert_eq!(s.global.rejected_by_guardian, 1);
@@ -440,12 +381,8 @@ mod tests {
     #[test]
     fn test_entropy_reset() {
         let g = EntropyGovernorCell::new(100.0, 100.0, 100.0, 100.0);
-        g.record(EntropyEvent::DroppedMessage {
-            cell_id: "c".into(),
-        });
-        g.record(EntropyEvent::CircuitBreak {
-            cell_id: "c".into(),
-        });
+        g.record(EntropyEvent::DroppedMessage { cell_id: "c".into() });
+        g.record(EntropyEvent::CircuitBreak { cell_id: "c".into() });
         g.reset();
         let s = g.snapshot();
         assert_eq!(s.global.value, 0.0);
@@ -454,14 +391,10 @@ mod tests {
     #[test]
     fn test_entropy_uses_core_weights() {
         let g = EntropyGovernorCell::new(100.0, 100.0, 100.0, 100.0);
-        g.record(EntropyEvent::CellRestart {
-            cell_id: "c".into(),
-        });
+        g.record(EntropyEvent::CellRestart { cell_id: "c".into() });
         let s1 = g.snapshot().global.value;
         g.reset();
-        g.record(EntropyEvent::DuplicateMessage {
-            cell_id: "c".into(),
-        });
+        g.record(EntropyEvent::DuplicateMessage { cell_id: "c".into() });
         let s2 = g.snapshot().global.value;
         assert!(
             s1 > s2,

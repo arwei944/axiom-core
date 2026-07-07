@@ -131,10 +131,7 @@ impl PluginContext {
             .get(to)
             .await
             .ok_or_else(|| PluginError::LoadFailed(format!("plugin `{to}` not found")))?;
-        self.heatmap
-            .write()
-            .await
-            .record_tool_invoke(to.to_string());
+        self.heatmap.write().await.record_tool_invoke(to.to_string());
         target.handle_message(msg)
     }
 }
@@ -169,9 +166,7 @@ pub struct PluginMetrics {
 
 impl PluginMetrics {
     pub fn new() -> Self {
-        Self {
-            request_count: std::sync::Arc::new(tokio::sync::RwLock::new(0)),
-        }
+        Self { request_count: std::sync::Arc::new(tokio::sync::RwLock::new(0)) }
     }
 
     pub async fn record_request(&self) {

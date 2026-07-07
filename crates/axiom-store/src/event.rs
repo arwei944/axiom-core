@@ -95,9 +95,7 @@ pub struct EventBuilder {
 
 impl EventBuilder {
     pub fn new(aggregate_id: &str, event_type: &str, payload: serde_json::Value) -> Self {
-        Self {
-            event: Event::new(aggregate_id, event_type, payload),
-        }
+        Self { event: Event::new(aggregate_id, event_type, payload) }
     }
 
     pub fn cell_id(mut self, cell_id: &str) -> Self {

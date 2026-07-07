@@ -16,9 +16,6 @@ impl AlertRouter {
     }
 
     pub fn route(&self, alert: &Alert) -> Vec<Severity> {
-        self.routes
-            .get(&alert.rule_id)
-            .cloned()
-            .unwrap_or_else(|| vec![alert.severity])
+        self.routes.get(&alert.rule_id).cloned().unwrap_or_else(|| vec![alert.severity])
     }
 }

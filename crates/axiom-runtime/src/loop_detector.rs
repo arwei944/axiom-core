@@ -18,29 +18,15 @@ struct LruCorrelationMap {
 
 impl LruCorrelationMap {
     fn new(max_tracked: usize) -> Self {
-        Self {
-            map: HashMap::new(),
-            order: VecDeque::new(),
-            max_tracked,
-        }
+        Self { map: HashMap::new(), order: VecDeque::new(), max_tracked }
     }
     fn get_or_default(&mut self, key: &str) -> &mut HashSet<String> {
         let k = key.to_string();
         if !self.map.contains_key(&k) {
             self.evict_if_needed();
             self.order.push_back(k.clone());
-            self.map.insert(
-                k.clone(),
-                CorrelationTrack {
-                    cells: HashSet::new(),
-                },
-            );
         }
-        &mut self // foxguard: ignore[rs/no-unwrap-in-lib] — key was just inserted in get_or_default
-            .map
-            .get_mut(&k)
-            .expect("key just inserted should exist")
-            .cells
+        &mut self.map.entry(k).or_insert_with(|| CorrelationTrack { cells: HashSet::new() }).cells
     }
     fn evict_if_needed(&mut self) {
         while self.map.len() >= self.max_tracked {
@@ -63,29 +49,20 @@ pub struct LoopDetector {
 
 impl LoopDetector {
     pub fn new(max_cells_per_correlation: usize, max_tracked: usize) -> Self {
-        Self {
-            paths: RwLock::new(LruCorrelationMap::new(max_tracked)),
-            max_cells_per_correlation,
-        }
+        Self { paths: RwLock::new(LruCorrelationMap::new(max_tracked)), max_cells_per_correlation }
     }
 
     pub fn check_and_record(&self, env: &SignalEnvelope) -> Result<()> {
         let cid = env.correlation_id.as_str().to_string();
-        let target = env
-            .target_cell
-            .clone()
-            .unwrap_or_else(|| format!("layer:{:?}", env.target_layer));
+        let target =
+            env.target_cell.clone().unwrap_or_else(|| format!("layer:{:?}", env.target_layer));
 
         let mut paths = self.paths.write();
         let cells = paths.get_or_default(&cid);
 
         if cells.contains(&target) && cells.len() >= 2 {
             return Err(axiom_kernel::KernelError::LoopDetected {
-                message: format!(
-                    "revisiting cell {} after visiting {} cells",
-                    target,
-                    cells.len()
-                ),
+                message: format!("revisiting cell {} after visiting {} cells", target, cells.len()),
                 correlation_id: cid,
             });
         }

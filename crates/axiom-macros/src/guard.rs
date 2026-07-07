@@ -60,11 +60,10 @@ pub fn impl_guard(attr: TokenStream, item: TokenStream) -> TokenStream {
                     state_after_hash: None,
                     hash: ::axiom_kernel::witness::WitnessHash::zero(),
                     summary: format!("guard {} checked signal {}", #name_str, signal.signal_type()),
-                    outcome: if result.is_ok() {
-                        ::axiom_kernel::witness::TransitionOutcome::Success
-                    } else {
-                        ::axiom_kernel::witness::TransitionOutcome::Failed {
-                            reason: result.as_ref().err().unwrap().to_string()
+                    outcome: match &result {
+                        Ok(()) => ::axiom_kernel::witness::TransitionOutcome::Success,
+                        Err(e) => ::axiom_kernel::witness::TransitionOutcome::Failed {
+                            reason: e.to_string()
                         }
                     },
                     metrics: ::axiom_kernel::witness::WitnessMetrics::default(),

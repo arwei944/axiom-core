@@ -101,11 +101,7 @@ impl EventStore for MemoryStore {
     fn read<'a>(&'a self, aggregate_id: &'a str) -> BoxFuture<'a, Result<Vec<Event>, StoreError>> {
         Box::pin(async move {
             let events = self.inner.events.read().await;
-            Ok(events
-                .iter()
-                .filter(|e| e.aggregate_id == aggregate_id)
-                .cloned()
-                .collect())
+            Ok(events.iter().filter(|e| e.aggregate_id == aggregate_id).cloned().collect())
         })
     }
 
@@ -119,11 +115,7 @@ impl EventStore for MemoryStore {
     fn read_after<'a>(&'a self, after_ns: u64) -> BoxFuture<'a, Result<Vec<Event>, StoreError>> {
         Box::pin(async move {
             let events = self.inner.events.read().await;
-            Ok(events
-                .iter()
-                .filter(|e| e.timestamp_ns > after_ns)
-                .cloned()
-                .collect())
+            Ok(events.iter().filter(|e| e.timestamp_ns > after_ns).cloned().collect())
         })
     }
 
@@ -133,11 +125,7 @@ impl EventStore for MemoryStore {
     ) -> BoxFuture<'a, Result<Vec<Event>, StoreError>> {
         Box::pin(async move {
             let events = self.inner.events.read().await;
-            Ok(events
-                .iter()
-                .filter(|e| e.sequence_number > seq)
-                .cloned()
-                .collect())
+            Ok(events.iter().filter(|e| e.sequence_number > seq).cloned().collect())
         })
     }
 
@@ -181,11 +169,7 @@ impl EventStore for MemoryStore {
     ) -> BoxFuture<'a, Result<Vec<Event>, StoreError>> {
         Box::pin(async move {
             let events = self.inner.events.read().await;
-            Ok(events
-                .iter()
-                .filter(|e| e.cell_id.as_str() == cell_id)
-                .cloned()
-                .collect())
+            Ok(events.iter().filter(|e| e.cell_id.as_str() == cell_id).cloned().collect())
         })
     }
 
@@ -222,9 +206,7 @@ mod tests {
     #[tokio::test]
     async fn test_append_and_read_roundtrip() {
         let store = MemoryStore::new();
-        let e = EventBuilder::new("a1", "evt1", serde_json::json!({}))
-            .cell_id("c1")
-            .build();
+        let e = EventBuilder::new("a1", "evt1", serde_json::json!({})).cell_id("c1").build();
         let seq = store.append(e).await.unwrap();
         assert_eq!(seq, 1);
         let evts = store.read("a1").await.unwrap();
@@ -259,14 +241,10 @@ mod tests {
     #[tokio::test]
     async fn test_batch_append_duplicate_rejects_all() {
         let store = MemoryStore::new();
-        let e1 = EventBuilder::new("a", "e1", serde_json::json!({}))
-            .event_id("dup-id")
-            .build();
+        let e1 = EventBuilder::new("a", "e1", serde_json::json!({})).event_id("dup-id").build();
         store.append(e1).await.unwrap();
 
-        let dup = EventBuilder::new("a", "e2", serde_json::json!({}))
-            .event_id("dup-id")
-            .build();
+        let dup = EventBuilder::new("a", "e2", serde_json::json!({})).event_id("dup-id").build();
         let e3 = EventBuilder::new("a", "e3", serde_json::json!({})).build();
         let result = store.append_batch(vec![dup, e3]).await;
         assert!(result.is_err());
@@ -302,26 +280,18 @@ mod tests {
     #[tokio::test]
     async fn test_duplicate_event_rejected() {
         let store = MemoryStore::new();
-        let e1 = EventBuilder::new("a", "e", serde_json::json!({}))
-            .event_id("dup")
-            .build();
+        let e1 = EventBuilder::new("a", "e", serde_json::json!({})).event_id("dup").build();
         store.append(e1).await.unwrap();
-        let e2 = EventBuilder::new("a", "e", serde_json::json!({}))
-            .event_id("dup")
-            .build();
-        assert!(matches!(
-            store.append(e2).await.unwrap_err(),
-            StoreError::DuplicateEvent(_)
-        ));
+        let e2 = EventBuilder::new("a", "e", serde_json::json!({})).event_id("dup").build();
+        assert!(matches!(store.append(e2).await.unwrap_err(), StoreError::DuplicateEvent(_)));
     }
 
     #[tokio::test]
     async fn test_read_by_correlation() {
         let store = MemoryStore::new();
         let cid = CorrelationId::new("tx-1");
-        let e1 = EventBuilder::new("a", "e", serde_json::json!({}))
-            .correlation_id(cid.clone())
-            .build();
+        let e1 =
+            EventBuilder::new("a", "e", serde_json::json!({})).correlation_id(cid.clone()).build();
         let e2 = EventBuilder::new("a", "e2", serde_json::json!({}))
             .correlation_id(CorrelationId::new("tx-2"))
             .build();

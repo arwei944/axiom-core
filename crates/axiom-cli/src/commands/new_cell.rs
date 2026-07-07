@@ -20,9 +20,7 @@ pub fn run_new_cell(args: &NewCellArgs) -> Result<std::process::ExitCode> {
     let layer = args.layer.to_lowercase();
 
     if !["oversight", "agent", "validate", "exec"].contains(&layer.as_str()) {
-        return Err(anyhow::anyhow!(
-            "Layer must be one of: oversight, agent, validate, exec"
-        ));
+        return Err(anyhow::anyhow!("Layer must be one of: oversight, agent, validate, exec"));
     }
 
     let output_dir = args.output_dir.as_deref().unwrap_or("src/cells");
@@ -30,10 +28,7 @@ pub fn run_new_cell(args: &NewCellArgs) -> Result<std::process::ExitCode> {
     let file_path = PathBuf::from(output_dir).join(&file_name);
 
     if file_path.exists() {
-        return Err(anyhow::anyhow!(
-            "Cell file '{}' already exists",
-            file_path.display()
-        ));
+        return Err(anyhow::anyhow!("Cell file '{}' already exists", file_path.display()));
     }
 
     fs::create_dir_all(output_dir).context("Failed to create output directory")?;
@@ -107,14 +102,8 @@ fn create_cell_file(file_path: &Path, name: &str, layer: &str) -> Result<()> {
     content.push_str("//! \n");
     content.push_str("//! # Architecture Constraints\n");
     content.push_str("//! \n");
-    content.push_str(&format!(
-        "//! - This Cell can only send signals to: {}\n",
-        allowed
-    ));
-    content.push_str(&format!(
-        "//! - This Cell cannot send signals to: {}\n",
-        forbidden
-    ));
+    content.push_str(&format!("//! - This Cell can only send signals to: {}\n", allowed));
+    content.push_str(&format!("//! - This Cell cannot send signals to: {}\n", forbidden));
     content.push_str("//! \n");
     content.push_str("use axiom_kernel::cell::Cell;\n");
     content.push_str("use axiom_kernel::context::CellContext;\n");
@@ -127,7 +116,6 @@ fn create_cell_file(file_path: &Path, name: &str, layer: &str) -> Result<()> {
     content.push_str("#[derive(Debug, Default)]\n");
     content.push_str(&format!("pub struct {};\n", name));
     content.push('\n');
-    content.push_str("#[async_trait::async_trait]\n");
     content.push_str(&format!("impl Cell for {} {{\n", name));
     content.push_str(&format!("    type Message = {}Message;\n", name));
     content.push_str(&format!("    type Layer = {};\n", layer_marker));
@@ -145,10 +133,7 @@ fn create_cell_file(file_path: &Path, name: &str, layer: &str) -> Result<()> {
     content.push_str("        msg: Self::Message,\n");
     content.push_str("        ctx: &mut CellContext<'_>,\n");
     content.push_str("    ) -> Result<(), AxiomError> {\n");
-    content.push_str(&format!(
-        "        tracing::info!(\"{} received: {{:?}}\", msg);\n",
-        name
-    ));
+    content.push_str(&format!("        tracing::info!(\"{} received: {{:?}}\", msg);\n", name));
     content.push_str("        Ok(())\n");
     content.push_str("    }\n");
     content.push_str("}\n");
@@ -159,18 +144,14 @@ fn create_cell_file(file_path: &Path, name: &str, layer: &str) -> Result<()> {
     content.push_str("    pub payload: Value,\n");
     content.push_str("}\n");
     content.push('\n');
-    content.push_str(&format!(
-        "impl axiom_kernel::signal::Signal for {}Message {{\n",
-        name
-    ));
+    content.push_str(&format!("impl axiom_kernel::signal::Signal for {}Message {{\n", name));
     content.push_str("    fn signal_type(&self) -> &str {\n");
     content.push_str(&format!("        \"{}Message\"\n", name));
     content.push_str("    }\n");
     content.push_str("}\n");
 
     let mut file = File::create(file_path).context("Failed to create cell file")?;
-    file.write_all(content.as_bytes())
-        .context("Failed to write cell file")?;
+    file.write_all(content.as_bytes()).context("Failed to write cell file")?;
 
     Ok(())
 }

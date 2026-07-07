@@ -35,12 +35,7 @@ mod tests {
     async fn test_event_sync_state_advances() {
         let node = NodeId::new("sync-node");
         let sync = EventSync::new(node);
-        let req = SyncRequest {
-            source: node,
-            target: node,
-            from_sequence: 0,
-            to_sequence: 10,
-        };
+        let req = SyncRequest { source: node, target: node, from_sequence: 0, to_sequence: 10 };
         let resp = sync.sync(req).await.unwrap();
         sync.apply(resp).await.unwrap();
     }

@@ -131,10 +131,7 @@ impl AgentIdentity {
 
         if level.can_disclose(DisclosureLevel::Transparent) {
             parts.push(format!("Identity ID: {}", self.id));
-            parts.push(format!(
-                "Disclosure Level: {}",
-                self.disclosure_level.as_str()
-            ));
+            parts.push(format!("Disclosure Level: {}", self.disclosure_level.as_str()));
         }
 
         parts.join("\n")

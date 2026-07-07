@@ -28,7 +28,5 @@ pub fn make_signal(signal_type: &str, src: &str, dst: &str) -> SignalEnvelope {
 
 /// Create a batch of test signals.
 pub fn make_signal_batch(count: usize) -> Vec<SignalEnvelope> {
-    (0..count)
-        .map(|i| make_signal("BenchSignal", &format!("src-{i}"), "dst"))
-        .collect()
+    (0..count).map(|i| make_signal("BenchSignal", &format!("src-{i}"), "dst")).collect()
 }

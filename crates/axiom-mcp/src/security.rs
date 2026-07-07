@@ -121,9 +121,7 @@ impl SecurityManager {
     }
 
     pub fn register_permission(&self, permission: ToolPermission) {
-        self.permissions
-            .write()
-            .insert(permission.tool_name.clone(), permission);
+        self.permissions.write().insert(permission.tool_name.clone(), permission);
     }
 
     pub fn check_permission(

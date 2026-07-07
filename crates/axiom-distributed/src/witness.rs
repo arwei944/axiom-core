@@ -14,10 +14,7 @@ pub struct DistributedWitnessStore {
 
 impl DistributedWitnessStore {
     pub fn new(origin_node: NodeId) -> Self {
-        Self {
-            origin_node: Some(origin_node),
-            witness_ids: Vec::new(),
-        }
+        Self { origin_node: Some(origin_node), witness_ids: Vec::new() }
     }
 
     pub fn add(&mut self, witness: &Witness) {

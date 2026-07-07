@@ -33,8 +33,8 @@ pub fn run_why(args: &WhyArgs) -> Result<ExitCode> {
                     "{}",
                     std::time::SystemTime::now()
                         .duration_since(std::time::UNIX_EPOCH)
-                        .unwrap()
-                        .as_secs()
+                        .map(|d| d.as_secs())
+                        .unwrap_or(0)
                 ),
                 details: Some(format!("{} cells registered", cells.len())),
             }],
@@ -46,8 +46,8 @@ pub fn run_why(args: &WhyArgs) -> Result<ExitCode> {
                     "{}",
                     std::time::SystemTime::now()
                         .duration_since(std::time::UNIX_EPOCH)
-                        .unwrap()
-                        .as_secs()
+                        .map(|d| d.as_secs())
+                        .unwrap_or(0)
                 ),
                 details: Some(format!("{} witnesses recorded", witness_count)),
             }],
@@ -83,10 +83,7 @@ struct CausalLink {
 fn render_causal_chain(data: &CausalData, full: bool) -> String {
     let mut output = String::new();
 
-    output.push_str(&format!(
-        "Entity: {} (Type: {})\n\n",
-        data.entity_id, data.entity_type
-    ));
+    output.push_str(&format!("Entity: {} (Type: {})\n\n", data.entity_id, data.entity_type));
 
     output.push_str("Causes (What led to this):\n");
     output.push_str("────────────────────────\n");

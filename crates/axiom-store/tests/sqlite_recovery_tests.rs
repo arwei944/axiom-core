@@ -17,22 +17,15 @@ use tokio::sync::RwLock;
 #[tokio::test]
 async fn test_snapshot_recovery_workflow() {
     let db_path = format!("file:test_recovery_{}.db?mode=memory", uuid::Uuid::new_v4());
-    let pool = sqlx::sqlite::SqlitePool::connect(&db_path)
-        .await
-        .expect("sqlite pool");
-    let store = SqliteStore::connect_with_pool(pool)
-        .await
-        .expect("sqlite store");
+    let pool = sqlx::sqlite::SqlitePool::connect(&db_path).await.expect("sqlite pool");
+    let store = SqliteStore::connect_with_pool(pool).await.expect("sqlite store");
 
     // Write events
     for i in 0..5 {
-        let e = EventBuilder::new(
-            "agg1",
-            format!("evt-{}", i).as_str(),
-            serde_json::json!({"i": i}),
-        )
-        .cell_id("cell1")
-        .build();
+        let e =
+            EventBuilder::new("agg1", format!("evt-{}", i).as_str(), serde_json::json!({"i": i}))
+                .cell_id("cell1")
+                .build();
         store.append(e).await.unwrap();
     }
 
@@ -50,20 +43,10 @@ async fn test_snapshot_recovery_workflow() {
         cell_id: "cell1".to_string(),
         vector_clock: VectorClock::new(),
     };
-    snapshot_store
-        .write()
-        .await
-        .save_snapshot(snapshot)
-        .await
-        .unwrap();
+    snapshot_store.write().await.save_snapshot(snapshot).await.unwrap();
 
     // Verify snapshot recovery
-    let loaded = snapshot_store
-        .read()
-        .await
-        .load_latest_snapshot("agg1")
-        .await
-        .unwrap();
+    let loaded = snapshot_store.read().await.load_latest_snapshot("agg1").await.unwrap();
     assert!(loaded.is_some());
     let loaded = loaded.unwrap();
     assert_eq!(loaded.sequence_number, 5);

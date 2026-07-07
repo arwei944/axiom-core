@@ -97,10 +97,7 @@ fn conformance_layer_marker_sealed() {
 
 #[test]
 fn conformance_entropy_governor_is_oversight_layer() {
-    assert_eq!(
-        axiom_kernel::sealed::OversightLayer::LAYER,
-        Layer::Oversight
-    );
+    assert_eq!(axiom_kernel::sealed::OversightLayer::LAYER, Layer::Oversight);
 }
 
 #[test]

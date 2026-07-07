@@ -20,12 +20,8 @@ impl AxiomRuntime {
         reg: CellRegistration,
     ) -> Result<Arc<crate::mailbox::Mailbox>, KernelError> {
         let mailbox = Arc::new(crate::mailbox::Mailbox::new(self.config.mailbox_capacity));
-        self.bus
-            .register_cell(&reg.id, mailbox.clone(), reg.layer)
-            .await;
-        self.supervisor
-            .register_cell(reg.id.as_str(), reg.supervision_strategy)
-            .await;
+        self.bus.register_cell(&reg.id, mailbox.clone(), reg.layer).await;
+        self.supervisor.register_cell(reg.id.as_str(), reg.supervision_strategy).await;
 
         let cell = reg.cell.map(|c| Arc::new(TokioMutex::new(c)));
         self.cells.write().await.push(RegisteredCell {
@@ -41,10 +37,7 @@ impl AxiomRuntime {
 
     pub async fn mailbox_for(&self, cell_id: &str) -> Option<Arc<crate::mailbox::Mailbox>> {
         let cells = self.cells.read().await;
-        cells
-            .iter()
-            .find(|c| c.id.as_str() == cell_id)
-            .map(|c| c.mailbox.clone())
+        cells.iter().find(|c| c.id.as_str() == cell_id).map(|c| c.mailbox.clone())
     }
 
     async fn preflight(&self) -> Result<(), Vec<String>> {
@@ -97,30 +90,17 @@ impl AxiomRuntime {
         let emergency = Arc::new(EmergencyInterceptor::new(self.emergency_mode.clone()));
         self.bus.register_interceptor(emergency).await;
 
-        if self
-            .auto_interceptors
-            .load(std::sync::atomic::Ordering::Relaxed)
-        {
-            self.bus
-                .register_interceptor(Arc::new(HopLimitInterceptor::default()))
-                .await;
-            self.bus
-                .register_interceptor(Arc::new(IdempotencyInterceptor::default()))
-                .await;
-            self.bus
-                .register_interceptor(Arc::new(SchemaVersionInterceptor))
-                .await;
-            self.bus
-                .register_interceptor(Arc::new(LoopDetectInterceptor::default()))
-                .await;
+        if self.auto_interceptors.load(std::sync::atomic::Ordering::Relaxed) {
+            self.bus.register_interceptor(Arc::new(HopLimitInterceptor::default())).await;
+            self.bus.register_interceptor(Arc::new(IdempotencyInterceptor::default())).await;
+            self.bus.register_interceptor(Arc::new(SchemaVersionInterceptor)).await;
+            self.bus.register_interceptor(Arc::new(LoopDetectInterceptor::default())).await;
             self.bus
                 .register_interceptor(Arc::new(CapabilityVersionInterceptor::new(
                     ConstraintValidator::new(ValidationContext::default()),
                 )))
                 .await;
-            self.bus
-                .register_interceptor(Arc::new(GuardInterceptor))
-                .await;
+            self.bus.register_interceptor(Arc::new(GuardInterceptor)).await;
         }
 
         let (tx, rx) = oneshot::channel::<()>();
@@ -151,21 +131,11 @@ impl AxiomRuntime {
             .read()
             .await
             .iter()
-            .map(|r| {
-                (
-                    r.mailbox.clone(),
-                    r.id.clone(),
-                    r.layer,
-                    r.cell.clone(),
-                    r.factory.clone(),
-                )
-            })
+            .map(|r| (r.mailbox.clone(), r.id.clone(), r.layer, r.cell.clone(), r.factory.clone()))
             .collect();
         let cells_len = cells_data.len();
-        let cell_ids: Vec<CellId> = cells_data
-            .iter()
-            .map(|(_, cid, _, _, _)| cid.clone())
-            .collect();
+        let cell_ids: Vec<CellId> =
+            cells_data.iter().map(|(_, cid, _, _, _)| cid.clone()).collect();
 
         let handle = tokio::spawn(crate::dispatch::dispatch_loop(
             rx,

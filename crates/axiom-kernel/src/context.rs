@@ -65,10 +65,7 @@ impl<'a> CellContext<'a> {
     }
 
     pub fn emit_success(&mut self, summary: &str) -> KernelResult<()> {
-        let builder = self
-            .witness()
-            .summary(summary)
-            .outcome(TransitionOutcome::Success);
+        let builder = self.witness().summary(summary).outcome(TransitionOutcome::Success);
         builder.emit(self)
     }
 
@@ -76,20 +73,16 @@ impl<'a> CellContext<'a> {
         let builder = self
             .witness()
             .summary(summary)
-            .outcome(TransitionOutcome::Failed {
-                reason: reason.to_string(),
-            });
+            .outcome(TransitionOutcome::Failed { reason: reason.to_string() });
         builder.emit(self)
     }
 
     pub fn emit_axiom_violation(&mut self, axiom_name: &str, message: &str) -> KernelResult<()> {
         let builder =
-            self.witness()
-                .summary("axiom violation")
-                .outcome(TransitionOutcome::AxiomViolated {
-                    axiom_name: axiom_name.to_string(),
-                    message: message.to_string(),
-                });
+            self.witness().summary("axiom violation").outcome(TransitionOutcome::AxiomViolated {
+                axiom_name: axiom_name.to_string(),
+                message: message.to_string(),
+            });
         builder.emit(self)
     }
 

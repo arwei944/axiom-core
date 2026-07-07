@@ -9,10 +9,7 @@ pub struct PluginRegistry {
 
 impl PluginRegistry {
     pub fn new() -> Self {
-        Self {
-            plugins: RwLock::new(HashMap::new()),
-            kinds: RwLock::new(HashMap::new()),
-        }
+        Self { plugins: RwLock::new(HashMap::new()), kinds: RwLock::new(HashMap::new()) }
     }
 
     pub async fn register(&self, plugin: Box<dyn crate::plugin::abi::AxiomPlugin>) {
@@ -41,9 +38,7 @@ impl PluginRegistry {
         let kinds = self.kinds.read().await;
         let plugins = self.plugins.read().await;
         if let Some(ids) = kinds.get(&kind) {
-            ids.iter()
-                .filter_map(|id| plugins.get(id).map(|p| p.clone_box()))
-                .collect()
+            ids.iter().filter_map(|id| plugins.get(id).map(|p| p.clone_box())).collect()
         } else {
             Vec::new()
         }
@@ -57,8 +52,7 @@ impl PluginRegistry {
     pub async fn dependencies_resolved(&self, id: &str) -> bool {
         let plugins = self.plugins.read().await;
         let mut visited = HashSet::new();
-        self.resolve(id, &mut visited, &mut Vec::new(), &plugins)
-            .is_ok()
+        self.resolve(id, &mut visited, &mut Vec::new(), &plugins).is_ok()
     }
 
     pub async fn resolve_dependencies(&self) -> PluginResult<()> {

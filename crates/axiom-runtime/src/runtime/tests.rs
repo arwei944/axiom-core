@@ -35,10 +35,7 @@ fn env_from_to(
 
 #[tokio::test]
 async fn test_l2_guardian_blocks_exec_to_agent() {
-    let rt = AxiomRuntime::new(RuntimeConfig {
-        mailbox_capacity: 16,
-        ..Default::default()
-    });
+    let rt = AxiomRuntime::new(RuntimeConfig { mailbox_capacity: 16, ..Default::default() });
     let _mb = rt
         .register_cell(CellRegistration {
             id: CellId::new("exec-cell"),
@@ -92,9 +89,7 @@ async fn test_runtime_health_updates() {
 async fn test_entropy_governor_triggers() {
     let gov = std::sync::Arc::new(crate::entropy_gov::EntropyGovernorCell::default());
     for _ in 0..5 {
-        gov.record(crate::entropy_gov::EntropyEvent::CellRestart {
-            cell_id: "c1".into(),
-        });
+        gov.record(crate::entropy_gov::EntropyEvent::CellRestart { cell_id: "c1".into() });
     }
     let snap = gov.snapshot();
     assert!(snap.global.value > 1.0, "score should exceed threshold");
@@ -115,8 +110,5 @@ async fn test_preflight_rejects_bad_version() {
         .await
         .unwrap();
     let result = rt.start().await;
-    assert!(
-        result.is_err(),
-        "preflight must reject cells with non-zero major version"
-    );
+    assert!(result.is_err(), "preflight must reject cells with non-zero major version");
 }

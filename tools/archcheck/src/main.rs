@@ -59,19 +59,13 @@ fn main() -> Result<()> {
 
     let arch_path = PathBuf::from(
         // foxguard: ignore[rs/no-path-traversal] — CLI args are controlled
-        matches
-            .get_one::<String>("architecture")
-            .expect("architecture path is required"),
+        matches.get_one::<String>("architecture").expect("architecture path is required"),
     );
     let workspace_path = PathBuf::from(
         // foxguard: ignore[rs/no-path-traversal] — CLI args are controlled
-        matches
-            .get_one::<String>("workspace")
-            .expect("workspace path is required"),
+        matches.get_one::<String>("workspace").expect("workspace path is required"),
     );
-    let format = matches
-        .get_one::<String>("format")
-        .expect("format is required");
+    let format = matches.get_one::<String>("format").expect("format is required");
 
     if matches.get_flag("validate-architecture") {
         let _ = Architecture::load(&arch_path).context("validate architecture.toml")?;
@@ -80,10 +74,7 @@ fn main() -> Result<()> {
     }
 
     let architecture = Architecture::load(&arch_path).with_context(|| {
-        format!(
-            "failed to load architecture.toml from {}",
-            arch_path.display()
-        )
+        format!("failed to load architecture.toml from {}", arch_path.display())
     })?;
 
     if matches.get_flag("list-crates") {

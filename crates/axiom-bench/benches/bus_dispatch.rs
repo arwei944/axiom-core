@@ -71,8 +71,7 @@ fn bench_bus_publish_only(c: &mut Criterion) {
     let bus = MessageBus::new();
     let mailbox = Arc::new(Mailbox::new(1024));
     rt.block_on(async {
-        bus.register_cell(&axiom_kernel::id::CellId::new("dst"), mailbox, Layer::Exec)
-            .await;
+        bus.register_cell(&axiom_kernel::id::CellId::new("dst"), mailbox, Layer::Exec).await;
     });
 
     c.bench_function("bus_publish_only", |b| {

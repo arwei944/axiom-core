@@ -53,10 +53,7 @@ impl AgentPersona {
     pub fn active_skills(&self) -> Vec<Skill> {
         let active = self.active_skills.read();
         let skills = self.skills.read();
-        active
-            .iter()
-            .filter_map(|id| skills.get(id).cloned())
-            .collect()
+        active.iter().filter_map(|id| skills.get(id).cloned()).collect()
     }
 
     pub fn update_skills_for_context(&self, text: &str, user_requested: bool) -> Vec<String> {

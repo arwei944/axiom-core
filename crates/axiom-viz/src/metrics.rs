@@ -158,7 +158,13 @@ impl MetricsRegistry for PrometheusRegistry {
     fn register_counter(&mut self, desc: MetricDesc) -> Box<dyn CounterTrait> {
         let key = desc.name.clone();
         let opts = Opts::new(desc.name, desc.help);
-        let counter = prometheus::Counter::with_opts(opts).expect("valid counter opts");
+        let counter = match prometheus::Counter::with_opts(opts) {
+            Ok(c) => c,
+            Err(e) => {
+                eprintln!("[axiom-viz] failed to create counter: {}", e);
+                return Box::new(NoopCounter);
+            }
+        };
         self.registry.register(Box::new(counter.clone())).ok();
         self.counters.insert(key, counter.clone());
         Box::new(PrometheusCounter { inner: counter })
@@ -167,7 +173,13 @@ impl MetricsRegistry for PrometheusRegistry {
     fn register_gauge(&mut self, desc: MetricDesc) -> Box<dyn GaugeTrait> {
         let key = desc.name.clone();
         let opts = Opts::new(desc.name, desc.help);
-        let gauge = prometheus::Gauge::with_opts(opts).expect("valid gauge opts");
+        let gauge = match prometheus::Gauge::with_opts(opts) {
+            Ok(g) => g,
+            Err(e) => {
+                eprintln!("[axiom-viz] failed to create gauge: {}", e);
+                return Box::new(NoopGauge);
+            }
+        };
         self.registry.register(Box::new(gauge.clone())).ok();
         self.gauges.insert(key, gauge.clone());
         Box::new(PrometheusGauge { inner: gauge })
@@ -176,7 +188,13 @@ impl MetricsRegistry for PrometheusRegistry {
     fn register_histogram(&mut self, desc: MetricDesc, buckets: &[f64]) -> Box<dyn HistogramTrait> {
         let key = desc.name.clone();
         let opts = HistogramOpts::new(desc.name, desc.help).buckets(buckets.to_vec());
-        let histogram = prometheus::Histogram::with_opts(opts).expect("valid histogram opts"); // foxguard: ignore[rs/no-unwrap-in-lib] — opts are hard-coded descriptors
+        let histogram = match prometheus::Histogram::with_opts(opts) {
+            Ok(h) => h,
+            Err(e) => {
+                eprintln!("[axiom-viz] failed to create histogram: {}", e);
+                return Box::new(NoopHistogram);
+            }
+        };
         self.registry.register(Box::new(histogram.clone())).ok();
         self.histograms.insert(key, histogram.clone());
         Box::new(PrometheusHistogram { inner: histogram })
@@ -208,12 +226,7 @@ impl MetricsRegistry for PrometheusRegistry {
                     .iter()
                     .map(|l| l.get_name().to_string())
                     .collect::<Vec<_>>();
-                Some(MetricDesc {
-                    name,
-                    help,
-                    metric_type,
-                    labels,
-                })
+                Some(MetricDesc { name, help, metric_type, labels })
             })
             .collect()
     }
@@ -280,11 +293,7 @@ pub fn message_total() -> MetricDesc {
         name: "axiom_messages_total".to_string(),
         help: "Total number of messages processed by the runtime".to_string(),
         metric_type: MetricType::Counter,
-        labels: vec![
-            "layer".to_string(),
-            "signal_type".to_string(),
-            "status".to_string(),
-        ],
+        labels: vec!["layer".to_string(), "signal_type".to_string(), "status".to_string()],
     }
 }
 

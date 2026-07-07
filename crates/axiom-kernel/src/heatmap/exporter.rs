@@ -44,22 +44,13 @@ impl HeatmapExporter for PrometheusExporter {
     fn export(&self, snapshot: &UsageSnapshot) -> Result<String, crate::plugin::abi::PluginError> {
         let mut out = String::new();
         for (cell, count) in &snapshot.hot_cells {
-            out.push_str(&format!(
-                "axiom_cell_messages_total{{cell=\"{}\"}} {}\n",
-                cell, count
-            ));
+            out.push_str(&format!("axiom_cell_messages_total{{cell=\"{}\"}} {}\n", cell, count));
         }
         for (signal, count) in &snapshot.hot_signals {
-            out.push_str(&format!(
-                "axiom_signal_sends_total{{signal=\"{}\"}} {}\n",
-                signal, count
-            ));
+            out.push_str(&format!("axiom_signal_sends_total{{signal=\"{}\"}} {}\n", signal, count));
         }
         for (tool, count) in &snapshot.hot_tools {
-            out.push_str(&format!(
-                "axiom_tool_invokes_total{{tool=\"{}\"}} {}\n",
-                tool, count
-            ));
+            out.push_str(&format!("axiom_tool_invokes_total{{tool=\"{}\"}} {}\n", tool, count));
         }
         Ok(out)
     }
@@ -83,9 +74,6 @@ impl HeatmapExporter for VizExporter {
     fn export(&self, snapshot: &UsageSnapshot) -> Result<String, crate::plugin::abi::PluginError> {
         let json = to_string_pretty(snapshot)
             .map_err(|e| crate::plugin::abi::PluginError::HandleFailed(e.to_string()))?;
-        Ok(format!(
-            "<!doctype html><html><body><pre>{}</pre></body></html>",
-            json
-        ))
+        Ok(format!("<!doctype html><html><body><pre>{}</pre></body></html>", json))
     }
 }

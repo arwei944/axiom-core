@@ -28,21 +28,14 @@ impl WasmPluginLoader {
             .get_typed_func::<(), i32>(&mut store, "axiom_plugin_create")
             .map_err(|e| PluginError::MissingSymbol(e.to_string()))?;
 
-        let ptr = create
-            .call(&mut store, ())
-            .map_err(|e| PluginError::LoadFailed(e.to_string()))?;
+        let ptr =
+            create.call(&mut store, ()).map_err(|e| PluginError::LoadFailed(e.to_string()))?;
 
         if ptr <= 0 {
-            return Err(PluginError::LoadFailed(
-                "plugin create returned invalid pointer".into(),
-            ));
+            return Err(PluginError::LoadFailed("plugin create returned invalid pointer".into()));
         }
 
-        Ok(Box::new(WasmPluginInstance {
-            store,
-            instance,
-            ptr,
-        }))
+        Ok(Box::new(WasmPluginInstance { store, instance, ptr }))
     }
 
     pub fn unload(&self, _plugin: &dyn AxiomPlugin) -> PluginResult<()> {
@@ -95,24 +88,18 @@ impl AxiomPlugin for WasmPluginInstance {
         let mut store = &mut self.store;
         let instance = &self.instance;
 
-        let alloc = instance
-            .get_typed_func::<(u32, u32), u32>(&mut store, "axiom_alloc")
-            .ok();
+        let alloc = instance.get_typed_func::<(u32, u32), u32>(&mut store, "axiom_alloc").ok();
         let handle = instance
             .get_typed_func::<(u32, u32), u32>(&mut store, "axiom_plugin_handle_message")
             .ok();
-        let dealloc = instance
-            .get_typed_func::<u32, ()>(&mut store, "axiom_dealloc")
-            .ok();
+        let dealloc = instance.get_typed_func::<u32, ()>(&mut store, "axiom_dealloc").ok();
 
         let wasm_ptr = if let Some(alloc) = alloc {
             alloc
                 .call(&mut store, (bytes.len() as u32, 1))
                 .map_err(|e| PluginError::LoadFailed(e.to_string()))?
         } else {
-            return Err(PluginError::MissingSymbol(
-                "axiom_alloc not exported".into(),
-            ));
+            return Err(PluginError::MissingSymbol("axiom_alloc not exported".into()));
         };
 
         let memory = instance.get_memory(&mut store, "memory");
@@ -159,9 +146,7 @@ impl AxiomPlugin for WasmPluginInstance {
         let _ = dealloc.as_ref().map(|d| d.call(&mut store, wasm_ptr));
         if let PluginReply::Ok(data) = &reply {
             if !data.is_empty() {
-                let _ = dealloc
-                    .as_ref()
-                    .map(|d| d.call(&mut store, data.as_ptr() as u32));
+                let _ = dealloc.as_ref().map(|d| d.call(&mut store, data.as_ptr() as u32));
             }
         }
 
@@ -193,9 +178,7 @@ impl WasmPluginLoader {
 
     pub fn load(&self, path: &Path) -> PluginResult<Box<dyn AxiomPlugin>> {
         let _ = path;
-        Err(PluginError::LoadFailed(
-            "wasm-loader feature is not enabled".into(),
-        ))
+        Err(PluginError::LoadFailed("wasm-loader feature is not enabled".into()))
     }
 
     pub fn unload(&self, _plugin: &dyn AxiomPlugin) -> PluginResult<()> {

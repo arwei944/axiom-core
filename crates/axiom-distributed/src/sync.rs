@@ -42,10 +42,7 @@ pub struct EventSync {
 
 impl EventSync {
     pub fn new(local: NodeId) -> Self {
-        Self {
-            _local: local,
-            state: Arc::new(RwLock::new(SyncState::default())),
-        }
+        Self { _local: local, state: Arc::new(RwLock::new(SyncState::default())) }
     }
 
     pub async fn sync(&self, request: SyncRequest) -> Result<SyncResponse> {

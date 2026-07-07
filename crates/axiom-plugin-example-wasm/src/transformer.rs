@@ -27,10 +27,7 @@ impl AxiomPlugin for WasmTransformerPlugin {
             PluginMessage::Custom { payload, .. } => payload,
             _ => Vec::new(),
         };
-        let transformed = payload
-            .iter()
-            .map(|b| b.wrapping_add(1))
-            .collect::<Vec<_>>();
+        let transformed = payload.iter().map(|b| b.wrapping_add(1)).collect::<Vec<_>>();
         Ok(PluginReply::Ok(transformed))
     }
     fn clone_box(&self) -> Box<dyn AxiomPlugin> {

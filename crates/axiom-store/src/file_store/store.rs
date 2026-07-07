@@ -117,9 +117,9 @@ impl FileStore {
             *self.current_path.lock() = path.clone();
             *file_guard = Some(file);
         }
-        let file = file_guard.as_mut().ok_or_else(|| StoreError::Internal {
-            message: "file guard not initialized".into(),
-        })?;
+        let file = file_guard
+            .as_mut()
+            .ok_or_else(|| StoreError::Internal { message: "file guard not initialized".into() })?;
         let line =
             serde_json::to_string(event).map_err(|e| StoreError::Serialization(e.to_string()))?;
         writeln!(file, "{}", line).map_err(|e| StoreError::Storage(format!("write event: {e}")))?;
@@ -194,9 +194,7 @@ impl EventStore for FileStore {
                 };
                 event.sequence_number = seq;
                 self.write_event(&event)?;
-                self.event_index
-                    .write()
-                    .insert(event.event_id.clone(), seq as usize);
+                self.event_index.write().insert(event.event_id.clone(), seq as usize);
                 seqs.push(seq);
                 let arc_event = Arc::new(event.clone());
                 let _ = self.sender.send(arc_event);
@@ -461,9 +459,7 @@ mod tests {
             index_file: dir.path().join("index.json"),
         };
         let store = FileStore::connect(cfg).await.unwrap();
-        let e = EventBuilder::new("a1", "evt1", serde_json::json!({}))
-            .cell_id("c1")
-            .build();
+        let e = EventBuilder::new("a1", "evt1", serde_json::json!({})).cell_id("c1").build();
         let seq = store.append(e).await.unwrap();
         assert_eq!(seq, 1);
         let evts = store.read("a1").await.unwrap();

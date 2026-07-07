@@ -22,10 +22,7 @@ impl TimeRange {
     }
 
     pub fn now() -> Self {
-        let now = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .map(|d| d.as_secs())
-            .unwrap_or(0);
+        let now = SystemTime::now().duration_since(UNIX_EPOCH).map(|d| d.as_secs()).unwrap_or(0);
         Self::new(now.saturating_sub(60), now)
     }
 }
@@ -69,10 +66,7 @@ impl HeatmapCollector {
     }
 
     pub fn record_signal_send(&mut self, signal_type: impl Into<String>) {
-        *self
-            .signal_send_count
-            .entry(signal_type.into())
-            .or_default() += 1;
+        *self.signal_send_count.entry(signal_type.into()).or_default() += 1;
     }
 
     pub fn record_tool_invoke(&mut self, tool_id: impl Into<String>) {

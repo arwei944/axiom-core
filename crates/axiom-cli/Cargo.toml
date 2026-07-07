@@ -5,6 +5,7 @@ edition.workspace = true
 license.workspace = true
 repository.workspace = true
 description = "Axiom CLI - development tools and automation gates for axiom-kernel"
+default-run = "axm"
 
 [[bin]]
 name = "axm"
@@ -22,6 +23,7 @@ sha2 = { workspace = true }
 thiserror = { workspace = true }
 anyhow = { workspace = true }
 tokio = { workspace = true }
+toml = "0.8"
 
 axiom-kernel = { workspace = true }
 

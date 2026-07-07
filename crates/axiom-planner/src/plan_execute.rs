@@ -65,10 +65,8 @@ impl PlanAndExecutePlanner {
                 goal, context
             );
 
-            let response = llm
-                .complete(&prompt)
-                .await
-                .map_err(|e| PlannerError::LlmError(e.to_string()))?;
+            let response =
+                llm.complete(&prompt).await.map_err(|e| PlannerError::LlmError(e.to_string()))?;
 
             Ok(parse_steps_from_text(&response.text, self.max_plan_steps))
         } else {
@@ -115,10 +113,7 @@ impl PlanAndExecutePlanner {
 
     fn dependencies_satisfied(&self, step: &PlanStep, steps: &[PlanStep]) -> bool {
         step.dependencies.iter().all(|&dep_idx| {
-            steps
-                .get(dep_idx)
-                .map(|s| s.status == StepStatus::Completed)
-                .unwrap_or(false)
+            steps.get(dep_idx).map(|s| s.status == StepStatus::Completed).unwrap_or(false)
         })
     }
 
@@ -157,10 +152,8 @@ impl PlanAndExecutePlanner {
                 goal
             );
 
-            let response = llm
-                .complete(&prompt)
-                .await
-                .map_err(|e| PlannerError::LlmError(e.to_string()))?;
+            let response =
+                llm.complete(&prompt).await.map_err(|e| PlannerError::LlmError(e.to_string()))?;
 
             let new_steps = parse_steps_from_text(&response.text, self.max_plan_steps);
             let base_idx = steps.len();
