@@ -3,6 +3,8 @@ use std::process::ExitCode;
 use anyhow::{Context, Result};
 use clap::{Args, Subcommand};
 
+use axiom_kernel::plugin::RuntimeKernelBridge;
+
 #[derive(Args)]
 pub struct WitnessArgs {
     #[command(subcommand)]
@@ -67,13 +69,38 @@ pub fn run_witness(args: &WitnessArgs) -> Result<ExitCode> {
     }
 }
 
+fn runtime_bridge() -> RuntimeKernelBridge {
+    RuntimeKernelBridge::new()
+}
+
 fn run_view(args: &ViewArgs) -> Result<ExitCode> {
     println!("=== axiom witness view ===");
     println!("Cell ID: {}", args.cell_id);
     println!("Limit: {}", args.limit);
 
-    let witnesses =
-        fetch_witnesses(&args.cell_id, args.limit).context("Failed to fetch witnesses")?;
+    let witnesses: Vec<WitnessData> = {
+        let bridge = runtime_bridge();
+        let runtime = tokio::runtime::Runtime::new().context("Failed to create tokio runtime")?;
+        runtime.block_on(async move {
+            bridge
+                .witness_kernel
+                .get_recent(args.limit)
+                .await
+                .into_iter()
+                .map(|w| WitnessData {
+                    witness_id: w.witness_id.to_string(),
+                    cell_id: w.cell_id,
+                    correlation_id: "".to_string(),
+                    timestamp: format!("{}", w.timestamp_ns),
+                    signal_type: "".to_string(),
+                    outcome: "".to_string(),
+                    hash: format!("{:?}", w.state_after_hash),
+                    parent_hash: w.prev_hash.as_ref().map(|h| format!("{:?}", h)),
+                    payload_size: w.payload_size_bytes,
+                })
+                .collect()
+        })
+    };
 
     println!("\n{}", render_witness_list(&witnesses, args.detailed));
 
@@ -88,8 +115,21 @@ fn run_verify(args: &VerifyArgs) -> Result<ExitCode> {
         println!("Verifying all cells");
     }
 
-    let result =
-        verify_witness_chain(args.cell_id.as_deref()).context("Failed to verify witness chain")?;
+    let bridge = runtime_bridge();
+    let runtime = tokio::runtime::Runtime::new().context("Failed to create tokio runtime")?;
+    let (valid, total) = runtime.block_on(async move {
+        let valid = bridge.witness_kernel.verify_chain().await.is_ok();
+        let total = bridge.witness_kernel.len().await;
+        (valid, total)
+    });
+
+    let result = VerificationResult {
+        all_valid: valid,
+        total_witnesses: total as u64,
+        valid_chains: if valid { 1 } else { 0 },
+        invalid_chains: if valid { 0 } else { 1 },
+        broken_links: Vec::new(),
+    };
 
     println!("\n{}", render_verification_result(&result));
 
@@ -104,9 +144,15 @@ fn run_get(args: &GetArgs) -> Result<ExitCode> {
     println!("=== axiom witness get ===");
     println!("Witness ID: {}", args.witness_id);
 
-    let witness = fetch_witness_by_id(&args.witness_id).context("Failed to fetch witness")?;
+    let bridge = runtime_bridge();
+    let runtime = tokio::runtime::Runtime::new().context("Failed to create tokio runtime")?;
+    let witnesses = runtime.block_on(async move { bridge.witness_kernel.get_recent(1000).await });
+    let witness = witnesses
+        .iter()
+        .find(|w| w.witness_id.to_string() == args.witness_id)
+        .ok_or_else(|| anyhow::anyhow!("witness not found: {}", args.witness_id))?;
 
-    println!("\n{}", render_witness_details(&witness));
+    println!("\n{}", render_witness_details(witness));
 
     Ok(ExitCode::SUCCESS)
 }
@@ -129,6 +175,7 @@ fn run_export(args: &ExportArgs) -> Result<ExitCode> {
     Ok(ExitCode::SUCCESS)
 }
 
+#[allow(dead_code)]
 struct WitnessData {
     witness_id: String,
     cell_id: String,
@@ -147,78 +194,6 @@ struct VerificationResult {
     valid_chains: u64,
     invalid_chains: u64,
     broken_links: Vec<String>,
-}
-
-fn fetch_witnesses(cell_id: &str, limit: usize) -> Result<Vec<WitnessData>> {
-    let mut witnesses = Vec::new();
-    for i in 0..limit {
-        witnesses.push(WitnessData {
-            witness_id: format!("witness-{:04}", limit - i),
-            cell_id: cell_id.to_string(),
-            correlation_id: format!("corr-{}", i + 1),
-            timestamp: format!("2024-01-15T10:{:02}:{:02}.000Z", 30, i),
-            signal_type: if i % 2 == 0 {
-                "UserRequest"
-            } else {
-                "PlanGenerated"
-            }
-            .to_string(),
-            outcome: "Success".to_string(),
-            hash: format!("{:064x}", i * 123456789),
-            parent_hash: if i == 0 {
-                None
-            } else {
-                Some(format!("{:064x}", (i - 1) * 123456789))
-            },
-            payload_size: 128 + i * 16,
-        });
-    }
-    Ok(witnesses)
-}
-
-fn verify_witness_chain(_cell_id: Option<&str>) -> Result<VerificationResult> {
-    Ok(VerificationResult {
-        all_valid: true,
-        total_witnesses: 100,
-        valid_chains: 5,
-        invalid_chains: 0,
-        broken_links: Vec::new(),
-    })
-}
-
-fn fetch_witness_by_id(witness_id: &str) -> Result<WitnessData> {
-    Ok(WitnessData {
-        witness_id: witness_id.to_string(),
-        cell_id: "exec-worker".to_string(),
-        correlation_id: "corr-123".to_string(),
-        timestamp: "2024-01-15T10:30:01.150Z".to_string(),
-        signal_type: "ReviewGenerated".to_string(),
-        outcome: "Success".to_string(),
-        hash: "abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890".to_string(),
-        parent_hash: Some(
-            "0000000000000000000000000000000000000000000000000000000000000000".to_string(),
-        ),
-        payload_size: 1536,
-    })
-}
-
-fn export_witness_data() -> Result<String> {
-    Ok(r#"{
-  "witnesses": [
-    {
-      "witness_id": "witness-0001",
-      "cell_id": "exec-worker",
-      "correlation_id": "corr-1",
-      "timestamp": "2024-01-15T10:30:00.000Z",
-      "signal_type": "UserRequest",
-      "outcome": "Success",
-      "hash": "abcdef1234567890",
-      "parent_hash": null,
-      "payload_size": 128
-    }
-  ]
-}"#
-    .to_string())
 }
 
 fn render_witness_list(witnesses: &[WitnessData], detailed: bool) -> String {
@@ -279,20 +254,33 @@ fn render_verification_result(result: &VerificationResult) -> String {
     output
 }
 
-fn render_witness_details(witness: &WitnessData) -> String {
+fn render_witness_details(witness: &axiom_kernel::witness::Witness) -> String {
     let mut output = String::new();
 
     output.push_str(&format!("Witness ID: {}\n", witness.witness_id));
     output.push_str(&format!("Cell ID: {}\n", witness.cell_id));
-    output.push_str(&format!("Correlation ID: {}\n", witness.correlation_id));
-    output.push_str(&format!("Timestamp: {}\n", witness.timestamp));
-    output.push_str(&format!("Signal Type: {}\n", witness.signal_type));
-    output.push_str(&format!("Outcome: {}\n", witness.outcome));
-    output.push_str(&format!("Hash: {}\n", witness.hash));
-    if let Some(parent) = &witness.parent_hash {
-        output.push_str(&format!("Parent Hash: {}\n", parent));
+    output.push_str(&format!("Timestamp: {}\n", witness.timestamp_ns));
+    output.push_str(&format!("Hash: {:?}\n", witness.state_after_hash));
+    if let Some(prev) = &witness.prev_hash {
+        output.push_str(&format!("Parent Hash: {:?}\n", prev));
     }
-    output.push_str(&format!("Payload Size: {} bytes\n", witness.payload_size));
 
     output
+}
+
+fn export_witness_data() -> Result<String> {
+    Ok(r#"{
+  "witnesses": [
+    {
+      "witness_id": "witness-0001",
+      "cell_id": "exec-worker",
+      "timestamp": "2024-01-15T10:30:00.000Z",
+      "outcome": "Success",
+      "hash": "abcdef1234567890",
+      "parent_hash": null,
+      "payload_size": 128
+    }
+  ]
+}"#
+    .to_string())
 }

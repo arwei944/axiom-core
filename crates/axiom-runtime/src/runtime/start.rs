@@ -8,7 +8,8 @@ use crate::interceptors::{
     CapabilityVersionInterceptor, GuardInterceptor, HopLimitInterceptor, IdempotencyInterceptor,
     LoopDetectInterceptor, SchemaVersionInterceptor,
 };
-use axiom_core::id::CellId;
+use axiom_kernel::id::CellId;
+use axiom_kernel::KernelError;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 use tokio::sync::{oneshot, Mutex as TokioMutex};
@@ -17,7 +18,7 @@ impl AxiomRuntime {
     pub async fn register_cell(
         &self,
         reg: CellRegistration,
-    ) -> Result<Arc<crate::mailbox::Mailbox>, axiom_core::error::AxiomError> {
+    ) -> Result<Arc<crate::mailbox::Mailbox>, KernelError> {
         let mailbox = Arc::new(crate::mailbox::Mailbox::new(self.config.mailbox_capacity));
         self.bus
             .register_cell(&reg.id, mailbox.clone(), reg.layer)
@@ -49,7 +50,7 @@ impl AxiomRuntime {
     async fn preflight(&self) -> Result<(), Vec<String>> {
         let mut issues = Vec::new();
 
-        if let Err(gaps) = axiom_core::verify_migration_chain_completeness(1) {
+        if let Err(gaps) = axiom_kernel::registry::verify_migration_chain_completeness(1) {
             issues.extend(gaps);
         }
 
@@ -71,7 +72,7 @@ impl AxiomRuntime {
         }
     }
 
-    pub async fn start(&self) -> Result<(), axiom_core::error::AxiomError> {
+    pub async fn start(&self) -> Result<(), KernelError> {
         match self.preflight().await {
             Ok(()) => {
                 tracing::info!("preflight passed");
@@ -80,9 +81,7 @@ impl AxiomRuntime {
                 for i in &issues {
                     tracing::error!("preflight: {i}");
                 }
-                return Err(axiom_core::error::AxiomError::Internal {
-                    message: format!("preflight failed: {}", issues.join("; ")),
-                });
+                return Err(KernelError::InternalError(format!("preflight failed: {}", issues.join("; "))));
             }
         }
 
@@ -142,6 +141,7 @@ impl AxiomRuntime {
         let dlq = self.dlq.clone();
         let events_since_snapshot = self.events_since_snapshot.clone();
         let poll_interval = self.config.dispatch_poll_interval_ms;
+        let cell_kernel = Some(self.kernel_bridge.cell_kernel.clone());
 
         let cells_data: Vec<_> = self
             .cells
@@ -177,6 +177,7 @@ impl AxiomRuntime {
             emergency_mode,
             dlq,
             events_since_snapshot,
+            cell_kernel,
         ));
 
         *self.dispatch_handle.lock().await = Some(handle);

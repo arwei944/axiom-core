@@ -3,7 +3,7 @@
 use std::collections::VecDeque;
 use tokio::sync::Semaphore;
 
-use axiom_core::signal::SignalEnvelope;
+use axiom_kernel::signal::SignalEnvelope;
 
 pub struct Mailbox {
     queue: tokio::sync::Mutex<VecDeque<SignalEnvelope>>,
@@ -73,9 +73,9 @@ mod tests {
     #[tokio::test]
     async fn test_mailbox_push_pop() {
         let mb = Mailbox::new(8);
-        use axiom_core::id::{CorrelationId, MsgId};
-        use axiom_core::layer::Layer;
-        use axiom_core::signal::{SignalKind, VectorClock};
+        use axiom_kernel::id::{CorrelationId, MsgId};
+        use axiom_kernel::layer::Layer;
+        use axiom_kernel::signal::{SignalKind, VectorClock};
 
         let env = SignalEnvelope {
             msg_id: MsgId::new("m1"),
@@ -90,7 +90,7 @@ mod tests {
             source_cell: None,
             target_cell: Some("cell-a".into()),
             payload: serde_json::Value::Null,
-            schema_version: axiom_core::SchemaVersion::new(1),
+            schema_version: axiom_kernel::SchemaVersion::new(1),
             parent_msg_id: None,
             hop_count: 0,
         };
@@ -105,9 +105,9 @@ mod tests {
     #[tokio::test]
     async fn test_mailbox_capacity_reject() {
         let mb = Mailbox::new(1);
-        use axiom_core::id::{CorrelationId, MsgId};
-        use axiom_core::layer::Layer;
-        use axiom_core::signal::{SignalKind, VectorClock};
+        use axiom_kernel::id::{CorrelationId, MsgId};
+        use axiom_kernel::layer::Layer;
+        use axiom_kernel::signal::{SignalKind, VectorClock};
 
         let make_env = |id: &str| SignalEnvelope {
             msg_id: MsgId::new(id),
@@ -122,7 +122,7 @@ mod tests {
             source_cell: None,
             target_cell: Some("cell-a".into()),
             payload: serde_json::Value::Null,
-            schema_version: axiom_core::SchemaVersion::new(1),
+            schema_version: axiom_kernel::SchemaVersion::new(1),
             parent_msg_id: None,
             hop_count: 0,
         };

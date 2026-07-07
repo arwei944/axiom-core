@@ -3,10 +3,10 @@ name = "axiom-llm"
 version = "0.1.0"
 edition = "2021"
 license = "MIT"
-description = "LLM client abstraction for axiom-core - multi-provider support with retry and structured output"
+description = "LLM client abstraction for axiom-kernel - multi-provider support with retry and structured output"
 
 [dependencies]
-axiom-core = { path = "../axiom-core" }
+axiom-kernel = { path = "../axiom-kernel" }
 
 tokio = { version = "1", features = ["rt-multi-thread", "sync", "macros", "time"] }
 serde = { version = "1", features = ["derive"] }
@@ -20,5 +20,3 @@ uuid = { version = "1", features = ["v4"] }
 [build-dependencies]
 archcheck = { path = "../../tools/archcheck" }
 toml = "0.8"
-
-

@@ -47,6 +47,12 @@ use cell::run_cell;
 mod entropy;
 use entropy::run_entropy;
 
+mod heatmap;
+use heatmap::run_heatmap;
+
+mod plugin;
+use plugin::run_plugin;
+
 #[derive(Parser)]
 #[command(
     name = "axm",
@@ -88,6 +94,10 @@ pub enum Commands {
     Cell(cell::CellArgs),
     /// Entropy management commands
     Entropy(entropy::EntropyArgs),
+    /// Show usage heatmap
+    Heatmap(heatmap::HeatmapArgs),
+    /// Plugin management commands
+    Plugin(plugin::PluginArgs),
     /// Initialize an axiom project (install hooks, generate constraints lock)
     Init,
     /// Install git hooks (configures core.hooksPath to hooks/)
@@ -127,6 +137,8 @@ pub fn run(cli: &Cli) -> Result<ExitCode, anyhow::Error> {
         Commands::Witness(args) => run_witness(args),
         Commands::Cell(args) => run_cell(args),
         Commands::Entropy(args) => run_entropy(args),
+        Commands::Heatmap(args) => run_heatmap(args),
+        Commands::Plugin(args) => run_plugin(args),
         Commands::Init => init::run_init(),
         Commands::InstallHooks => install_hooks_only(),
         Commands::Preflight(args) => run_preflight(args),

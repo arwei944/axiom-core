@@ -28,10 +28,10 @@ pub use sqlite::{SqliteStore, SqliteStoreConfig};
 
 pub use file_store::{FileStore, FileStoreConfig};
 
-use axiom_core::error::AxiomError;
+use axiom_kernel::KernelError;
 
-impl From<StoreError> for AxiomError {
+impl From<StoreError> for KernelError {
     fn from(e: StoreError) -> Self {
-        AxiomError::Store(e.to_string())
+        KernelError::Store(e.to_string())
     }
 }

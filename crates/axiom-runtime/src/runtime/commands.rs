@@ -1,9 +1,10 @@
 use super::AxiomRuntime;
-use axiom_core::clock::global_clock;
-use axiom_core::id::{CorrelationId, MsgId};
-use axiom_core::layer::Layer;
-use axiom_core::signal::{SignalKind, VectorClock};
-use axiom_core::SchemaVersion;
+use axiom_kernel::clock::global_clock;
+use axiom_kernel::id::{CorrelationId, MsgId};
+use axiom_kernel::layer::Layer;
+use axiom_kernel::signal::{SignalEnvelope, SignalKind, VectorClock};
+use axiom_kernel::version::SchemaVersion;
+use axiom_kernel::{KernelError, KernelResult};
 use serde_json::Value;
 
 impl AxiomRuntime {
@@ -13,10 +14,10 @@ impl AxiomRuntime {
         payload: Value,
         target_cell: Option<&str>,
         target_layer: Layer,
-    ) -> Result<u64, axiom_core::error::AxiomError> {
+    ) -> KernelResult<u64> {
         let id = next_msg_id();
         let corr_id = format!("corr-{id}");
-        let env = axiom_core::signal::SignalEnvelope {
+        let env = SignalEnvelope {
             msg_id: MsgId::new(id),
             correlation_id: CorrelationId::new(corr_id),
             trace_id: None,
@@ -36,15 +37,15 @@ impl AxiomRuntime {
         self.bus.publish(env).await
     }
 
-    pub async fn submit_signal<S: axiom_core::Signal>(
+    pub async fn submit_signal<S: axiom_kernel::signal::Signal>(
         &self,
         signal: S,
         target_cell: Option<&str>,
         target_layer: Layer,
-    ) -> Result<u64, axiom_core::error::AxiomError> {
+    ) -> KernelResult<u64> {
         let validation = signal.validate();
         if validation.has_errors() {
-            return Err(axiom_core::error::AxiomError::SignalValidation {
+            return Err(KernelError::SignalValidation {
                 signal_type: signal.signal_type().to_string(),
                 message: format!("{}", validation),
             });
@@ -58,7 +59,7 @@ impl AxiomRuntime {
 
         let source_layer = signal.layer();
         if !source_layer.can_send_to(target_layer) {
-            return Err(axiom_core::error::AxiomError::LayerViolation {
+            return Err(KernelError::LayerViolation {
                 from: source_layer,
                 to: target_layer,
                 source_cell: "external".to_string(),
@@ -66,9 +67,23 @@ impl AxiomRuntime {
             });
         }
 
-        let env = match target_cell {
-            Some(tc) => axiom_core::signal::SignalEnvelope::to_cell(&signal, tc, target_layer)?,
-            None => axiom_core::signal::SignalEnvelope::new(&signal, target_layer)?,
+        let payload = signal.serialize_to_json()?;
+        let env = SignalEnvelope {
+            msg_id: signal.msg_id().clone(),
+            correlation_id: signal.correlation_id().clone(),
+            trace_id: signal.trace_id().cloned(),
+            signal_type: signal.signal_type().to_string(),
+            vector_clock: signal.vector_clock().clone(),
+            timestamp_ns: signal.timestamp_ns(),
+            kind: signal.kind(),
+            source_layer: signal.layer(),
+            target_layer,
+            source_cell: signal.sender().map(|s| s.to_string()),
+            target_cell: target_cell.map(|s| s.to_string()),
+            payload,
+            schema_version: signal.schema_version(),
+            parent_msg_id: None,
+            hop_count: 0,
         };
 
         let correlation_id = env.correlation_id.clone();

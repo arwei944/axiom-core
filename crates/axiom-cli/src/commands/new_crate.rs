@@ -165,8 +165,8 @@ fn create_cargo_toml(
          edition = \"2021\"\n\
          description = \"Axiom {} crate\"\n\
          license = \"MIT\"\n\
-         repository = \"https://github.com/arwei944/axiom-core\"\n\
-         homepage = \"https://github.com/arwei944/axiom-core\"\n\
+         repository = \"https://github.com/arwei944/axiom-kernel\"\n\
+         homepage = \"https://github.com/arwei944/axiom-kernel\"\n\
          documentation = \"https://docs.rs/{}\"\n\
          readme = \"README.md\"\n\
          keywords = [\"axiom\", \"agent\", \"runtime\"]\n\

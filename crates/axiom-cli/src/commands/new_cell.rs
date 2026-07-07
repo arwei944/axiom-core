@@ -116,11 +116,11 @@ fn create_cell_file(file_path: &Path, name: &str, layer: &str) -> Result<()> {
         forbidden
     ));
     content.push_str("//! \n");
-    content.push_str("use axiom_core::cell::Cell;\n");
-    content.push_str("use axiom_core::context::CellContext;\n");
-    content.push_str("use axiom_core::error::AxiomError;\n");
-    content.push_str("use axiom_core::id::CellId;\n");
-    content.push_str(&format!("use axiom_core::layer::{};\n", layer_marker));
+    content.push_str("use axiom_kernel::cell::Cell;\n");
+    content.push_str("use axiom_kernel::context::CellContext;\n");
+    content.push_str("use axiom_kernel::error::AxiomError;\n");
+    content.push_str("use axiom_kernel::id::CellId;\n");
+    content.push_str(&format!("use axiom_kernel::layer::{};\n", layer_marker));
     content.push_str("use serde::{{Deserialize, Serialize}};\n");
     content.push_str("use serde_json::Value;\n");
     content.push('\n');
@@ -160,7 +160,7 @@ fn create_cell_file(file_path: &Path, name: &str, layer: &str) -> Result<()> {
     content.push_str("}\n");
     content.push('\n');
     content.push_str(&format!(
-        "impl axiom_core::signal::Signal for {}Message {{\n",
+        "impl axiom_kernel::signal::Signal for {}Message {{\n",
         name
     ));
     content.push_str("    fn signal_type(&self) -> &str {\n");

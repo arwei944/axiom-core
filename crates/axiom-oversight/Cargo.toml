@@ -7,7 +7,7 @@ rust-version.workspace = true
 description = "Layer 0 Oversight - meta-governance: entropy, architecture compliance, intent auditing"
 
 [dependencies]
-axiom-core = { path = "../axiom-core" }
+axiom-kernel = { path = "../axiom-kernel" }
 axiom-runtime = { path = "../axiom-runtime" }
 tokio = { workspace = true }
 serde = { workspace = true }
@@ -20,5 +20,3 @@ parking_lot = { workspace = true }
 [build-dependencies]
 archcheck = { path = "../../tools/archcheck" }
 toml = "0.8"
-
-

@@ -1,6 +1,6 @@
 //! MetaOversight - supervises the supervisors. Monitors Oversight cells' health.
 
-use axiom_core::id::CellId;
+use axiom_kernel::id::CellId;
 use parking_lot::Mutex;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -69,7 +69,7 @@ impl MetaOversightCell {
     pub fn record_pong(&self, cell_id: &str) {
         let mut hb = self.heartbeats.lock();
         let entry = hb.entry(cell_id.to_string()).or_default();
-        entry.last_seen_ns = axiom_core::signal::now_ns();
+        entry.last_seen_ns = axiom_kernel::clock::global_clock().now_ns();
         entry.consecutive_misses = 0;
         entry.responsive = true;
     }

@@ -1,8 +1,9 @@
 use super::CellRegistration;
-use axiom_core::cell::CellHandle;
-use axiom_core::id::CellId;
-use axiom_core::layer::Layer;
-use axiom_core::version::Version;
+use axiom_kernel::cell::RuntimeCellHandle;
+use axiom_kernel::cell::SupervisionStrategy;
+use axiom_kernel::id::CellId;
+use axiom_kernel::layer::Layer;
+use axiom_kernel::version::Version;
 use std::sync::Arc;
 
 impl CellRegistration {
@@ -11,20 +12,20 @@ impl CellRegistration {
             id,
             layer,
             version: Version::new(0, 1, 0),
-            supervision_strategy: axiom_core::cell::SupervisionStrategy::default(),
+            supervision_strategy: SupervisionStrategy::default(),
             cell: None,
             factory: None,
         }
     }
 
-    pub fn with_cell(mut self, cell: CellHandle) -> Self {
+    pub fn with_cell(mut self, cell: RuntimeCellHandle) -> Self {
         self.cell = Some(cell);
         self
     }
 
     pub fn with_factory<F>(mut self, factory: F) -> Self
     where
-        F: Fn() -> CellHandle + Send + Sync + 'static,
+        F: Fn() -> RuntimeCellHandle + Send + Sync + 'static,
     {
         self.factory = Some(Arc::new(factory));
         self

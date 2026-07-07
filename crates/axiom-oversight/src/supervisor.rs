@@ -1,4 +1,4 @@
-use axiom_core::id::CellId;
+use axiom_kernel::id::CellId;
 use std::sync::Arc;
 
 pub struct OversightSupervisor {

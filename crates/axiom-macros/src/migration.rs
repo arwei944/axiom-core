@@ -54,13 +54,13 @@ pub fn impl_migration(attr: TokenStream, item: TokenStream) -> TokenStream {
     );
 
     let source_version = quote! {
-        fn source_version(&self) -> ::axiom_core::SchemaVersion {
-            ::axiom_core::SchemaVersion::new(#from_v)
+        fn source_version(&self) -> ::axiom_kernel::version::SchemaVersion {
+            ::axiom_kernel::version::SchemaVersion::new(#from_v)
         }
     };
     let target_version = quote! {
-        fn target_version(&self) -> ::axiom_core::SchemaVersion {
-            ::axiom_core::SchemaVersion::new(#to_v)
+        fn target_version(&self) -> ::axiom_kernel::version::SchemaVersion {
+            ::axiom_kernel::version::SchemaVersion::new(#to_v)
         }
     };
 
@@ -81,7 +81,7 @@ pub fn impl_migration(attr: TokenStream, item: TokenStream) -> TokenStream {
                 (#from_v, #to_v, #for_type_str, std::any::type_name::<#self_ty>())
             }
 
-            #[linkme::distributed_slice(::axiom_core::registry::MIGRATION_REGISTRY)]
+            #[linkme::distributed_slice(::axiom_kernel::registry::MIGRATION_REGISTRY)]
     #[linkme(crate = linkme)]
             static #reg_static: fn() -> (u16, u16, &'static str, &'static str) = #reg_fn;
         };

@@ -1,5 +1,5 @@
 error: invalid layer 'invalid_layer': expected exec|validate|agent|oversight
- --> tests/compile-fail/cf-invalid-cell-layer.rs:2:22
+ --> tests/compile-fail/cf-invalid-cell-layer.rs:1:22
   |
-2 | #[axiom_macros::cell("invalid_layer")]
+1 | #[axiom_macros::cell("invalid_layer")]
   |                      ^^^^^^^^^^^^^^^

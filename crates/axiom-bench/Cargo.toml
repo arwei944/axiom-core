@@ -7,7 +7,7 @@ repository.workspace = true
 description = "Performance benchmarks and stress tests for Axiom Core"
 
 [dependencies]
-axiom-core = { workspace = true }
+axiom-kernel = { workspace = true }
 axiom-runtime = { workspace = true }
 axiom-store = { workspace = true }
 tokio = { workspace = true }

@@ -2,9 +2,9 @@
 //!
 //! As an Oversight component, it tracks violations and produces audit records.
 
-use axiom_core::id::CellId;
-use axiom_core::layer::Layer;
-use axiom_core::signal::SignalEnvelope;
+use axiom_kernel::id::CellId;
+use axiom_kernel::layer::Layer;
+use axiom_kernel::signal::SignalEnvelope;
 use parking_lot::Mutex;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -123,7 +123,7 @@ impl ArchitectureGuardianCell {
             to: None,
             signal_type,
             reason,
-            timestamp_ns: axiom_core::signal::now_ns(),
+            timestamp_ns: axiom_kernel::clock::global_clock().now_ns(),
         };
         self.record_violation(&ev);
     }
@@ -155,8 +155,8 @@ impl Default for ArchitectureGuardianCell {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use axiom_core::id::{CorrelationId, MsgId};
-    use axiom_core::signal::{SignalKind, VectorClock};
+    use axiom_kernel::id::{CorrelationId, MsgId};
+    use axiom_kernel::signal::{SignalKind, VectorClock};
 
     fn env(from: Layer, to: Layer, hop_count: u32) -> SignalEnvelope {
         SignalEnvelope {
@@ -172,7 +172,7 @@ mod tests {
             source_cell: None,
             target_cell: Some("c1".into()),
             payload: serde_json::Value::Null,
-            schema_version: axiom_core::SchemaVersion::new(1),
+            schema_version: axiom_kernel::SchemaVersion::new(1),
             parent_msg_id: None,
             hop_count,
         }
@@ -218,7 +218,7 @@ mod tests {
     fn test_schema_version_zero_rejected() {
         let c = ArchitectureGuardianCell::new();
         let mut e = env(Layer::Exec, Layer::Exec, 0);
-        e.schema_version = axiom_core::SchemaVersion::new(0);
+        e.schema_version = axiom_kernel::SchemaVersion::new(0);
         assert!(c.check_envelope(&e).is_err());
         assert_eq!(c.stats().schema_version_mismatch, 1);
     }

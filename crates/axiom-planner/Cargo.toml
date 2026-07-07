@@ -3,10 +3,10 @@ name = "axiom-planner"
 version = "0.1.0"
 edition = "2021"
 license = "MIT"
-description = "Planning strategies for axiom-core agents (ReAct, Plan-and-Execute)"
+description = "Planning strategies for axiom-kernel agents (ReAct, Plan-and-Execute)"
 
 [dependencies]
-axiom-core = { path = "../axiom-core" }
+axiom-kernel = { path = "../axiom-kernel" }
 axiom-llm = { path = "../axiom-llm" }
 axiom-tool = { path = "../axiom-tool" }
 axiom-memory = { path = "../axiom-memory" }
@@ -21,5 +21,3 @@ uuid = { version = "1", features = ["v4"] }
 [build-dependencies]
 archcheck = { path = "../../tools/archcheck" }
 toml = "0.8"
-
-

@@ -8,17 +8,17 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 
-use axiom_core::id::{CorrelationId, MsgId};
-use axiom_core::layer::Layer;
-use axiom_core::signal::{SignalKind, VectorClock};
+use axiom_kernel::id::{CorrelationId, MsgId};
+use axiom_kernel::layer::Layer;
+use axiom_kernel::signal::{SignalKind, VectorClock};
 use parking_lot::RwLock;
 
 use axiom_runtime::bus::{BusInterceptor, InterceptDecision};
 use axiom_runtime::entropy_gov::{EntropyEvent, EntropyGovernorCell, GovernanceAction};
 use axiom_runtime::entropy_interceptors::{EmergencyInterceptor, ThrottleInterceptor};
 
-fn make_env(target_cell: &str, source_layer: Layer) -> axiom_core::signal::SignalEnvelope {
-    axiom_core::signal::SignalEnvelope {
+fn make_env(target_cell: &str, source_layer: Layer) -> axiom_kernel::signal::SignalEnvelope {
+    axiom_kernel::signal::SignalEnvelope {
         msg_id: MsgId::new("test"),
         correlation_id: CorrelationId::new("corr"),
         trace_id: None,
@@ -31,7 +31,7 @@ fn make_env(target_cell: &str, source_layer: Layer) -> axiom_core::signal::Signa
         source_cell: None,
         target_cell: Some(target_cell.to_string()),
         payload: serde_json::Value::Null,
-        schema_version: axiom_core::SchemaVersion::new(1),
+        schema_version: axiom_kernel::SchemaVersion::new(1),
         parent_msg_id: None,
         hop_count: 0,
     }

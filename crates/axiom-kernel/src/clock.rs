@@ -1,0 +1,96 @@
+//! Clock abstraction for deterministic time handling.
+//!
+//! Provides a `Clock` trait so time-dependent code can be tested with a
+//! controllable clock instead of `std::time::SystemTime`.
+
+use parking_lot::Mutex;
+use std::sync::Arc;
+
+/// Clock source for `now_ns()`.
+///
+/// Implementations provide the current time in nanoseconds. The default
+/// source is [`SystemClock`]; tests can use [`MockClock`] to control time.
+pub trait Clock: Send + Sync {
+    /// Return the current time in nanoseconds since the UNIX epoch.
+    fn now_ns(&self) -> u64;
+}
+
+/// System wall-clock source.
+///
+/// Delegates to `std::time::SystemTime` and is the default clock.
+#[derive(Debug, Clone, Default)]
+pub struct SystemClock;
+
+impl Clock for SystemClock {
+    fn now_ns(&self) -> u64 {
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_nanos() as u64
+    }
+}
+
+/// Mock clock for deterministic tests.
+///
+/// Starts at `0` and can be advanced or set manually.
+#[derive(Debug, Clone)]
+pub struct MockClock {
+    now: Arc<Mutex<u64>>,
+}
+
+impl Default for MockClock {
+    fn default() -> Self {
+        Self {
+            now: Arc::new(Mutex::new(0)),
+        }
+    }
+}
+
+impl MockClock {
+    /// Create a new mock clock initialized to `0`.
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Advance the clock by `delta_ns` nanoseconds.
+    pub fn advance(&self, delta_ns: u64) {
+        let mut now = self.now.lock();
+        *now = now.saturating_add(delta_ns);
+    }
+
+    /// Set the clock to an absolute `timestamp_ns`.
+    pub fn set(&self, timestamp_ns: u64) {
+        *self.now.lock() = timestamp_ns;
+    }
+
+    /// Return the current mock time (for assertions).
+    pub fn current(&self) -> u64 {
+        *self.now.lock()
+    }
+}
+
+impl Clock for MockClock {
+    fn now_ns(&self) -> u64 {
+        *self.now.lock()
+    }
+}
+
+// === Global clock singleton ===
+
+use std::sync::OnceLock;
+
+static GLOBAL_CLOCK: OnceLock<parking_lot::Mutex<Arc<dyn Clock>>> = OnceLock::new();
+
+fn global_clock_lock() -> &'static parking_lot::Mutex<Arc<dyn Clock>> {
+    GLOBAL_CLOCK.get_or_init(|| Mutex::new(Arc::new(SystemClock)))
+}
+
+/// Return the global clock instance.
+pub fn global_clock() -> Arc<dyn Clock> {
+    global_clock_lock().lock().clone()
+}
+
+/// Replace the global clock instance. Intended for tests only.
+pub fn set_global_clock(clock: Arc<dyn Clock>) {
+    *global_clock_lock().lock() = clock;
+}

@@ -1,6 +1,6 @@
 //! Integration tests for Cell restart mechanism with exponential backoff.
 
-use axiom_core::cell::SupervisionStrategy;
+use axiom_kernel::cell::SupervisionStrategy;
 use axiom_runtime::supervisor::{SupervisionDecision, Supervisor};
 
 #[tokio::test]

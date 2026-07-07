@@ -6,7 +6,7 @@ license.workspace = true
 description = "Agent development toolkit: LLM, tools, memory, planner, identity, prompt (fascade + integration crate)"
 
 [dependencies]
-axiom-core = { path = "../axiom-core" }
+axiom-kernel = { path = "../axiom-kernel" }
 axiom-runtime = { path = "../axiom-runtime" }
 axiom-llm = { path = "../axiom-llm" }
 axiom-tool = { path = "../axiom-tool" }

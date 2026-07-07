@@ -1,7 +1,7 @@
 //! Store persistence tests: SQLite, FileStore, integration, recovery, performance.
 
-use axiom_core::version::VersionInfo;
-use axiom_core::Versioned;
+use axiom_kernel::version::VersionInfo;
+use axiom_kernel::Versioned;
 use axiom_store::event::EventBuilder;
 use axiom_store::file_store::{FileStore, FileStoreConfig};
 use axiom_store::memory::MemoryStore;
@@ -181,11 +181,11 @@ async fn test_verify_witness_chain_accepts_valid_chain() {
         index_file: dir.path().join("index.json"),
     };
     let store = Arc::new(FileStore::connect(cfg).await.unwrap());
-    let witness_a = axiom_core::witness::Witness {
-        witness_id: axiom_core::id::WitnessId::new("w1"),
-        schema_version: axiom_core::version::WitnessSchema::schema_version(),
+    let witness_a = axiom_kernel::witness::Witness {
+        witness_id: axiom_kernel::id::WitnessId::new("w1"),
+        schema_version: axiom_kernel::version::WitnessSchema::schema_version(),
         cell_id: "c1".into(),
-        correlation_id: axiom_core::id::CorrelationId::new("corr"),
+        correlation_id: axiom_kernel::id::CorrelationId::new("corr"),
         trace_id: None,
         triggering_msg_id: None,
         vector_clock: Default::default(),
@@ -193,20 +193,20 @@ async fn test_verify_witness_chain_accepts_valid_chain() {
         prev_hash: None,
         state_before_hash: None,
         state_after_hash: None,
-        hash: axiom_core::witness::WitnessHash([1; 32]),
+        hash: axiom_kernel::witness::WitnessHash([1; 32]),
         summary: "first".into(),
-        outcome: axiom_core::witness::TransitionOutcome::Success,
+        outcome: axiom_kernel::witness::TransitionOutcome::Success,
         metrics: Default::default(),
         version_info: VersionInfo::current(),
         signal_fingerprint: [0; 32],
         payload_size_bytes: 0,
-        kind: axiom_core::witness::WitnessKind::StateTransition,
+        kind: axiom_kernel::witness::WitnessKind::StateTransition,
     };
     let mut witness_b = witness_a.clone();
-    witness_b.witness_id = axiom_core::id::WitnessId::new("w2");
+    witness_b.witness_id = axiom_kernel::id::WitnessId::new("w2");
     witness_b.timestamp_ns = 2;
     witness_b.prev_hash = Some(witness_a.hash);
-    witness_b.hash = axiom_core::witness::WitnessHash([2; 32]);
+    witness_b.hash = axiom_kernel::witness::WitnessHash([2; 32]);
 
     let payload_a = json!(witness_a.clone());
     let payload_b = json!(witness_b.clone());

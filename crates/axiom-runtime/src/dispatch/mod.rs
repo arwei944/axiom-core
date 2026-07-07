@@ -5,10 +5,10 @@ pub use witness::witness_to_event;
 
 type RegisteredCellData = (
     std::sync::Arc<crate::mailbox::Mailbox>,
-    axiom_core::id::CellId,
-    axiom_core::layer::Layer,
-    Option<std::sync::Arc<tokio::sync::Mutex<axiom_core::cell::CellHandle>>>,
-    Option<std::sync::Arc<dyn Fn() -> axiom_core::cell::CellHandle + Send + Sync>>,
+    axiom_kernel::id::CellId,
+    axiom_kernel::layer::Layer,
+    Option<std::sync::Arc<tokio::sync::Mutex<axiom_kernel::cell::RuntimeCellHandle>>>,
+    Option<std::sync::Arc<dyn Fn() -> axiom_kernel::cell::RuntimeCellHandle + Send + Sync>>,
 );
 
 #[allow(clippy::too_many_arguments, clippy::type_complexity)]
@@ -31,6 +31,7 @@ pub async fn dispatch_loop(
     events_since_snapshot: std::sync::Arc<
         parking_lot::RwLock<std::collections::HashMap<String, u64>>,
     >,
+    cell_kernel: Option<std::sync::Arc<axiom_kernel::CellKernel>>,
 ) {
     r#loop::run_dispatch_loop(
         rx,
@@ -45,6 +46,7 @@ pub async fn dispatch_loop(
         emergency_mode,
         dlq,
         events_since_snapshot,
+        cell_kernel,
     )
     .await;
 }

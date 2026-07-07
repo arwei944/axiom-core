@@ -1,7 +1,7 @@
 //! Benchmark: Signal envelope creation and serialization overhead.
 
 use axiom_bench::common::make_signal;
-use axiom_core::signal::SignalEnvelope;
+use axiom_kernel::signal::SignalEnvelope;
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
 
 fn bench_signal_creation(c: &mut Criterion) {

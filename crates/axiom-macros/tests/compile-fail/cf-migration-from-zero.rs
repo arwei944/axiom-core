@@ -3,8 +3,8 @@
 struct BadMigration;
 
 #[axiom_macros::migration(from = 0)]
-impl axiom_core::version::Migration for BadMigration {
-    fn migrate(&self, input: serde_json::Value) -> axiom_core::Result<serde_json::Value> {
+impl axiom_kernel::version::Migration for BadMigration {
+    fn migrate(&self, input: serde_json::Value) -> axiom_kernel::KernelResult<serde_json::Value> {
         Ok(input)
     }
 }

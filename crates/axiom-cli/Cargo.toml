@@ -4,7 +4,7 @@ version.workspace = true
 edition.workspace = true
 license.workspace = true
 repository.workspace = true
-description = "Axiom CLI - development tools and automation gates for axiom-core"
+description = "Axiom CLI - development tools and automation gates for axiom-kernel"
 
 [[bin]]
 name = "axm"
@@ -23,7 +23,7 @@ thiserror = { workspace = true }
 anyhow = { workspace = true }
 tokio = { workspace = true }
 
-axiom-core = { workspace = true }
+axiom-kernel = { workspace = true }
 
 [build-dependencies]
 archcheck = { path = "../../tools/archcheck" }

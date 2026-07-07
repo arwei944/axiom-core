@@ -77,7 +77,7 @@ tracing-subscriber = "0.3"
 async-trait = "0.1"
 ```
 
-> **提示**：`axiom-agent` 已经 re-export 了所有上游 crate（`axiom_core`、`axiom_llm`、`axiom_tool` 等），你也可以只用 `axiom-agent` 一个依赖，通过 `axiom_agent::axiom_llm::LlmClient` 这样的路径访问。
+> **提示**：`axiom-agent` 已经 re-export 了所有上游 crate（`axiom_kernel`、`axiom_llm`、`axiom_tool` 等），你也可以只用 `axiom-agent` 一个依赖，通过 `axiom_agent::axiom_llm::LlmClient` 这样的路径访问。
 
 ---
 

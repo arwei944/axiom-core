@@ -5,7 +5,7 @@ pub use crate::builder::AgentBuilder;
 pub use crate::error::{AgentError, AgentResult};
 
 // Core types
-pub use axiom_core::{CellId, Layer, Signal, SignalKind, Witness};
+pub use axiom_kernel::{CellId, Layer, Signal, SignalKind, Witness};
 
 // LLM types
 pub use axiom_llm::{ChatMessage, CompletionResponse, LlmClient, MessageRole};

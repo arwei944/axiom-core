@@ -1,123 +1,53 @@
-//! Axiom Core - 5 fundamental primitives for reliable agentic systems.
+//! Axiom Core - Compatibility layer over axiom-kernel (deprecated)
 //!
-//! # Primitives
-//! - **Cell**: Isolated stateful unit with private state + message mailbox
-//! - **Signal**: Typed immutable message with causal tracking
-//! - **Lens**: On-demand state projection from event log
-//! - **Axiom**: Global invariant constraints for entropy control
-//! - **Witness**: Immutable audit record for every state transition
+//! # Deprecation Notice
+//! This crate is deprecated. All new code should use `axiom-kernel` directly.
 //!
-//! # Architecture
-//! - **Layer**: Four-layer architecture (Oversight/Agent/Validate/Exec) with enforced call direction
-//! - **Entropy**: First-class entropy metrics for system disorder quantification
-//! - **Version**: Semantic versioning, schema versioning, and witness chain compatibility
-//! - **Schema**: Compile-time message validation
-//! - **Context**: CellContext with correlation ID propagation
-//!
-//! # Quick Start
-//!
-//! ```rust
-//! use axiom_core::{Axiom, Result, CellId, Layer};
-//! use axiom_core::signal::{Signal, SignalEnvelope, SignalKind, VectorClock};
-//!
-//! // Define a custom axiom
-//! struct NonEmpty;
-//! impl Axiom for NonEmpty {
-//!     type State = String;
-//!     type Message = String;
-//!     fn name(&self) -> &'static str { "non-empty" }
-//!     fn check(&self, _current: &String, new: &String, _msg: &String) -> Result<()> {
-//!         if new.is_empty() {
-//!             Err(axiom_core::AxiomError::InvariantViolated {
-//!                 message: "state is empty".into(),
-//!             })
-//!         } else {
-//!             Ok(())
-//!         }
-//!     }
-//! }
-//! ```
-//!
-//! # Crate Features
-//!
-//! | Feature | Default | Description |
-//! |---------|---------|-------------|
-//! | `unstable` | No | Enable unstable APIs |
-//! | `sha2-id` | No | Enable SHA-2 witness hashing |
-//!
-//! # Version
-//!
-//! Current version: **v0.3.0**
-//!
-//! See [VERSIONING.md](../VERSIONING.md) for versioning policy.
-//! See [API_BOUNDARY.md](../API_BOUNDARY.md) for stable API surface.
+//! This crate only re-exports from `axiom-kernel` for backward compatibility.
+//! The `axiom-core` runtime layer has been completely replaced by `axiom-kernel`.
 
-#![allow(async_fn_in_trait)]
+#![allow(deprecated)]
 
-pub mod axiom;
-pub mod capability;
-pub mod cell;
-pub mod clock;
-pub mod codec;
-pub mod context;
-pub mod entropy;
-pub mod error;
-#[doc(hidden)]
-pub mod gate;
-pub mod id;
-pub mod layer;
-pub mod lens;
-pub mod registry;
-pub mod schema;
-pub mod sealed;
-pub mod signal;
-pub mod version;
-pub mod witness;
-
-pub use axiom::{Axiom, DynAxiom, DynAxiomChain, Guard, ViolationAction};
-pub use capability::{
-    CapabilityDescriptor, CapabilityDimension, CapabilityVersionRegistry, CAPABILITY_REGISTRY,
-    CAPABILITY_VERSION_REGISTRY,
+pub use axiom_kernel::axiom::{AxiomKernel, AxiomViolation, DynAxiom, DynAxiomChain, DynLens, KernelError as AxiomError, KernelResult, Message, Projection, SignalHandler, State, ValidationError, ValidationResult, ValidationSeverity, ViolationAction};
+pub use axiom_kernel::cell::{CellKernel, CellHandle, RuntimeCellHandle, DynCell, DynHandleCell, BoxHandleFuture, SupervisionStrategy};
+pub use axiom_kernel::clock::{global_clock, set_global_clock, Clock, MockClock, SystemClock};
+pub use axiom_kernel::context::{CellContext, OutgoingEnvelope, OutgoingWitness};
+pub use axiom_kernel::entropy::{
+    CellEntropy, EntropyLevel, EntropyScore, EntropySnapshot, EntropyWeights,
+    CRITICAL_THRESHOLD, DEFAULT_HALF_LIFE_SECS, GREEN_THRESHOLD, RED_THRESHOLD,
+    YELLOW_THRESHOLD, WEIGHT_AXIOM_VIOLATIONS, WEIGHT_CELL_RESTARTS,
+    WEIGHT_CIRCUIT_BREAKS, WEIGHT_DROPPED_MESSAGES, WEIGHT_DUPLICATE_MESSAGES,
+    WEIGHT_REJECTED_BY_GUARDIAN, WEIGHT_STALE_STATE_VIOLATIONS, WEIGHT_TIMEOUTS,
 };
-pub use clock::{Clock, MockClock, SystemClock};
-pub use codec::{JsonCodec, SignalCodec};
-pub use entropy::{
-    CellEntropy, EntropyLevel, EntropyScore, EntropySnapshot, EntropyWeights, CRITICAL_THRESHOLD,
-    GREEN_THRESHOLD, RED_THRESHOLD, YELLOW_THRESHOLD,
+pub use axiom_kernel::gate;
+pub use axiom_kernel::guard::{BoxedGuard, DynGuard, Guard};
+pub use axiom_kernel::heatmap::{HeatmapCollector, HeatmapExporter};
+pub use axiom_kernel::heatmap::collector::UsageSnapshot;
+pub use axiom_kernel::id::{
+    AxiomId, CellId, CorrelationId, LensId, MsgId, TraceId, WitnessId,
 };
-pub use error::{AxiomError, Result};
-pub use id::{AxiomId, CellId, CorrelationId, LensId, MsgId, TraceId, WitnessId};
-pub use layer::Layer;
-pub use lens::{
-    CacheMetrics, DependencyCycleError, InMemoryProjectionCache, IncrementalProjectionCache, Lens,
-    LensAccessError, LensAccessor, LensError, LensEvent, LensRegistry, Projectable, Projection,
-    ProjectionCache, ProjectionDowncastError, LENS_REGISTRY,
+pub use axiom_kernel::layer::Layer;
+pub use axiom_kernel::lens::LensKernel;
+pub use axiom_kernel::plugin::{
+    abi::{AxiomPlugin, PluginContext, PluginError, PluginKind, PluginMessage, PluginReply},
+    composer::Composer,
+    loader::NativePluginLoader,
+    registry::PluginRegistry,
 };
-pub use registry::{
-    count_registered_axioms, registered_axioms, registered_migration_chains,
-    verify_migration_chain_completeness, WITNESS_REGISTRY,
+pub use axiom_kernel::registry::{
+    CapabilityDescriptor, CapabilityDimension, CapabilityVersionRegistry,
+    LensRegistry, WitnessRegistry, CAPABILITY_REGISTRY, LENS_REGISTRY,
+    MIGRATION_REGISTRY, AXIOM_REGISTRY, WITNESS_REGISTRY,
 };
-pub use schema::{Schema, ValidationResult};
-pub use sealed::{
-    can_send_at_runtime, AgentLayer, CanSendTo, ExecLayer, LayerMarker, OversightLayer,
-    ValidateLayer,
-};
-pub use signal::{Signal, SignalEnvelope, SignalKind, VectorClock};
-pub use version::{
-    Compatibility, IdentityVersion, Migration, ProtocolVersion, SchemaMigrator, SchemaVersion,
-    Version, VersionInfo, Versioned,
-};
-pub use witness::{
-    TransitionOutcome, Witness, WitnessBatch, WitnessBuilder, WitnessEvent, WitnessGenerator,
-    WitnessHash, WitnessKind, WitnessMetrics,
-};
+pub use axiom_kernel::sealed::{CanSendTo, LayerMarker, OversightLayer, AgentLayer, ValidateLayer, ExecLayer};
+pub use axiom_kernel::codec::{JsonCodec, SignalCodec};
+pub use axiom_kernel::signal::{Signal, SignalEnvelope, SignalKernel, SignalKind, VectorClock};
+pub use axiom_kernel::tool::{BoxedTool, DynTool, Tool};
+pub use axiom_kernel::version::{Compatibility, CrateVersion, EventSchema, IdentityVersion, ProtocolVersion, SchemaVersion, SignalSchema, Version, Versioned, VersionInfo, WitnessSchema};
+pub use axiom_kernel::witness::{Witness, WitnessBuilder, WitnessKernel, WitnessEvent, WitnessGenerator, WitnessHash, WitnessKind, WitnessMetrics, TransitionOutcome};
 
 pub use axiom_macros::{
     axiom, capability, cell, guard, lens, migration, schema_version, signal, tool, SignalPayload,
 };
 
-#[cfg(feature = "unstable")]
-pub use cell::{
-    AgentCell, BoxHandleFuture, CellHandle, CellHealth, CellMeta, DynCell, DynHandleCell, ExecCell,
-    LayerOf, OversightCell, SupervisionStrategy, ValidateCell,
-};
+pub type Result<T> = KernelResult<T>;

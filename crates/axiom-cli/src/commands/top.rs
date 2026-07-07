@@ -3,6 +3,8 @@ use std::process::ExitCode;
 use anyhow::{Context, Result};
 use clap::Args;
 
+use axiom_kernel::plugin::RuntimeKernelBridge;
+
 #[derive(Args)]
 pub struct TopArgs {
     /// Refresh interval in milliseconds
@@ -23,8 +25,22 @@ pub struct TopArgs {
 }
 
 pub fn run_top(args: &TopArgs) -> Result<ExitCode> {
+    let runtime = tokio::runtime::Runtime::new().context("Failed to create tokio runtime")?;
+    let bridge = RuntimeKernelBridge::new();
+
     if args.json {
-        println!("{}", serde_json::json!({"mode":"json"}));
+        let snapshot = runtime.block_on(async {
+            let cells = bridge.cell_kernel.status().await;
+            let heatmap = bridge.heatmap.read().await.snapshot();
+            let plugin_count = bridge.plugin_registry.list_all().await.len();
+            TopSnapshot {
+                cells,
+                heatmap,
+                plugin_count,
+            }
+        });
+        let json = serde_json::to_string_pretty(&snapshot)?;
+        println!("{}", json);
         return Ok(ExitCode::SUCCESS);
     }
 
@@ -37,19 +53,25 @@ pub fn run_top(args: &TopArgs) -> Result<ExitCode> {
         println!("Filtering by layer: {}", layer);
     }
 
-    let runtime = tokio::runtime::Runtime::new().context("Failed to create tokio runtime")?;
     runtime
-        .block_on(run_tui(args))
+        .block_on(run_tui(args, &bridge))
         .context("TUI runtime error")?;
 
     Ok(ExitCode::SUCCESS)
 }
 
-async fn run_tui(args: &TopArgs) -> Result<()> {
-    let mut app = TopApp::new();
+#[derive(Debug, serde::Serialize)]
+struct TopSnapshot {
+    cells: Vec<axiom_kernel::cell::CellStatus>,
+    heatmap: axiom_kernel::heatmap::collector::UsageSnapshot,
+    plugin_count: usize,
+}
+
+async fn run_tui(args: &TopArgs, bridge: &RuntimeKernelBridge) -> Result<()> {
+    let mut app = TopApp::new(bridge).await?;
 
     loop {
-        app.update();
+        app.update(bridge).await?;
 
         print!("\x1B[2J\x1B[1;1H");
         println!("{}", app.render());
@@ -63,134 +85,71 @@ struct TopApp {
     entropy: f64,
     messages_processed: u64,
     uptime_seconds: u64,
+    plugin_count: usize,
     _layer_filter: Option<String>,
 }
 
 struct CellStatus {
     id: String,
-    layer: String,
+    kind: String,
     state: String,
-    messages: u64,
-    errors: u64,
-    restart_count: u64,
+    queued: usize,
 }
 
 impl TopApp {
-    fn new() -> Self {
-        Self {
-            cells: vec![
-                CellStatus {
-                    id: "entropy-governor".to_string(),
-                    layer: "Oversight".to_string(),
-                    state: "Running".to_string(),
-                    messages: 120,
-                    errors: 0,
-                    restart_count: 0,
-                },
-                CellStatus {
-                    id: "architecture-guardian".to_string(),
-                    layer: "Oversight".to_string(),
-                    state: "Running".to_string(),
-                    messages: 85,
-                    errors: 0,
-                    restart_count: 0,
-                },
-                CellStatus {
-                    id: "agent-planner".to_string(),
-                    layer: "Agent".to_string(),
-                    state: "Running".to_string(),
-                    messages: 240,
-                    errors: 2,
-                    restart_count: 0,
-                },
-                CellStatus {
-                    id: "validator".to_string(),
-                    layer: "Validate".to_string(),
-                    state: "Running".to_string(),
-                    messages: 310,
-                    errors: 5,
-                    restart_count: 1,
-                },
-                CellStatus {
-                    id: "exec-worker".to_string(),
-                    layer: "Exec".to_string(),
-                    state: "Running".to_string(),
-                    messages: 520,
-                    errors: 10,
-                    restart_count: 2,
-                },
-            ],
-            entropy: 45.6,
-            messages_processed: 1275,
-            uptime_seconds: 180,
+    async fn new(bridge: &RuntimeKernelBridge) -> Result<Self> {
+        let cells = bridge
+            .cell_kernel
+            .status()
+            .await
+            .into_iter()
+            .map(|s| CellStatus {
+                id: s.id,
+                kind: s.kind,
+                state: "Running".to_string(),
+                queued: s.queued,
+            })
+            .collect();
+
+        Ok(Self {
+            cells,
+            entropy: 0.0,
+            messages_processed: 0,
+            uptime_seconds: 0,
+            plugin_count: bridge.plugin_registry.list_all().await.len(),
             _layer_filter: None,
-        }
+        })
     }
 
-    fn update(&mut self) {
+    async fn update(&mut self, bridge: &RuntimeKernelBridge) -> Result<()> {
+        self.entropy = (self.entropy + 0.01).min(1.0);
+        self.messages_processed += 1;
         self.uptime_seconds += 1;
-        self.messages_processed += self.cells.iter().map(|c| c.messages).sum::<u64>() / 10;
+        self.plugin_count = bridge.plugin_registry.list_all().await.len();
 
-        self.entropy = (40.0 + (self.uptime_seconds as f64 % 30.0)) * 0.9;
-
-        for cell in &mut self.cells {
-            if cell.state == "Running" {
-                cell.messages += 1;
-            }
+        let statuses = bridge.cell_kernel.status().await;
+        for (status, live) in self.cells.iter_mut().zip(statuses.iter()) {
+            status.queued = live.queued;
+            status.state = "Running".to_string();
         }
+
+        Ok(())
     }
 
     fn render(&self) -> String {
         let mut output = String::new();
-
-        output.push_str("┌─────────────────────────────────────────────────────────────────┐\n");
-        output.push_str("│                    AXIOM RUNTIME MONITOR                        │\n");
-        output.push_str("├────────────────────┬────────────────────┬──────────────────────┤\n");
-        output.push_str(&format!(
-            "│  Uptime: {:>10}s  │  Messages: {:>10}  │  Entropy: {:>8.1}%  │\n",
-            self.uptime_seconds, self.messages_processed, self.entropy
-        ));
-        output.push_str("├────────────────────┴────────────────────┴──────────────────────┤\n");
-        output.push_str("│ ID                      Layer    State    Msgs   Errors  Restarts │\n");
-        output.push_str("├─────────────────────────────────────────────────────────────────┤\n");
-
-        let entropy_color = if self.entropy < 30.0 {
-            "\x1B[32m"
-        } else if self.entropy < 60.0 {
-            "\x1B[33m"
-        } else {
-            "\x1B[31m"
-        };
-
+        output.push_str("ID                      Kind         State     Queued\n");
+        output.push_str("────────────────────────────────────────────────────────────\n");
         for cell in &self.cells {
-            let state_color = match cell.state.as_str() {
-                "Running" => "\x1B[32m",
-                "Restarting" => "\x1B[33m",
-                "CircuitOpen" => "\x1B[31m",
-                "Stopped" => "\x1B[90m",
-                _ => "",
-            };
-
             output.push_str(&format!(
-                "│ {:<22} {:<8} {} {:<8}\x1B[0m {:>5}  {:>6}  {:>8} │\n",
-                cell.id,
-                cell.layer,
-                state_color,
-                cell.state,
-                cell.messages,
-                cell.errors,
-                cell.restart_count
+                "{:<24} {:<12} {:<9} {}\n",
+                cell.id, cell.kind, cell.state, cell.queued
             ));
         }
-
-        output.push_str("├─────────────────────────────────────────────────────────────────┤\n");
         output.push_str(&format!(
-            "│ Entropy Level: {} {:.1}%\x1B[0m                            │\n",
-            entropy_color, self.entropy
+            "\nEntropy: {:.2} | Messages: {} | Uptime: {}s | Plugins: {}\n",
+            self.entropy, self.messages_processed, self.uptime_seconds, self.plugin_count
         ));
-        output.push_str("└─────────────────────────────────────────────────────────────────┘\n");
-        output.push_str("\nPress Ctrl+C to exit");
-
         output
     }
 }

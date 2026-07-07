@@ -11,6 +11,7 @@ use serde::Serialize;
 
 pub mod cell_flow;
 pub mod entropy;
+pub mod kernel;
 pub mod metrics;
 pub mod timeline;
 pub mod topology;
@@ -26,6 +27,7 @@ pub use metrics::{
 };
 pub use timeline::{Timeline, TimelineEntry};
 pub use topology::{CellNode, TopologyGraph};
+pub use kernel::VizKernelAdapter;
 
 #[derive(Debug, Clone, Serialize)]
 pub struct VizSnapshot {

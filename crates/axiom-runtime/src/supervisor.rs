@@ -92,7 +92,7 @@ pub struct Supervisor {
 
 struct CellSupervision {
     state: CellState,
-    strategy: axiom_core::cell::SupervisionStrategy,
+    strategy: axiom_kernel::cell::SupervisionStrategy,
     circuit_breaker: CircuitBreaker,
     restart_count: u64,
 }
@@ -107,16 +107,16 @@ impl Supervisor {
     pub async fn register_cell(
         &self,
         cell_id: &str,
-        strategy: axiom_core::cell::SupervisionStrategy,
+        strategy: axiom_kernel::cell::SupervisionStrategy,
     ) {
         let (threshold, reset_after_ms) = match strategy {
-            axiom_core::cell::SupervisionStrategy::CircuitBreak {
+            axiom_kernel::cell::SupervisionStrategy::CircuitBreak {
                 failure_threshold,
                 reset_after_ms,
             } => (failure_threshold, reset_after_ms),
-            axiom_core::cell::SupervisionStrategy::Restart { .. } => (u32::MAX, u64::MAX),
-            axiom_core::cell::SupervisionStrategy::Stop => (u32::MAX, u64::MAX),
-            axiom_core::cell::SupervisionStrategy::Escalate => (u32::MAX, u64::MAX),
+            axiom_kernel::cell::SupervisionStrategy::Restart { .. } => (u32::MAX, u64::MAX),
+            axiom_kernel::cell::SupervisionStrategy::Stop => (u32::MAX, u64::MAX),
+            axiom_kernel::cell::SupervisionStrategy::Escalate => (u32::MAX, u64::MAX),
         };
 
         self.states.write().await.insert(
@@ -159,7 +159,7 @@ impl Supervisor {
         if s.circuit_breaker.is_open() {
             let until = Instant::now()
                 + match s.strategy {
-                    axiom_core::cell::SupervisionStrategy::CircuitBreak {
+                    axiom_kernel::cell::SupervisionStrategy::CircuitBreak {
                         reset_after_ms, ..
                     } => Duration::from_millis(reset_after_ms),
                     _ => Duration::from_secs(30),
@@ -169,12 +169,12 @@ impl Supervisor {
         }
 
         match s.strategy {
-            axiom_core::cell::SupervisionStrategy::Stop => {
+            axiom_kernel::cell::SupervisionStrategy::Stop => {
                 s.state = CellState::Stopped;
                 SupervisionDecision::Stop
             }
-            axiom_core::cell::SupervisionStrategy::Escalate => SupervisionDecision::Escalate,
-            axiom_core::cell::SupervisionStrategy::Restart { max_retries } => {
+            axiom_kernel::cell::SupervisionStrategy::Escalate => SupervisionDecision::Escalate,
+            axiom_kernel::cell::SupervisionStrategy::Restart { max_retries } => {
                 if s.restart_count > max_retries as u64 {
                     s.state = CellState::Stopped;
                     SupervisionDecision::Stop
@@ -186,7 +186,7 @@ impl Supervisor {
                     }
                 }
             }
-            axiom_core::cell::SupervisionStrategy::CircuitBreak { .. } => {
+            axiom_kernel::cell::SupervisionStrategy::CircuitBreak { .. } => {
                 let attempt = s.restart_count as u32;
                 s.state = CellState::Restarting { attempt };
                 SupervisionDecision::Restart {
@@ -275,7 +275,7 @@ mod tests {
         let sup = Supervisor::new();
         sup.register_cell(
             "test-cell",
-            axiom_core::cell::SupervisionStrategy::Restart { max_retries: 3 },
+            axiom_kernel::cell::SupervisionStrategy::Restart { max_retries: 3 },
         )
         .await;
         let d1 = sup.record_panic("test-cell").await;
@@ -294,7 +294,7 @@ mod tests {
         let sup = Supervisor::new();
         sup.register_cell(
             "test-cell",
-            axiom_core::cell::SupervisionStrategy::CircuitBreak {
+            axiom_kernel::cell::SupervisionStrategy::CircuitBreak {
                 failure_threshold: 2,
                 reset_after_ms: 0,
             },

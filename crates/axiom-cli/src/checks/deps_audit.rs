@@ -82,7 +82,7 @@ impl Check for DepsAuditCheck {
             match parse_deps_from_cargo(&cargo_path) {
                 Ok(deps) => {
                     for dep in deps {
-                        if let Err(reason) = axiom_core::gate::audit_dependency(&dep) {
+                        if let Err(reason) = axiom_kernel::gate::audit_dependency(&dep) {
                             violations.push(format!("{}: {}", cargo_path.display(), reason));
                         }
                     }

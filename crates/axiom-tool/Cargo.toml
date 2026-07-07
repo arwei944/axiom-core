@@ -3,10 +3,10 @@ name = "axiom-tool"
 version = "0.1.0"
 edition = "2021"
 license = "MIT"
-description = "Type-safe tool invocation framework for axiom-core"
+description = "Type-safe tool invocation framework for axiom-kernel"
 
 [dependencies]
-axiom-core = { path = "../axiom-core" }
+axiom-kernel = { path = "../axiom-kernel" }
 
 tokio = { version = "1", features = ["rt-multi-thread", "sync", "macros"] }
 serde = { version = "1", features = ["derive"] }
@@ -19,5 +19,3 @@ uuid = { version = "1", features = ["v4"] }
 [build-dependencies]
 archcheck = { path = "../../tools/archcheck" }
 toml = "0.8"
-
-

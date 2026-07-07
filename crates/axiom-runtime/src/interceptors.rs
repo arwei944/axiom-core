@@ -3,7 +3,7 @@
 use crate::bus::{BusInterceptor, InterceptDecision};
 use crate::constraint_validator::{ConstraintValidator, ValidationContext};
 use crate::loop_detector::LoopDetector;
-use axiom_core::signal::SignalEnvelope;
+use axiom_kernel::signal::SignalEnvelope;
 use parking_lot::RwLock;
 use std::collections::HashSet;
 
@@ -130,7 +130,7 @@ impl BusInterceptor for CapabilityVersionInterceptor {
         let ctx = ValidationContext::from_envelope(env);
         let validator = ConstraintValidator::new(ctx);
         for dim in &validator.ctx.capability_dimensions {
-            let requested = axiom_core::version::Version::new(0, 1, 0);
+            let requested = axiom_kernel::version::Version::new(0, 1, 0);
             if let InterceptDecision::Reject { reason } =
                 validator.validate_capability_compatibility(dim.clone(), &requested)
             {
@@ -174,9 +174,9 @@ impl BusInterceptor for GuardInterceptor {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use axiom_core::id::{CorrelationId, MsgId};
-    use axiom_core::layer::Layer;
-    use axiom_core::signal::{SignalKind, VectorClock};
+    use axiom_kernel::id::{CorrelationId, MsgId};
+    use axiom_kernel::layer::Layer;
+    use axiom_kernel::signal::{SignalKind, VectorClock};
 
     fn make_env(hops: u32, id: &str) -> SignalEnvelope {
         SignalEnvelope {
@@ -192,7 +192,7 @@ mod tests {
             source_cell: None,
             target_cell: None,
             payload: serde_json::Value::Null,
-            schema_version: axiom_core::SchemaVersion::new(1),
+            schema_version: axiom_kernel::SchemaVersion::new(1),
             parent_msg_id: None,
             hop_count: hops,
         }
@@ -224,7 +224,7 @@ mod tests {
     fn schema_version_blocks_zero() {
         let i = SchemaVersionInterceptor;
         let mut e = make_env(0, "sv");
-        e.schema_version = axiom_core::SchemaVersion::new(0);
+        e.schema_version = axiom_kernel::SchemaVersion::new(0);
         assert!(matches!(i.intercept(&e), InterceptDecision::Reject { .. }));
     }
 

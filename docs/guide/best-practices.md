@@ -205,7 +205,7 @@ impl Schema for BigPayload {
 
 ```rust
 let signal = HelloCommand::new(user_input);
-let validation = axiom_core::Schema::validate(&signal);
+let validation = axiom_kernel::Schema::validate(&signal);
 if !validation.is_valid() {
     return Err(MyError::InvalidInput(validation.to_string()));
 }
@@ -538,7 +538,7 @@ fn test_entropy_escalation() {
 
 ### 策略 8：并发与重启测试
 
-Axiom Core 提供并发与持久化测试模板（见 `crates/axiom-core/tests/` 与 `crates/axiom-runtime/tests/`）。关键场景：
+Axiom Core 提供并发与持久化测试模板（见 `crates/axiom-kernel/tests/` 与 `crates/axiom-runtime/tests/`）。关键场景：
 
 - **并发消息**：多个信号同时到达同一 Cell，验证状态一致性。
 - **Cell 崩溃重启**：模拟 panic，验证监督树重启后状态恢复。

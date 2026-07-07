@@ -24,10 +24,10 @@ impl McpServer {
     pub fn new(registry: Arc<ToolRegistry>, addr: SocketAddr) -> Self {
         let tools = registry.list();
         let capability = McpCapability {
-            name: "axiom-core".to_string(),
+            name: "axiom-kernel".to_string(),
             protocol_version: "1.0.0".to_string(),
             tools,
-            description: Some("Axiom Core runtime capabilities exposed as MCP tools".to_string()),
+            description: Some("Axiom Kernel runtime capabilities exposed as MCP tools".to_string()),
         };
 
         Self {

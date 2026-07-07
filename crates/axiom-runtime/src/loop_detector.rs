@@ -1,10 +1,10 @@
 //! Message loop detector using correlation path tracking.
 
-use axiom_core::signal::SignalEnvelope;
+use axiom_kernel::signal::SignalEnvelope;
 use parking_lot::RwLock;
 use std::collections::{HashMap, HashSet, VecDeque};
 
-type Result<T> = std::result::Result<T, axiom_core::AxiomError>;
+type Result<T> = std::result::Result<T, axiom_kernel::KernelError>;
 
 struct CorrelationTrack {
     cells: HashSet<String>,
@@ -80,7 +80,7 @@ impl LoopDetector {
         let cells = paths.get_or_default(&cid);
 
         if cells.contains(&target) && cells.len() >= 2 {
-            return Err(axiom_core::AxiomError::LoopDetected {
+            return Err(axiom_kernel::KernelError::LoopDetected {
                 message: format!(
                     "revisiting cell {} after visiting {} cells",
                     target,
@@ -91,7 +91,7 @@ impl LoopDetector {
         }
 
         if cells.len() >= self.max_cells_per_correlation {
-            return Err(axiom_core::AxiomError::LoopDetected {
+            return Err(axiom_kernel::KernelError::LoopDetected {
                 message: format!(
                     "visited {} cells (max {})",
                     cells.len(),
@@ -113,9 +113,9 @@ impl LoopDetector {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use axiom_core::id::{CorrelationId, MsgId};
-    use axiom_core::layer::Layer;
-    use axiom_core::signal::{SignalKind, VectorClock};
+    use axiom_kernel::id::{CorrelationId, MsgId};
+    use axiom_kernel::layer::Layer;
+    use axiom_kernel::signal::{SignalKind, VectorClock};
 
     fn env(target: &str, cid: &str) -> SignalEnvelope {
         SignalEnvelope {
@@ -131,7 +131,7 @@ mod tests {
             source_cell: None,
             target_cell: Some(target.to_string()),
             payload: serde_json::Value::Null,
-            schema_version: axiom_core::SchemaVersion::new(1),
+            schema_version: axiom_kernel::version::SchemaVersion::new(1),
             parent_msg_id: None,
             hop_count: 0,
         }

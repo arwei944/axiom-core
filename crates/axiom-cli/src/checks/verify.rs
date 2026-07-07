@@ -90,13 +90,13 @@ impl Check for VerifyCheck {
             }
         };
 
-        let order: HashMap<&str, usize> = axiom_core::gate::crate_layers()
+        let order: HashMap<&str, usize> = axiom_kernel::gate::crate_layers()
             .iter()
             .map(|(n, l)| (n.as_str(), *l))
             .collect();
 
         let mut violations = Vec::new();
-        let max_order = axiom_core::gate::crate_layers().len();
+        let max_order = axiom_kernel::gate::crate_layers().len();
 
         for (crate_name, deps) in &crates {
             let crate_level = order.get(crate_name.as_str()).copied().unwrap_or(max_order);
@@ -139,10 +139,10 @@ impl Check for VerifyCheck {
 mod tests {
     #[test]
     fn test_dep_order_matches_gate_constants() {
-        for (name, level) in axiom_core::gate::crate_layers() {
+        for (name, level) in axiom_kernel::gate::crate_layers() {
             assert!(*level <= 8, "unexpected level for {name}");
         }
-        assert_eq!(axiom_core::gate::crate_level("axiom-core"), Some(7));
-        assert_eq!(axiom_core::gate::crate_level("axiom-cli"), Some(0));
+        assert_eq!(axiom_kernel::gate::crate_level("axiom-kernel"), Some(7));
+        assert_eq!(axiom_kernel::gate::crate_level("axiom-cli"), Some(0));
     }
 }

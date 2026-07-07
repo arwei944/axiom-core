@@ -5,6 +5,7 @@ use crate::supervisor::Supervisor;
 use crate::AxiomRuntime;
 use crate::RuntimeConfig;
 use crate::RuntimeHealth;
+use crate::runtime::RuntimeKernelBridge;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 
@@ -33,6 +34,7 @@ impl AxiomRuntime {
             throttle_state,
             emergency_mode,
             events_since_snapshot,
+            kernel_bridge: RuntimeKernelBridge::new(),
             #[cfg(feature = "metrics")]
             metrics_server: crate::MetricsServer::default(),
         }

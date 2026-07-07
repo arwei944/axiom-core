@@ -6,7 +6,7 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 use crate::store::{BoxFuture, StoreError};
-use axiom_core::signal::VectorClock;
+use axiom_kernel::signal::VectorClock;
 use serde::{Deserialize, Serialize};
 use tokio::sync::RwLock;
 

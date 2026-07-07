@@ -1,10 +1,12 @@
+use crate::runtime::kernel_bridge::RuntimeKernelBridge;
 use crate::entropy_gov::EntropyGovernorCell;
 use crate::mailbox::Mailbox;
 use crate::supervisor::Supervisor;
-use axiom_core::cell::CellHandle;
-use axiom_core::id::CellId;
-use axiom_core::layer::Layer;
-use axiom_core::version::Version;
+use axiom_kernel::cell::RuntimeCellHandle;
+use axiom_kernel::cell::SupervisionStrategy;
+use axiom_kernel::id::CellId;
+use axiom_kernel::layer::Layer;
+use axiom_kernel::version::Version;
 use std::sync::Arc;
 use tokio::sync::Mutex as TokioMutex;
 
@@ -16,11 +18,11 @@ pub struct CellRegistration {
     /// Cell 实现的 schema 版本。
     pub version: Version,
     /// 监管策略：重启、停止、熔断或升级。
-    pub supervision_strategy: axiom_core::cell::SupervisionStrategy,
+    pub supervision_strategy: SupervisionStrategy,
     /// 已实例化的 Cell 句柄；与 `factory` 二选一。
-    pub cell: Option<CellHandle>,
+    pub cell: Option<RuntimeCellHandle>,
     /// Cell 工厂函数，用于按需创建实例。
-    pub factory: Option<Arc<dyn Fn() -> CellHandle + Send + Sync>>,
+    pub factory: Option<Arc<dyn Fn() -> RuntimeCellHandle + Send + Sync>>,
 }
 
 #[derive(Debug, Clone)]
@@ -44,8 +46,8 @@ pub struct RegisteredCell {
     mailbox: Arc<Mailbox>,
     layer: Layer,
     version: Version,
-    cell: Option<Arc<TokioMutex<CellHandle>>>,
-    factory: Option<Arc<dyn Fn() -> CellHandle + Send + Sync>>,
+    cell: Option<Arc<TokioMutex<RuntimeCellHandle>>>,
+    factory: Option<Arc<dyn Fn() -> RuntimeCellHandle + Send + Sync>>,
 }
 
 #[derive(Debug, Clone)]
@@ -104,12 +106,14 @@ pub struct AxiomRuntime {
         std::sync::Arc<parking_lot::RwLock<std::collections::HashMap<String, u64>>>,
     #[cfg(feature = "metrics")]
     metrics_server: crate::MetricsServer,
+    pub kernel_bridge: RuntimeKernelBridge,
 }
 
 pub mod builder;
 pub mod commands;
 pub mod config;
 pub mod health;
+pub mod kernel_bridge;
 pub mod monitoring;
 pub mod registration;
 pub mod runtime_impl;

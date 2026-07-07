@@ -41,7 +41,7 @@ pub mod error;
 pub mod prelude;
 
 // Re-export all toolchain crates
-pub use axiom_core;
+pub use axiom_kernel;
 pub use axiom_identity;
 pub use axiom_llm;
 pub use axiom_memory;

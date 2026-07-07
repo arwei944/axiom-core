@@ -1,0 +1,19 @@
+[package]
+name = "axiom-plugin-example-wasm"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+description = "Example WASM plugins for Axiom Core."
+repository.workspace = true
+
+[lib]
+crate-type = ["rlib", "cdylib"]
+
+[dependencies]
+axiom-plugin-wasm-sdk = { path = "../axiom-plugin-wasm-sdk" }
+axiom-kernel = { path = "../axiom-kernel" }
+
+[dev-dependencies]
+axiom-kernel = { path = "../axiom-kernel" }
+tokio = { workspace = true, features = ["rt-multi-thread", "macros"] }

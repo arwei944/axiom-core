@@ -1,8 +1,8 @@
 //! Benchmark: Witness chain construction and verification.
 
-use axiom_core::id::{CorrelationId, MsgId, WitnessId};
-use axiom_core::version::{SchemaVersion, VersionInfo};
-use axiom_core::witness::{TransitionOutcome, Witness, WitnessHash, WitnessMetrics};
+use axiom_kernel::id::{CorrelationId, MsgId, WitnessId};
+use axiom_kernel::version::{SchemaVersion, VersionInfo};
+use axiom_kernel::witness::{TransitionOutcome, Witness, WitnessHash, WitnessMetrics};
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
 
 fn make_witness(seq: u64, prev_hash: Option<WitnessHash>) -> Witness {
@@ -13,7 +13,7 @@ fn make_witness(seq: u64, prev_hash: Option<WitnessHash>) -> Witness {
         correlation_id: CorrelationId::new("bench-corr"),
         trace_id: None,
         triggering_msg_id: Some(MsgId::new(format!("msg-{seq}"))),
-        vector_clock: axiom_core::signal::VectorClock::new(),
+        vector_clock: axiom_kernel::signal::VectorClock::new(),
         timestamp_ns: seq * 1000,
         prev_hash,
         state_before_hash: None,
@@ -25,7 +25,7 @@ fn make_witness(seq: u64, prev_hash: Option<WitnessHash>) -> Witness {
         version_info: VersionInfo::current(),
         signal_fingerprint: [0u8; 32],
         payload_size_bytes: 0,
-        kind: axiom_core::witness::WitnessKind::StateTransition,
+        kind: axiom_kernel::witness::WitnessKind::StateTransition,
     }
 }
 
