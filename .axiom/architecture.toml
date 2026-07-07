@@ -30,10 +30,16 @@ axiom-store = 5
 # Layer 6: （预留）
 
 # Layer 7: 核心原语
-axiom-core = 7
+axiom-kernel = 7
+axiom-core = 7  # deprecated: compatibility layer over axiom-kernel
 
 # Layer 8: Proc-macro（豁免）
 axiom-macros = 8
+
+# Layer 9: Plugin SDK 和示例
+axiom-plugin-wasm-sdk = 9
+axiom-plugin-test = 9
+axiom-plugin-example-wasm = 9
 
 [forbidden-deps]
 async-trait = "R-004: Rust 1.75+ 已支持原生 async fn in traits"
@@ -77,13 +83,24 @@ archcheck = "编译期架构门禁"
 bincode = "二进制序列化（codec 可选依赖）"
 proptest = "属性测试框架（store 测试）"
 loom = "并发测试框架（store 测试）"
+# WASM 和插件相关（kernel）
+wasmtime = "WASM 运行时（plugin loader）"
+wasmtime-wasi = "WASI 支持（plugin loader）"
+wasmtime-component-util = "WASM component 工具（plugin loader）"
+libloading = "动态库加载（native plugin loader）"
+glob = "文件路径匹配（plugin loader）"
+postcard = "二进制序列化（plugin IPC）"
+semver = "语义化版本（plugin versioning）"
 
 [dev-dependencies-audit]
 enabled = true
 note = "所有 dev-dependencies 也必须遵守 forbidden-deps 和 audited-deps"
 
 [proc-macro-exemptions]
-axiom-macros = { allowed_deps = ["axiom-core"], reason = "Proc-macro 必须引用 core 类型以进行宏展开" }
+axiom-macros = { allowed_deps = ["axiom-kernel"], reason = "Proc-macro 必须引用 kernel 类型以进行宏展开" }
 
 [reverse-dependency-exemptions]
 axiom-agent = { allowed_deps = ["axiom-identity", "axiom-prompt"], reason = "Agent 需要调用 identity/prompt facade 完成用户交互" }
+axiom-plugin-example-wasm = { allowed_deps = ["axiom-kernel"], reason = "示例 WASM plugin 依赖 kernel API" }
+axiom-plugin-test = { allowed_deps = ["axiom-kernel"], reason = "测试 plugin 依赖 kernel API" }
+axiom-plugin-wasm-sdk = { allowed_deps = ["axiom-kernel"], reason = "WASM SDK 需要引用 kernel 类型定义" }

@@ -217,7 +217,7 @@ impl EventStore for MemoryStore {
 mod tests {
     use super::*;
     use crate::event::EventBuilder;
-    use axiom_core::id::CorrelationId;
+    use axiom_kernel::id::CorrelationId;
 
     #[tokio::test]
     async fn test_append_and_read_roundtrip() {

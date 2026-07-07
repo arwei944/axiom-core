@@ -99,11 +99,11 @@ fn create_signal_file(file_path: &Path, name: &str, kind: &str, layer: &str) -> 
          //! - Source layer: {}\n\
          //! - Valid targets: {}\n\
          //!\n\
-         use axiom_core::id::CorrelationId;\n\
-         use axiom_core::id::MsgId;\n\
-         use axiom_core::signal::Signal;\n\
-         use axiom_core::signal::SignalKind;\n\
-         use axiom_core::vector_clock::VectorClock;\n\
+         use axiom_kernel::id::CorrelationId;\n\
+         use axiom_kernel::id::MsgId;\n\
+         use axiom_kernel::signal::Signal;\n\
+         use axiom_kernel::signal::SignalKind;\n\
+         use axiom_kernel::vector_clock::VectorClock;\n\
          \n\
          #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]\n\
          pub struct {} {{\n             /// Message ID\n             pub msg_id: MsgId,\n             /// Correlation ID for tracing\n             pub correlation_id: CorrelationId,\n             /// Vector clock for causality tracking\n             pub vector_clock: VectorClock,\n             /// Signal payload\n             pub payload: serde_json::Value,\n         }}\n\
@@ -111,7 +111,7 @@ fn create_signal_file(file_path: &Path, name: &str, kind: &str, layer: &str) -> 
          impl Signal for {} {{\n             fn signal_type(&self) -> &str {{\n                 \"{}\"\n             }}\n             \n\
              fn kind(&self) -> SignalKind {{\n                 SignalKind::{}\n             }}\n         }}\n\
          \n\
-         impl axiom_core::schema::Schema for {} {{\n             fn validate(&self) -> Result<(), axiom_core::error::ValidationError> {{\n                 if self.payload.is_null() {{\n                     return Err(axiom_core::error::ValidationError::Invalid(\n                         \"payload cannot be null\".to_string(),\n                     ));\n                 }}\n                 Ok(())\n             }}\n         }}\n",
+         impl axiom_kernel::schema::Schema for {} {{\n             fn validate(&self) -> Result<(), axiom_kernel::error::ValidationError> {{\n                 if self.payload.is_null() {{\n                     return Err(axiom_kernel::error::ValidationError::Invalid(\n                         \"payload cannot be null\".to_string(),\n                     ));\n                 }}\n                 Ok(())\n             }}\n         }}\n",
         name,
         kind,
         layer,

@@ -49,13 +49,13 @@ impl TracerHandle {
     pub fn tracer(
         &self,
         name: &str,
-    ) -> Result<impl opentelemetry::trace::Tracer, axiom_core::AxiomError> {
-        let provider = self
-            .inner
-            .as_ref()
-            .ok_or_else(|| axiom_core::AxiomError::Internal {
-                message: "tracer provider not initialized".into(),
-            })?;
+    ) -> Result<impl opentelemetry::trace::Tracer, axiom_kernel::error::AxiomError> {
+        let provider =
+            self.inner
+                .as_ref()
+                .ok_or_else(|| axiom_kernel::error::AxiomError::Internal {
+                    message: "tracer provider not initialized".into(),
+                })?;
         Ok(provider.tracer(name))
     }
 }
@@ -66,7 +66,7 @@ impl TracerHandle {
         Self {}
     }
 
-    pub fn tracer(&self, _name: &str) -> Result<NoopTracer, axiom_core::AxiomError> {
+    pub fn tracer(&self, _name: &str) -> Result<NoopTracer, axiom_kernel::error::AxiomError> {
         Ok(NoopTracer)
     }
 }

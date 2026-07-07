@@ -7,7 +7,7 @@ rust-version.workspace = true
 description = "Alerting system for Axiom: thresholds, routing, escalation, silence"
 
 [dependencies]
-axiom-core = { path = "../axiom-core" }
+axiom-kernel = { path = "../axiom-kernel" }
 axiom-oversight = { path = "../axiom-oversight" }
 serde = { workspace = true }
 serde_json = { workspace = true }
@@ -19,5 +19,3 @@ uuid = { workspace = true }
 [build-dependencies]
 archcheck = { path = "../../tools/archcheck" }
 toml = "0.8"
-
-

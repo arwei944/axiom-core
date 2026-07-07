@@ -1,6 +1,6 @@
 //! ComplianceGuard - PII/sensitive data detection and redaction.
 
-use axiom_core::id::CellId;
+use axiom_kernel::id::CellId;
 use parking_lot::Mutex;
 use regex::Regex;
 use serde::{Deserialize, Serialize};

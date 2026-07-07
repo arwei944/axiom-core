@@ -1,0 +1,16 @@
+[package]
+name = "axiom-plugin-wasm-sdk"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+description = "WASM plugin SDK for Axiom Core."
+repository.workspace = true
+
+[dependencies]
+axiom-kernel = { path = "../axiom-kernel" }
+postcard = { version = "1", optional = true }
+
+[features]
+default = ["postcard"]
+postcard = ["dep:postcard"]

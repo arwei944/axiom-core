@@ -107,7 +107,7 @@ impl StartupCheck for LayerCanSendToCheck {
         "layer-direction-matrix"
     }
     fn check(&self) -> Result<(), StartupError> {
-        use axiom_core::layer::Layer;
+        use axiom_kernel::layer::Layer;
         let legal_pairs = [
             (Layer::Oversight, Layer::Oversight),
             (Layer::Oversight, Layer::Agent),
@@ -152,7 +152,7 @@ impl StartupCheck for AxiomRegistryCheck {
         "axiom-registry"
     }
     fn check(&self) -> Result<(), StartupError> {
-        let count = axiom_core::registry::AXIOM_REGISTRY.len();
+        let count = axiom_kernel::registry::AXIOM_REGISTRY.len();
         if count == 0 {
             Err(StartupError::Warning(
                 "no axioms registered - system will run without invariant checks".into(),
@@ -169,7 +169,7 @@ impl StartupCheck for VersionInfoCheck {
         "version-info"
     }
     fn check(&self) -> Result<(), StartupError> {
-        let v = axiom_core::version::VersionInfo::current();
+        let v = axiom_kernel::version::VersionInfo::current();
         if v.protocol_version.0 == 0 {
             return Err(StartupError::Blocking(
                 "protocol version cannot be 0".into(),

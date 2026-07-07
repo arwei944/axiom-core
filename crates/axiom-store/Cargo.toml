@@ -7,7 +7,7 @@ rust-version.workspace = true
 description = "Event store abstraction with in-memory implementation"
 
 [dependencies]
-axiom-core = { path = "../axiom-core" }
+axiom-kernel = { path = "../axiom-kernel" }
 serde = { workspace = true }
 serde_json = { workspace = true }
 thiserror = { workspace = true }

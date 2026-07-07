@@ -3,10 +3,10 @@ name = "axiom-mcp"
 version = "0.1.0"
 edition = "2021"
 license = "MIT"
-description = "MCP (Model Context Protocol) bridge for axiom-core"
+description = "MCP (Model Context Protocol) bridge for axiom-kernel"
 
 [dependencies]
-axiom-core = { path = "../axiom-core" }
+axiom-kernel = { path = "../axiom-kernel" }
 axiom-runtime = { path = "../axiom-runtime" }
 axiom-oversight = { path = "../axiom-oversight" }
 
@@ -24,5 +24,3 @@ uuid = { version = "1", features = ["v4"] }
 [build-dependencies]
 archcheck = { path = "../../tools/archcheck" }
 toml = "0.8"
-
-

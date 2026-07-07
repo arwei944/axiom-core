@@ -1,6 +1,6 @@
 //! System topology data for architecture diagrams.
 
-use axiom_core::layer::Layer;
+use axiom_kernel::layer::Layer;
 use serde::Serialize;
 
 #[derive(Debug, Clone, Serialize)]

@@ -3,12 +3,13 @@
 //! Moved from axiom-oversight to axiom-runtime to avoid circular dependencies.
 //! axiom-oversight re-exports these types for oversight-level consumers.
 
-use axiom_core::clock::global_clock;
-use axiom_core::entropy::{
+use axiom_kernel::clock::global_clock;
+use axiom_kernel::entropy::{
     EntropyLevel, EntropyScore, CRITICAL_THRESHOLD, GREEN_THRESHOLD, RED_THRESHOLD,
     YELLOW_THRESHOLD,
 };
-use axiom_core::id::CellId;
+use axiom_kernel::id::{CellId, WitnessId};
+use axiom_kernel::witness::{Witness as KernelWitness, WitnessHash, WitnessMetrics};
 use parking_lot::Mutex;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -59,6 +60,7 @@ pub struct EntropyGovernorCell {
     last_action_ns: Arc<Mutex<u64>>,
     last_action: Arc<Mutex<Option<GovernanceAction>>>,
     cooldown_ns: u64,
+    witness_kernel: Option<Arc<axiom_kernel::WitnessKernel>>,
 }
 
 impl EntropyGovernorCell {
@@ -72,6 +74,70 @@ impl EntropyGovernorCell {
             last_action_ns: Arc::new(Mutex::new(0)),
             last_action: Arc::new(Mutex::new(None)),
             cooldown_ns: 30_000_000_000,
+            witness_kernel: None,
+        }
+    }
+
+    pub fn with_witness_kernel(
+        green: f64,
+        yellow: f64,
+        red: f64,
+        critical: f64,
+        witness_kernel: Arc<axiom_kernel::WitnessKernel>,
+    ) -> Self {
+        Self {
+            id: CellId::new("oversight:entropy-governor"),
+            global: Arc::new(Mutex::new(
+                EntropyScore::new().with_thresholds(green, yellow, red, critical),
+            )),
+            per_cell: Arc::new(Mutex::new(HashMap::new())),
+            last_action_ns: Arc::new(Mutex::new(0)),
+            last_action: Arc::new(Mutex::new(None)),
+            cooldown_ns: 30_000_000_000,
+            witness_kernel: Some(witness_kernel),
+        }
+    }
+
+    pub fn set_witness_kernel(&mut self, kernel: Arc<axiom_kernel::WitnessKernel>) {
+        self.witness_kernel = Some(kernel);
+    }
+
+    pub async fn record_witness(&self, ev: &EntropyEvent) {
+        if let Some(kernel) = &self.witness_kernel {
+            let now = global_clock().now_ns();
+            let _cell_id = match ev {
+                EntropyEvent::AxiomViolation { cell_id } => cell_id.clone(),
+                EntropyEvent::DroppedMessage { cell_id } => cell_id.clone(),
+                EntropyEvent::RejectedByGuardian { cell_id } => cell_id.clone(),
+                EntropyEvent::CellRestart { cell_id } => cell_id.clone(),
+                EntropyEvent::CircuitBreak { cell_id } => cell_id.clone(),
+                EntropyEvent::Timeout { cell_id } => cell_id.clone(),
+                EntropyEvent::DuplicateMessage { cell_id } => cell_id.clone(),
+                EntropyEvent::StaleStateViolation { cell_id } => cell_id.clone(),
+                EntropyEvent::Custom { cell_id, .. } => cell_id.clone(),
+            };
+            let witness = KernelWitness {
+                witness_id: WitnessId::new(format!("entropy-{}", now)),
+                schema_version: axiom_kernel::version::SchemaVersion::new(1),
+                cell_id: self.id.as_str().to_string(),
+                correlation_id: axiom_kernel::id::CorrelationId::new("none"),
+                trace_id: None,
+                triggering_msg_id: None,
+                vector_clock: axiom_kernel::signal::VectorClock::new(),
+                timestamp_ns: now,
+                prev_hash: Some(WitnessHash::zero()),
+                state_before_hash: Some(WitnessHash::zero()),
+                state_after_hash: Some(WitnessHash::zero()),
+                hash: WitnessHash::zero(),
+                summary: format!("entropy event for cell {}", self.id.as_str()),
+                outcome: axiom_kernel::witness::TransitionOutcome::Success,
+                metrics: WitnessMetrics::default(),
+                version_info: axiom_kernel::version::VersionInfo::current(),
+                signal_fingerprint: [0u8; 32],
+                payload_size_bytes: 0,
+                kind: axiom_kernel::witness::WitnessKind::StateTransition,
+            };
+            kernel.record(witness).await;
         }
     }
 
@@ -115,7 +181,7 @@ impl EntropyGovernorCell {
         if !cell_id.is_empty() {
             let mut per_cell = self.per_cell.lock();
             let entry = per_cell
-                .entry(cell_id)
+                .entry(cell_id.clone())
                 .or_insert_with(|| EntropyScore::new().with_thresholds(gt, yt, rt, ct));
             match &ev {
                 EntropyEvent::AxiomViolation { .. } => entry.record_axiom_violation(),

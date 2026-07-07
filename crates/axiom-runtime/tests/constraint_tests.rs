@@ -1,9 +1,9 @@
 //! Constraint runtime tests: interceptors, guard, capability version, witness records.
 
-use axiom_core::error::AxiomError;
-use axiom_core::id::{CorrelationId, MsgId};
-use axiom_core::layer::Layer;
-use axiom_core::signal::{SignalKind, VectorClock};
+use axiom_kernel::id::{CorrelationId, MsgId};
+use axiom_kernel::layer::Layer;
+use axiom_kernel::signal::{SignalKind, VectorClock};
+use axiom_kernel::KernelError;
 use axiom_runtime::bus::{BusInterceptor, InterceptDecision, MessageBus};
 use axiom_runtime::constraint_validator::{ConstraintValidator, ValidationContext};
 use axiom_runtime::interceptors::{
@@ -12,8 +12,8 @@ use axiom_runtime::interceptors::{
 };
 use std::sync::Arc;
 
-fn make_env(hops: u32, id: &str, signal_type: &str) -> axiom_core::signal::SignalEnvelope {
-    axiom_core::signal::SignalEnvelope {
+fn make_env(hops: u32, id: &str, signal_type: &str) -> axiom_kernel::signal::SignalEnvelope {
+    axiom_kernel::signal::SignalEnvelope {
         msg_id: MsgId::new(id),
         correlation_id: CorrelationId::new("c"),
         trace_id: None,
@@ -26,7 +26,7 @@ fn make_env(hops: u32, id: &str, signal_type: &str) -> axiom_core::signal::Signa
         source_cell: None,
         target_cell: None,
         payload: serde_json::Value::Null,
-        schema_version: axiom_core::SchemaVersion::new(1),
+        schema_version: axiom_kernel::SchemaVersion::new(1),
         parent_msg_id: None,
         hop_count: hops,
     }
@@ -75,15 +75,10 @@ async fn bus_rejects_illegal_message_with_reason() {
     let result = bus.publish(env).await;
     assert!(result.is_err());
     let err = result.unwrap_err();
-    if let AxiomError::LayerViolation {
-        signal_type,
-        source_cell,
-        ..
-    } = err
-    {
-        assert!(signal_type.contains("guard blocked signal") || source_cell.is_empty());
+    if let KernelError::SignalValidationFailed(reason) = err {
+        assert!(reason.contains("guard blocked signal"));
     } else {
-        panic!("expected LayerViolation, got: {err:?}");
+        panic!("expected SignalValidationFailed, got: {err:?}");
     }
 }
 
@@ -112,7 +107,7 @@ fn hop_limit_interceptor_blocks_excessive_hops() {
 fn schema_version_interceptor_blocks_zero() {
     let interceptor = SchemaVersionInterceptor;
     let mut env = make_env(0, "schema", "Test");
-    env.schema_version = axiom_core::SchemaVersion::new(0);
+    env.schema_version = axiom_kernel::SchemaVersion::new(0);
     assert!(matches!(
         interceptor.intercept(&env),
         InterceptDecision::Reject { .. }

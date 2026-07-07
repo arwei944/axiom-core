@@ -23,7 +23,7 @@
 1. **定义 Signal 类型**
 
 ```rust
-use axiom_core::signal::Signal;
+use axiom_kernel::signal::Signal;
 
 #[derive(Serialize, Deserialize, SignalPayload)]
 struct MyAgentInput {
@@ -37,7 +37,7 @@ struct MyAgentInput {
 2. **创建 Cell**
 
 ```rust
-use axiom_core::cell::Cell;
+use axiom_kernel::cell::Cell;
 
 #[cell(layer = "exec")]
 struct MyAgentCell {
@@ -201,7 +201,7 @@ fn read_data(&self) -> Result<Data> {
 ### 4.1 Hello World
 
 ```rust
-use axiom_core::prelude::*;
+use axiom_kernel::prelude::*;
 
 #[signal(kind = "command", layer = "exec")]
 struct Hello {

@@ -4,7 +4,8 @@ use crate::event::Event;
 use crate::replay::StateDiff;
 use crate::snapshot::{Snapshot, SnapshotStore};
 use crate::store::{EventStore, StoreError};
-use axiom_core::signal::VectorClock;
+use axiom_kernel::clock::global_clock;
+use axiom_kernel::signal::VectorClock;
 use std::sync::Arc;
 
 #[derive(Debug, Clone)]
@@ -57,7 +58,7 @@ impl ReplayEngine {
         aggregate_id: &str,
         up_to_seq: u64,
     ) -> Result<ReplayResult<S>, StoreError> {
-        let start_ns = axiom_core::signal::now_ns();
+        let start_ns = global_clock().now_ns();
 
         let snapshot = self
             .snapshot_store
@@ -96,7 +97,7 @@ impl ReplayEngine {
             .map(|e| e.sequence_number)
             .unwrap_or(start_seq);
 
-        let duration_ms = (axiom_core::signal::now_ns() - start_ns) / 1_000_000;
+        let duration_ms = (global_clock().now_ns() - start_ns) / 1_000_000;
 
         Ok(ReplayResult {
             state,
@@ -122,7 +123,7 @@ impl ReplayEngine {
             sequence_number,
             state: state.to_snapshot(),
             schema_version: S::current_schema_version(),
-            created_at_ns: axiom_core::signal::now_ns(),
+            created_at_ns: global_clock().now_ns(),
             cell_id: cell_id.to_string(),
             vector_clock,
         };
@@ -216,7 +217,7 @@ impl ReplayEngine {
         events: &[Event],
         up_to_seq: u64,
     ) -> Result<ReplayResult<S>, StoreError> {
-        let start_ns = axiom_core::signal::now_ns();
+        let start_ns = global_clock().now_ns();
 
         let snapshot = self.snapshot_store.load_snapshot_at("", up_to_seq).await?;
 
@@ -251,7 +252,7 @@ impl ReplayEngine {
             .map(|e| e.sequence_number)
             .unwrap_or(start_seq);
 
-        let duration_ms = (axiom_core::signal::now_ns() - start_ns) / 1_000_000;
+        let duration_ms = (global_clock().now_ns() - start_ns) / 1_000_000;
 
         Ok(ReplayResult {
             state,

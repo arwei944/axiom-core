@@ -11,8 +11,8 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 
-use axiom_core::layer::Layer;
-use axiom_core::signal::SignalEnvelope;
+use axiom_kernel::layer::Layer;
+use axiom_kernel::signal::SignalEnvelope;
 use parking_lot::{Mutex, RwLock};
 
 use crate::bus::{BusInterceptor, InterceptDecision};
@@ -136,9 +136,9 @@ impl BusInterceptor for EmergencyInterceptor {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use axiom_core::id::{CorrelationId, MsgId};
-    use axiom_core::layer::Layer;
-    use axiom_core::signal::{SignalKind, VectorClock};
+    use axiom_kernel::id::{CorrelationId, MsgId};
+    use axiom_kernel::layer::Layer;
+    use axiom_kernel::signal::{SignalKind, VectorClock};
 
     fn make_env(target_cell: Option<&str>, source_layer: Layer) -> SignalEnvelope {
         SignalEnvelope {
@@ -154,7 +154,7 @@ mod tests {
             source_cell: None,
             target_cell: target_cell.map(|s| s.to_string()),
             payload: serde_json::Value::Null,
-            schema_version: axiom_core::SchemaVersion::new(1),
+            schema_version: axiom_kernel::version::SchemaVersion::new(1),
             parent_msg_id: None,
             hop_count: 0,
         }

@@ -132,16 +132,16 @@ Oversight (0) → Agent (3) → Validate (2) → Exec (1)
 ### 4.2 使用方式
 
 ```rust
-#[axiom_core::capability(dim = "witness", version = "1.0.0")]
+#[axiom_kernel::capability(dim = "witness", version = "1.0.0")]
 struct WitnessCapability;
 
-#[axiom_core::capability(dim = "identity", version = "1.0.0")]
+#[axiom_kernel::capability(dim = "identity", version = "1.0.0")]
 struct IdentityCapability;
 
-#[axiom_core::capability(dim = "entropy", version = "1.0.0")]
+#[axiom_kernel::capability(dim = "entropy", version = "1.0.0")]
 struct EntropyCapability;
 
-#[axiom_core::capability(dim = "runtime", version = "1.0.0")]
+#[axiom_kernel::capability(dim = "runtime", version = "1.0.0")]
 struct RuntimeCapability;
 ```
 
@@ -201,7 +201,7 @@ cargo bench -p axiom-bench --no-run
 | 4 | axiom-runtime | >=4 |
 | 5 | axiom-store | >=5 |
 | 6 | axiom-macros | >=6 (仅core) |
-| 7 | axiom-core | 仅第三方依赖 |
+| 7 | axiom-kernel | 仅第三方依赖 |
 
 ### 约束2: 四层架构调用规则（编译期+运行期强制）
 
@@ -254,9 +254,9 @@ cargo bench -p axiom-bench --no-run
 | 文件 | 说明 |
 |------|------|
 | [docs/plans/v0.2.0-development-plan.md](plans/v0.2.0-development-plan.md) | v0.2.0 详细开发计划 |
-| [crates/axiom-core/src/capability.rs](../crates/axiom-core/src/capability.rs) | 能力维度版本管理 |
-| [crates/axiom-core/src/lens.rs](../crates/axiom-core/src/lens.rs) | Lens 原语（待创建） |
+| [crates/axiom-kernel/src/capability.rs](../crates/axiom-kernel/src/capability.rs) | 能力维度版本管理 |
+| [crates/axiom-kernel/src/lens.rs](../crates/axiom-kernel/src/lens.rs) | Lens 原语（待创建） |
 | [crates/axiom-store/src/store.rs](../crates/axiom-store/src/store.rs) | EventStore 抽象层 |
-| [crates/axiom-runtime/src/bus.rs](../crates/axiom-core-project/crates/axiom-runtime/src/bus.rs) | 消息总线与拦截器链 |
-| [crates/axiom-core/src/gate.rs](../crates/axiom-core/src/gate.rs) | Crate层依赖约束 |
-| [crates/axiom-core/src/sealed.rs](../crates/axiom-core/src/sealed.rs) | 层间调用编译期约束 |
+| [crates/axiom-runtime/src/bus.rs](../crates/axiom-kernel-project/crates/axiom-runtime/src/bus.rs) | 消息总线与拦截器链 |
+| [crates/axiom-kernel/src/gate.rs](../crates/axiom-kernel/src/gate.rs) | Crate层依赖约束 |
+| [crates/axiom-kernel/src/sealed.rs](../crates/axiom-kernel/src/sealed.rs) | 层间调用编译期约束 |

@@ -6,10 +6,10 @@ license.workspace = true
 rust-version.workspace = true
 description = "Distributed primitives for Axiom: node discovery, event sync, cross-node witness"
 authors = ["Axiom Contributors"]
-repository = "https://github.com/arwei944/axiom-core"
+repository = "https://github.com/arwei944/axiom-kernel"
 
 [dependencies]
-axiom-core = { path = "../axiom-core" }
+axiom-kernel = { path = "../axiom-kernel" }
 axiom-store = { path = "../axiom-store" }
 axiom-runtime = { path = "../axiom-runtime" }
 serde = { workspace = true }

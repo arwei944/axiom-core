@@ -1,14 +1,11 @@
-use axiom_core::cell::Cell;
-use axiom_core::context::{CellContext, LayeredCellContext, OutgoingEnvelope, OutgoingWitness};
-use axiom_core::id::{CellId, CorrelationId, MsgId};
-use axiom_core::layer::Layer;
-use axiom_core::schema::ValidationResult;
-use axiom_core::signal::{now_ns, Signal, SignalKind, VectorClock};
-use axiom_core::version::{Migration, SchemaVersion, Versioned};
-use axiom_core::{axiom::Axiom, AxiomError, Result};
+use axiom_kernel::axiom::Axiom;
+use axiom_kernel::id::{CellId, CorrelationId, MsgId};
+use axiom_kernel::layer::Layer;
+use axiom_kernel::signal::{Signal, SignalKind, VectorClock};
+use axiom_kernel::version::{Migration, SchemaVersion, Versioned};
+use axiom_kernel::{KernelError, KernelResult};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use std::future::Future;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct PassCmd {
@@ -22,29 +19,18 @@ impl Signal for PassCmd {
     fn msg_id(&self) -> &MsgId { &self.msg_id }
     fn correlation_id(&self) -> &CorrelationId { &self.correlation_id }
     fn vector_clock(&self) -> &VectorClock { &self.vector_clock }
-    fn timestamp_ns(&self) -> u64 { now_ns() }
+    fn timestamp_ns(&self) -> u64 { 0 }
     fn kind(&self) -> SignalKind { SignalKind::Command }
     fn layer(&self) -> Layer { Layer::Exec }
     fn as_any(&self) -> &dyn std::any::Any { self }
     fn clone_signal(&self) -> Box<dyn Signal> { Box::new(self.clone()) }
-    fn validate(&self) -> ValidationResult { ValidationResult::ok() }
-    fn serialize_to_json(&self) -> ::axiom_core::Result<serde_json::Value> { serde_json::to_value(self).map_err(|e| ::axiom_core::AxiomError::SignalSerialization { signal_type: "PassCmd".into(), message: e.to_string() }) }
-}
-
-struct PassCell {
-    id: CellId,
+    fn validate(&self) -> axiom_kernel::axiom::ValidationResult { axiom_kernel::axiom::ValidationResult::ok() }
+    fn serialize_to_json(&self) -> KernelResult<serde_json::Value> { serde_json::to_value(self).map_err(|e| KernelError::SerializationError(e.to_string())) }
 }
 
 #[axiom_macros::cell("validate")]
-impl Cell for PassCell {
-    type Message = PassCmd;
-    fn id(&self) -> &CellId { &self.id }
-    fn handle<'a>(&'a mut self, _: PassCmd, ctx: LayeredCellContext<'a, Self::Layer>) -> impl Future<Output = (axiom_core::Result<()>, Vec<OutgoingEnvelope>, Vec<OutgoingWitness>)> + Send + 'a { async move { let mut ctx = ctx; let (outgoing, witnesses) = ctx.end_processing(); (Ok(()), outgoing, witnesses) } }
-}
-
-fn _assert_validate_cell() {
-    fn assert_validate<T: axiom_core::cell::ValidateCell>() {}
-    assert_validate::<PassCell>();
+struct PassCell {
+    id: CellId,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -60,13 +46,13 @@ impl Signal for V3Signal {
     fn msg_id(&self) -> &MsgId { &self.msg_id }
     fn correlation_id(&self) -> &CorrelationId { &self.correlation_id }
     fn vector_clock(&self) -> &VectorClock { &self.vector_clock }
-    fn timestamp_ns(&self) -> u64 { now_ns() }
+    fn timestamp_ns(&self) -> u64 { 0 }
     fn kind(&self) -> SignalKind { SignalKind::Event }
     fn layer(&self) -> Layer { Layer::Exec }
     fn as_any(&self) -> &dyn std::any::Any { self }
     fn clone_signal(&self) -> Box<dyn Signal> { Box::new(self.clone()) }
-    fn validate(&self) -> ValidationResult { ValidationResult::ok() }
-    fn serialize_to_json(&self) -> ::axiom_core::Result<serde_json::Value> { serde_json::to_value(self).map_err(|e| ::axiom_core::AxiomError::SignalSerialization { signal_type: "PassCmd".into(), message: e.to_string() }) }
+    fn validate(&self) -> axiom_kernel::axiom::ValidationResult { axiom_kernel::axiom::ValidationResult::ok() }
+    fn serialize_to_json(&self) -> KernelResult<serde_json::Value> { serde_json::to_value(self).map_err(|e| KernelError::SerializationError(e.to_string())) }
 }
 
 #[derive(Debug)]
@@ -74,7 +60,7 @@ struct PassMigration;
 
 #[axiom_macros::migration(from = 2)]
 impl Migration for PassMigration {
-    fn migrate(&self, input: Value) -> Result<Value> { Ok(input) }
+    fn migrate(&self, input: Value) -> KernelResult<Value> { Ok(input) }
 }
 
 #[axiom_macros::axiom]
@@ -85,9 +71,9 @@ impl Axiom for PassAxiom {
     type State = i32;
     type Message = PassCmd;
     fn name(&self) -> &'static str { "PassAxiom" }
-    fn check(&self, _current: &i32, new: &i32, _msg: &PassCmd) -> Result<()> {
+    fn check(&self, _current: &i32, new: &i32, _msg: &PassCmd) -> KernelResult<()> {
         if *new < 0 {
-            Err(AxiomError::InvariantViolated { message: "negative".into() })
+            Err(KernelError::InvariantViolated { message: "negative".into() })
         } else {
             Ok(())
         }

@@ -30,48 +30,48 @@ pub fn impl_guard(attr: TokenStream, item: TokenStream) -> TokenStream {
         #[derive(Debug, Default)]
         #input
 
-        impl ::axiom_core::axiom::Guard for #name {
-            fn name(&self) -> &'static str {
+        impl ::axiom_kernel::guard::Guard for #name {
+            fn id(&self) -> &'static str {
                 #name_str
             }
-            fn layer(&self) -> Option<::axiom_core::Layer> {
+            fn layer(&self) -> Option<::axiom_kernel::Layer> {
                 match #layer_str {
-                    "exec" => Some(::axiom_core::Layer::Exec),
-                    "validate" => Some(::axiom_core::Layer::Validate),
-                    "agent" => Some(::axiom_core::Layer::Agent),
-                    "oversight" => Some(::axiom_core::Layer::Oversight),
+                    "exec" => Some(::axiom_kernel::Layer::Exec),
+                    "validate" => Some(::axiom_kernel::Layer::Validate),
+                    "agent" => Some(::axiom_kernel::Layer::Agent),
+                    "oversight" => Some(::axiom_kernel::Layer::Oversight),
                     _ => None,
                 }
             }
-            fn check(&self, signal: &dyn ::axiom_core::Signal) -> ::axiom_core::Result<()> {
+            fn check(&self, signal: &dyn ::axiom_kernel::signal::Signal) -> ::axiom_kernel::KernelResult<()> {
                 let result = self.check_inner(signal);
 
-                let _ = ::axiom_core::registry::WITNESS_REGISTRY.record(::axiom_core::witness::Witness {
-                    witness_id: ::axiom_core::id::WitnessId::new(format!("guard-wit-{}", ::axiom_core::clock::global_clock().now_ns())),
-                    schema_version: <::axiom_core::version::WitnessSchema as ::axiom_core::Versioned>::schema_version(),
+                let _ = ::axiom_kernel::registry::WITNESS_REGISTRY.record(::axiom_kernel::witness::Witness {
+                    witness_id: ::axiom_kernel::id::WitnessId::new(format!("guard-wit-{}", ::axiom_kernel::clock::global_clock().now_ns())),
+                    schema_version: <::axiom_kernel::version::WitnessSchema as ::axiom_kernel::version::Versioned>::schema_version(),
                     cell_id: "guard-executor".to_string(),
-                    correlation_id: ::axiom_core::id::CorrelationId::new("auto"),
+                    correlation_id: ::axiom_kernel::id::CorrelationId::new("auto"),
                     trace_id: None,
                     triggering_msg_id: None,
-                    vector_clock: ::axiom_core::signal::VectorClock::new(),
-                    timestamp_ns: ::axiom_core::clock::global_clock().now_ns(),
+                    vector_clock: ::axiom_kernel::signal::VectorClock::new(),
+                    timestamp_ns: ::axiom_kernel::clock::global_clock().now_ns(),
                     prev_hash: None,
                     state_before_hash: None,
                     state_after_hash: None,
-                    hash: ::axiom_core::witness::WitnessHash::zero(),
+                    hash: ::axiom_kernel::witness::WitnessHash::zero(),
                     summary: format!("guard {} checked signal {}", #name_str, signal.signal_type()),
                     outcome: if result.is_ok() {
-                        ::axiom_core::witness::TransitionOutcome::Success
+                        ::axiom_kernel::witness::TransitionOutcome::Success
                     } else {
-                        ::axiom_core::witness::TransitionOutcome::Failed {
+                        ::axiom_kernel::witness::TransitionOutcome::Failed {
                             reason: result.as_ref().err().unwrap().to_string()
                         }
                     },
-                    metrics: ::axiom_core::witness::WitnessMetrics::default(),
-                    version_info: ::axiom_core::version::VersionInfo::current(),
+                    metrics: ::axiom_kernel::witness::WitnessMetrics::default(),
+                    version_info: ::axiom_kernel::version::VersionInfo::current(),
                     signal_fingerprint: [0u8; 32],
                     payload_size_bytes: 0,
-                    kind: ::axiom_core::witness::WitnessKind::GuardCheck,
+                    kind: ::axiom_kernel::witness::WitnessKind::GuardCheck,
                 });
 
                 result
@@ -79,7 +79,7 @@ pub fn impl_guard(attr: TokenStream, item: TokenStream) -> TokenStream {
         }
 
         impl #name {
-            pub fn check_inner(&self, signal: &dyn ::axiom_core::Signal) -> ::axiom_core::Result<()> {
+            pub fn check_inner(&self, signal: &dyn ::axiom_kernel::signal::Signal) -> ::axiom_kernel::KernelResult<()> {
                 Ok(())
             }
         }

@@ -1,7 +1,7 @@
 //! EventStore trait - abstraction for event storage.
 
 use crate::event::Event;
-use axiom_core::witness::Witness;
+use axiom_kernel::witness::Witness;
 use std::future::Future;
 use std::pin::Pin;
 use std::sync::Arc;

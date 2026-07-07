@@ -2,8 +2,8 @@ use crate::event::Event;
 use crate::store::StoreError;
 use crate::SqliteStoreConfig;
 use crate::WitnessHashData;
-use axiom_core::id::CorrelationId;
-use axiom_core::layer::Layer;
+use axiom_kernel::id::CorrelationId;
+use axiom_kernel::layer::Layer;
 use serde_json::Value;
 use sqlx::sqlite::{SqlitePool, SqlitePoolOptions};
 use sqlx::Row;
@@ -123,13 +123,13 @@ impl SqliteStore {
             correlation_id: CorrelationId::new(row.get::<&str, _>("correlation_id")),
             triggering_msg_id: row
                 .get::<Option<&str>, _>("triggering_msg_id")
-                .map(axiom_core::id::MsgId::new),
+                .map(axiom_kernel::id::MsgId::new),
             vector_clock: serde_json::from_str(row.get::<&str, _>("vector_clock"))
                 .unwrap_or_default(),
             timestamp_ns: row.get::<i64, _>("timestamp_ns") as u64,
             payload,
             event_type: row.get("event_type"),
-            schema_version: axiom_core::version::SchemaVersion::new(
+            schema_version: axiom_kernel::version::SchemaVersion::new(
                 row.get::<i32, _>("schema_version") as u16,
             ),
             metadata: crate::EventMetadata {

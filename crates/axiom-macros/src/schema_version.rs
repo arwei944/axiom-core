@@ -22,9 +22,9 @@ pub fn impl_schema_version(attr: TokenStream, item: TokenStream) -> TokenStream 
     let expanded = quote! {
         #input
 
-        impl #impl_generics ::axiom_core::Versioned for #name #ty_generics #where_clause {
-            fn schema_version() -> ::axiom_core::SchemaVersion {
-                ::axiom_core::SchemaVersion::new(#version_val)
+        impl #impl_generics ::axiom_kernel::Versioned for #name #ty_generics #where_clause {
+            fn schema_version() -> ::axiom_kernel::version::SchemaVersion {
+                ::axiom_kernel::version::SchemaVersion::new(#version_val)
             }
         }
     };

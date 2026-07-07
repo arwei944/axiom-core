@@ -1,7 +1,7 @@
 //! Integration tests for Witness persistence, event replay, and snapshots.
 
-use axiom_core::id::CorrelationId;
-use axiom_core::signal::VectorClock;
+use axiom_kernel::id::CorrelationId;
+use axiom_kernel::signal::VectorClock;
 use axiom_store::event::EventBuilder;
 use axiom_store::memory::MemoryStore;
 use axiom_store::replay::ReplayEngine;
@@ -41,12 +41,12 @@ async fn test_event_replay_by_cell() {
 async fn test_event_replay_by_time_range() {
     let store = Arc::new(MemoryStore::new());
 
-    let start_ns = axiom_core::signal::now_ns();
+    let start_ns = axiom_kernel::signal::now_ns();
     let e1 = EventBuilder::new("agg", "event1", serde_json::json!({})).build();
     tokio::time::sleep(tokio::time::Duration::from_millis(1)).await;
     let e2 = EventBuilder::new("agg", "event2", serde_json::json!({})).build();
     tokio::time::sleep(tokio::time::Duration::from_millis(1)).await;
-    let end_ns = axiom_core::signal::now_ns();
+    let end_ns = axiom_kernel::signal::now_ns();
 
     store.append(e1).await.unwrap();
     store.append(e2).await.unwrap();
@@ -64,7 +64,7 @@ async fn test_snapshot_save_and_load() {
         sequence_number: 10,
         state: serde_json::json!({"count": 5, "data": "test"}),
         schema_version: 1,
-        created_at_ns: axiom_core::signal::now_ns(),
+        created_at_ns: axiom_kernel::signal::now_ns(),
         cell_id: "cell1".to_string(),
         vector_clock: VectorClock::new(),
     };
@@ -91,7 +91,7 @@ async fn test_replay_engine_with_snapshot() {
         sequence_number: 5,
         state: serde_json::json!({"value": 100}),
         schema_version: 1,
-        created_at_ns: axiom_core::signal::now_ns(),
+        created_at_ns: axiom_kernel::signal::now_ns(),
         cell_id: "cell1".to_string(),
         vector_clock: VectorClock::new(),
     };

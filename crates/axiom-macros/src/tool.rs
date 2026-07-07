@@ -45,26 +45,26 @@ pub fn impl_tool(attr: TokenStream, item: TokenStream) -> TokenStream {
 
     let exec_wrapper = quote! {
         async fn execute(&self, parameters: &serde_json::Value) -> Result<serde_json::Value, ::axiom_tool::ToolError> {
-            let _ = ::axiom_core::registry::WITNESS_REGISTRY.record(::axiom_core::witness::Witness {
-                witness_id: ::axiom_core::id::WitnessId::new(format!("tool-wit-{}", ::axiom_core::clock::global_clock().now_ns())),
-                schema_version: <::axiom_core::version::WitnessSchema as ::axiom_core::Versioned>::schema_version(),
+            let _ = ::axiom_kernel::registry::WITNESS_REGISTRY.record(::axiom_kernel::witness::Witness {
+                witness_id: ::axiom_kernel::id::WitnessId::new(format!("tool-wit-{}", ::axiom_kernel::clock::global_clock().now_ns())),
+                schema_version: <::axiom_kernel::version::WitnessSchema as ::axiom_kernel::version::Versioned>::schema_version(),
                 cell_id: "tool-executor".to_string(),
-                correlation_id: ::axiom_core::id::CorrelationId::new("auto"),
+                correlation_id: ::axiom_kernel::id::CorrelationId::new("auto"),
                 trace_id: None,
                 triggering_msg_id: None,
-                vector_clock: ::axiom_core::signal::VectorClock::new(),
-                timestamp_ns: ::axiom_core::clock::global_clock().now_ns(),
+                vector_clock: ::axiom_kernel::signal::VectorClock::new(),
+                timestamp_ns: ::axiom_kernel::clock::global_clock().now_ns(),
                 prev_hash: None,
                 state_before_hash: None,
                 state_after_hash: None,
-                hash: ::axiom_core::witness::WitnessHash::zero(),
+                hash: ::axiom_kernel::witness::WitnessHash::zero(),
                 summary: format!("tool {} executed", #name_str),
-                outcome: ::axiom_core::witness::TransitionOutcome::Success,
-                metrics: ::axiom_core::witness::WitnessMetrics::default(),
-                version_info: ::axiom_core::version::VersionInfo::current(),
+                outcome: ::axiom_kernel::witness::TransitionOutcome::Success,
+                metrics: ::axiom_kernel::witness::WitnessMetrics::default(),
+                version_info: ::axiom_kernel::version::VersionInfo::current(),
                 signal_fingerprint: [0u8; 32],
                 payload_size_bytes: 0,
-                kind: ::axiom_core::witness::WitnessKind::ToolInvocation,
+                kind: ::axiom_kernel::witness::WitnessKind::ToolInvocation,
             });
 
             self.execute_inner(parameters).await
@@ -78,6 +78,18 @@ pub fn impl_tool(attr: TokenStream, item: TokenStream) -> TokenStream {
         impl ::axiom_tool::Tool for #name {
             #tool_info_impl
             #exec_wrapper
+        }
+
+        impl ::axiom_kernel::tool::Tool for #name {
+            fn id(&self) -> &'static str {
+                #name_str
+            }
+            fn invoke(&self, args: Vec<u8>) -> ::axiom_kernel::KernelResult<Vec<u8>> {
+                let rt = tokio::runtime::Runtime::new().map_err(|e| ::axiom_kernel::KernelError::InternalError(e.to_string()))?;
+                let parameters: serde_json::Value = serde_json::from_slice(&args).map_err(|e| ::axiom_kernel::KernelError::SerializationError(e.to_string()))?;
+                let result = rt.block_on(self.execute_inner(&parameters)).map_err(|e| ::axiom_kernel::KernelError::InternalError(e.to_string()))?;
+                serde_json::to_vec(&result).map_err(|e| ::axiom_kernel::KernelError::SerializationError(e.to_string()))
+            }
         }
 
         impl #name {

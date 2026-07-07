@@ -1,16 +1,20 @@
 use crate::runtime::AxiomRuntime;
 use crate::runtime::CellRegistration;
 use crate::runtime::RuntimeConfig;
-use axiom_core::cell::SupervisionStrategy;
-use axiom_core::clock::global_clock;
-use axiom_core::id::{CellId, CorrelationId, MsgId};
-use axiom_core::layer::Layer;
-use axiom_core::signal::{SignalKind, VectorClock};
-use axiom_core::version::Version;
+use axiom_kernel::cell::SupervisionStrategy;
+use axiom_kernel::clock::global_clock;
+use axiom_kernel::id::{CellId, CorrelationId, MsgId};
+use axiom_kernel::layer::Layer;
+use axiom_kernel::signal::{SignalKind, VectorClock};
+use axiom_kernel::version::Version;
 use std::time::Duration;
 
-fn env_from_to(from: Layer, to: Layer, target: Option<&str>) -> axiom_core::signal::SignalEnvelope {
-    axiom_core::signal::SignalEnvelope {
+fn env_from_to(
+    from: Layer,
+    to: Layer,
+    target: Option<&str>,
+) -> axiom_kernel::signal::SignalEnvelope {
+    axiom_kernel::signal::SignalEnvelope {
         msg_id: MsgId::new("test-msg"),
         correlation_id: CorrelationId::new("test-corr"),
         trace_id: None,
@@ -23,7 +27,7 @@ fn env_from_to(from: Layer, to: Layer, target: Option<&str>) -> axiom_core::sign
         source_cell: None,
         target_cell: target.map(|s| s.to_string()),
         payload: serde_json::Value::Null,
-        schema_version: axiom_core::SchemaVersion::new(1),
+        schema_version: axiom_kernel::SchemaVersion::new(1),
         parent_msg_id: None,
         hop_count: 0,
     }

@@ -7,7 +7,7 @@ rust-version.workspace = true
 description = "Tokio-based runtime with supervision tree"
 
 [dependencies]
-axiom-core = { path = "../axiom-core" }
+axiom-kernel = { path = "../axiom-kernel" }
 axiom-store = { path = "../axiom-store" }
 tokio = { workspace = true }
 serde = { workspace = true }
@@ -22,10 +22,8 @@ axum = { workspace = true, optional = true }
 default = []
 metrics = ["dep:axum"]
 telemetry = []
-bincode-codec = ["axiom-core/bincode-codec"]
+bincode-codec = ["axiom-kernel/bincode-codec"]
 
 [build-dependencies]
 archcheck = { path = "../../tools/archcheck" }
 toml = "0.8"
-
-

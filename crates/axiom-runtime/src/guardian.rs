@@ -7,8 +7,8 @@
 
 use std::sync::atomic::{AtomicU64, Ordering};
 
-use axiom_core::sealed::can_send_at_runtime;
-use axiom_core::signal::SignalEnvelope;
+use axiom_kernel::sealed::can_send_at_runtime;
+use axiom_kernel::signal::SignalEnvelope;
 
 use crate::bus::{BusInterceptor, InterceptDecision};
 
@@ -72,7 +72,7 @@ impl BusInterceptor for ArchitectureGuardian {
             };
         }
 
-        let current_schema = axiom_core::SchemaVersion::new(1);
+        let current_schema = axiom_kernel::version::SchemaVersion::new(1);
         if !current_schema.can_read(env.schema_version) {
             self.schema_violations.fetch_add(1, Ordering::Relaxed);
             return InterceptDecision::Reject {

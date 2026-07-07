@@ -5,16 +5,16 @@
 //! other cross-cutting constraints at runtime.
 
 use crate::bus::InterceptDecision;
-use axiom_core::capability::CapabilityDimension;
-use axiom_core::signal::SignalEnvelope;
+use axiom_kernel::registry::CapabilityDimension;
+use axiom_kernel::signal::SignalEnvelope;
 
 #[derive(Debug, Clone, Default)]
 pub struct ValidationContext {
     pub capability_dimensions: Vec<CapabilityDimension>,
-    pub target_layer: Option<axiom_core::layer::Layer>,
+    pub target_layer: Option<axiom_kernel::Layer>,
     pub source_cell: Option<String>,
     pub signal_type: Option<String>,
-    pub schema_version: Option<axiom_core::version::SchemaVersion>,
+    pub schema_version: Option<axiom_kernel::version::SchemaVersion>,
 }
 
 impl ValidationContext {
@@ -46,11 +46,11 @@ impl ConstraintValidator {
     pub fn validate_capability_compatibility(
         &self,
         dimension: CapabilityDimension,
-        requested_version: &axiom_core::version::Version,
+        requested_version: &axiom_kernel::version::Version,
     ) -> InterceptDecision {
         let registered =
-            axiom_core::capability::CapabilityVersionRegistry::capabilities_by_dimension(
-                dimension.clone(),
+            axiom_kernel::registry::CapabilityVersionRegistry::capabilities_by_dimension(
+                &dimension,
             );
         if registered.is_empty() {
             return InterceptDecision::Allow;
@@ -58,11 +58,11 @@ impl ConstraintValidator {
         let Some(latest) = registered.iter().max_by_key(|c| c.version) else {
             return InterceptDecision::Allow;
         };
-        if !latest.is_compatible_with(&axiom_core::capability::CapabilityDescriptor {
+        if !latest.is_compatible_with(&axiom_kernel::registry::CapabilityDescriptor {
             dimension: dimension.clone(),
             name: "requested",
             version: *requested_version,
-            compatibility: axiom_core::version::Compatibility::SemVer,
+            compatibility: axiom_kernel::version::Compatibility::Exact,
             applies_to_layer: None,
             migration_chain_start: None,
         }) {

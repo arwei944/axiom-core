@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::cluster::{ClusterError, Result};
 use crate::node::NodeId;
-use axiom_core::{Witness, WitnessId};
+use axiom_kernel::{Witness, WitnessId};
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct DistributedWitnessStore {

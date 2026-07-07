@@ -33,7 +33,7 @@ impl BusInterceptor for ComplianceInterceptor {
     fn name(&self) -> &'static str {
         "compliance-guard"
     }
-    fn intercept(&self, env: &axiom_core::signal::SignalEnvelope) -> InterceptDecision {
+    fn intercept(&self, env: &axiom_kernel::signal::SignalEnvelope) -> InterceptDecision {
         let text = match serde_json::to_string(&env.payload) {
             Ok(s) => s,
             Err(_) => return InterceptDecision::Allow,
@@ -67,7 +67,7 @@ impl BusInterceptor for ResourceInterceptor {
     fn name(&self) -> &'static str {
         "resource-manager"
     }
-    fn intercept(&self, _env: &axiom_core::signal::SignalEnvelope) -> InterceptDecision {
+    fn intercept(&self, _env: &axiom_kernel::signal::SignalEnvelope) -> InterceptDecision {
         if self.manager.global_tokens().try_acquire(1) {
             InterceptDecision::Allow
         } else {
@@ -93,7 +93,7 @@ impl BusInterceptor for OversightReportInterceptor {
     fn name(&self) -> &'static str {
         "oversight-report"
     }
-    fn intercept(&self, env: &axiom_core::signal::SignalEnvelope) -> InterceptDecision {
+    fn intercept(&self, env: &axiom_kernel::signal::SignalEnvelope) -> InterceptDecision {
         if let Err(_violation) = self.arch.check_envelope(env) {
             let cell_id = env
                 .target_cell
@@ -121,7 +121,7 @@ impl BusInterceptor for MetaOversightInterceptor {
     fn name(&self) -> &'static str {
         "meta-oversight"
     }
-    fn intercept(&self, _env: &axiom_core::signal::SignalEnvelope) -> InterceptDecision {
+    fn intercept(&self, _env: &axiom_kernel::signal::SignalEnvelope) -> InterceptDecision {
         let snapshot = self.health.collect();
         if snapshot.status == crate::HealthStatus::Critical {
             return InterceptDecision::Reject {
@@ -163,9 +163,9 @@ pub async fn wire_oversight_default(bus: &MessageBus) -> Arc<OversightSupervisor
 #[cfg(test)]
 mod tests {
     use super::*;
-    use axiom_core::id::{CorrelationId, MsgId};
-    use axiom_core::layer::Layer;
-    use axiom_core::signal::{SignalEnvelope, SignalKind, VectorClock};
+    use axiom_kernel::id::{CorrelationId, MsgId};
+    use axiom_kernel::layer::Layer;
+    use axiom_kernel::signal::{SignalEnvelope, SignalKind, VectorClock};
     use std::time::Duration;
 
     fn make_env(from: Layer, to: Layer, payload: serde_json::Value) -> SignalEnvelope {
@@ -182,7 +182,7 @@ mod tests {
             source_cell: None,
             target_cell: Some("c".into()),
             payload,
-            schema_version: axiom_core::SchemaVersion::new(1),
+            schema_version: axiom_kernel::SchemaVersion::new(1),
             parent_msg_id: None,
             hop_count: 0,
         }

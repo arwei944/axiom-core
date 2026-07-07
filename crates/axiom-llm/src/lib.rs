@@ -1,4 +1,4 @@
-//! LLM client abstraction for axiom-core.
+//! LLM client abstraction for axiom-kernel.
 //!
 //! Provides:
 //! - Multi-provider LLM client (OpenAI, Anthropic, etc.)
@@ -8,6 +8,7 @@
 //! - Token budget management
 
 pub mod client;
+pub mod kernel;
 pub mod mock;
 pub mod types;
 
@@ -17,4 +18,5 @@ use std::pin::Pin;
 pub type BoxLlmFuture<'a, T> = Pin<Box<dyn Future<Output = T> + Send + 'a>>;
 
 pub use client::{LlmClient, LlmProvider};
+pub use kernel::LlmKernelAdapter;
 pub use types::{ChatMessage, ChatResponse, CompletionResponse, LlmError, MessageRole, TokenUsage};

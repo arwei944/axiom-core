@@ -1,9 +1,9 @@
 //! Common utilities for benchmarks and stress tests.
 
-use axiom_core::id::{CorrelationId, MsgId};
-use axiom_core::layer::Layer;
-use axiom_core::signal::{SignalEnvelope, SignalKind, VectorClock};
-use axiom_core::version::SchemaVersion;
+use axiom_kernel::id::{CorrelationId, MsgId};
+use axiom_kernel::layer::Layer;
+use axiom_kernel::signal::{SignalEnvelope, SignalKind, VectorClock};
+use axiom_kernel::version::SchemaVersion;
 
 /// Create a test signal envelope with minimal allocation overhead.
 pub fn make_signal(signal_type: &str, src: &str, dst: &str) -> SignalEnvelope {

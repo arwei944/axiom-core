@@ -3,10 +3,10 @@ name = "axiom-identity"
 version = "0.1.0"
 edition = "2021"
 license = "MIT"
-description = "Identity and Skill system for axiom-core agents with progressive disclosure"
+description = "Identity and Skill system for axiom-kernel agents with progressive disclosure"
 
 [dependencies]
-axiom-core = { path = "../axiom-core" }
+axiom-kernel = { path = "../axiom-kernel" }
 axiom-tool = { path = "../axiom-tool" }
 axiom-prompt = { path = "../axiom-prompt" }
 

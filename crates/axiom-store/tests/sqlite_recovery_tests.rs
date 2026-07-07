@@ -1,6 +1,7 @@
 //! Recovery workflow validation for SQLite + snapshots.
 
-use axiom_core::signal::VectorClock;
+use axiom_kernel::clock::global_clock;
+use axiom_kernel::signal::VectorClock;
 use axiom_store::event::EventBuilder;
 use axiom_store::snapshot::MemorySnapshotStore;
 use axiom_store::snapshot::SnapshotStore;
@@ -45,7 +46,7 @@ async fn test_snapshot_recovery_workflow() {
         sequence_number: latest_seq,
         state: serde_json::json!({"recovered": true}),
         schema_version: 1,
-        created_at_ns: axiom_core::signal::now_ns(),
+        created_at_ns: global_clock().now_ns(),
         cell_id: "cell1".to_string(),
         vector_clock: VectorClock::new(),
     };

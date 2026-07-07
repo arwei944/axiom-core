@@ -78,7 +78,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-axiom-core = {{ path = "../../crates/axiom-core" }}
+axiom-kernel = {{ path = "../../crates/axiom-kernel" }}
 axiom-runtime = {{ path = "../../crates/axiom-runtime" }}
 axiom-store = {{ path = "../../crates/axiom-store" }}
 axiom-oversight = {{ path = "../../crates/axiom-oversight" }}
@@ -105,8 +105,8 @@ tokio = {{ version = "1.0", features = ["full"] }}
 }
 
 fn create_main_rs(project_path: &Path) -> Result<()> {
-    let content = r#"use axiom_core::id::CellId;
-use axiom_core::layer::Layer;
+    let content = r#"use axiom_kernel::id::CellId;
+use axiom_kernel::layer::Layer;
 use axiom_runtime::RuntimeBuilder;
 use tracing_subscriber::fmt::format::FmtSpan;
 
@@ -122,8 +122,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     rt.register_cell(axiom_runtime::CellRegistration {
         id: CellId::new("hello-cell"),
         layer: Layer::Exec,
-        version: axiom_core::version::Version::new(0, 1, 0),
-        supervision_strategy: axiom_core::cell::SupervisionStrategy::default(),
+        version: axiom_kernel::version::Version::new(0, 1, 0),
+        supervision_strategy: axiom_kernel::cell::SupervisionStrategy::default(),
         cell: None,
         factory: None,
     })
@@ -152,10 +152,10 @@ fn create_cells_mod(project_path: &Path) -> Result<()> {
     file.write_all(content.as_bytes())
         .context("Failed to write cells/mod.rs")?;
 
-    let hello_cell_content = r#"use axiom_core::cell::Cell;
-use axiom_core::context::CellContext;
-use axiom_core::error::AxiomError;
-use axiom_core::layer::ExecLayer;
+    let hello_cell_content = r#"use axiom_kernel::cell::Cell;
+use axiom_kernel::context::CellContext;
+use axiom_kernel::error::AxiomError;
+use axiom_kernel::layer::ExecLayer;
 
 #[derive(Debug, Default)]
 pub struct HelloCell;
@@ -165,8 +165,8 @@ impl Cell for HelloCell {
     type Message = HelloSignal;
     type Layer = ExecLayer;
 
-    fn id(&self) -> &axiom_core::id::CellId {
-        static ID: axiom_core::id::CellId = axiom_core::id::CellId::new_static("hello-cell");
+    fn id(&self) -> &axiom_kernel::id::CellId {
+        static ID: axiom_kernel::id::CellId = axiom_kernel::id::CellId::new_static("hello-cell");
         &ID
     }
 
@@ -185,7 +185,7 @@ pub struct HelloSignal {
     pub name: String,
 }
 
-impl axiom_core::signal::Signal for HelloSignal {
+impl axiom_kernel::signal::Signal for HelloSignal {
     fn signal_type(&self) -> &str {
         "HelloSignal"
     }
@@ -214,7 +214,7 @@ pub struct HelloSignal {
     pub name: String,
 }
 
-impl axiom_core::signal::Signal for HelloSignal {
+impl axiom_kernel::signal::Signal for HelloSignal {
     fn signal_type(&self) -> &str {
         "HelloSignal"
     }
@@ -238,8 +238,8 @@ fn create_axioms_mod(project_path: &Path) -> Result<()> {
     file.write_all(content.as_bytes())
         .context("Failed to write axioms/mod.rs")?;
 
-    let example_axiom_content = r#"use axiom_core::axiom::Axiom;
-use axiom_core::id::CellId;
+    let example_axiom_content = r#"use axiom_kernel::axiom::Axiom;
+use axiom_kernel::id::CellId;
 
 pub struct ExampleAxiom;
 
@@ -253,7 +253,7 @@ impl Axiom for ExampleAxiom {
         _cell_id: &CellId,
         _signal_type: &str,
         _payload: &serde_json::Value,
-    ) -> Result<(), axiom_core::error::AxiomError> {
+    ) -> Result<(), axiom_kernel::error::AxiomError> {
         Ok(())
     }
 }

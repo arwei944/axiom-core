@@ -3,10 +3,11 @@ name = "axiom-viz"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
+rust-version.workspace = true
 description = "Visualization data export: topology, timeline, entropy, traces, metrics"
 
 [dependencies]
-axiom-core = { path = "../axiom-core" }
+axiom-kernel = { path = "../axiom-kernel" }
 serde = { workspace = true }
 serde_json = { workspace = true }
 prometheus = { workspace = true, optional = true }
@@ -18,5 +19,3 @@ metrics = ["dep:prometheus"]
 [build-dependencies]
 archcheck = { path = "../../tools/archcheck" }
 toml = "0.8"
-
-

@@ -2,12 +2,14 @@ use crate::bus::MessageBus;
 use crate::dlq::DeadLetterQueue;
 use crate::entropy_gov::{EntropyEvent, EntropyGovernorCell, GovernanceAction};
 use crate::supervisor::{SupervisionDecision, Supervisor};
-use axiom_core::cell::CellHandle;
-use axiom_core::context::CellContext;
-use axiom_core::error::AxiomError;
-use axiom_core::id::{CellId, MsgId};
-use axiom_core::layer::Layer;
-use axiom_core::signal::{SignalEnvelope, SignalKind};
+use axiom_kernel::cell::CellKernel;
+use axiom_kernel::cell::RuntimeCellHandle;
+use axiom_kernel::context::CellContext;
+use axiom_kernel::id::{CellId, CorrelationId, MsgId};
+use axiom_kernel::layer::Layer;
+use axiom_kernel::signal::{SignalEnvelope, SignalKind, VectorClock};
+use axiom_kernel::version::SchemaVersion;
+use axiom_kernel::KernelError;
 use axiom_store::{EventStore, SnapshotStore};
 use futures::FutureExt;
 use parking_lot::RwLock as ParkingRwLock;
@@ -21,8 +23,8 @@ type RegisteredCellData = (
     Arc<crate::mailbox::Mailbox>,
     CellId,
     Layer,
-    Option<Arc<TokioMutex<CellHandle>>>,
-    Option<Arc<dyn Fn() -> CellHandle + Send + Sync>>,
+    Option<Arc<TokioMutex<RuntimeCellHandle>>>,
+    Option<Arc<dyn Fn() -> RuntimeCellHandle + Send + Sync>>,
 );
 
 #[allow(clippy::too_many_arguments, clippy::type_complexity)]
@@ -39,6 +41,7 @@ pub async fn run_dispatch_loop(
     emergency_mode: Arc<ParkingRwLock<bool>>,
     dlq: Arc<DeadLetterQueue>,
     events_since_snapshot: Arc<ParkingRwLock<HashMap<String, u64>>>,
+    cell_kernel: Option<Arc<CellKernel>>,
 ) {
     let mut interval = tokio::time::interval(Duration::from_millis(poll_interval));
     loop {
@@ -50,6 +53,49 @@ pub async fn run_dispatch_loop(
             _ = interval.tick() => {
                 let oversight_cell_id = CellId::new("oversight:runtime");
                 let mut oversight_ctx = CellContext::new(&oversight_cell_id, Layer::Oversight);
+
+                if let Some(kernel) = &cell_kernel {
+                    let kernel_cells = kernel.list().await;
+                    if !kernel_cells.is_empty() {
+                        if !supervisor.before_handle("kernel").await {
+                            governor.record(EntropyEvent::CircuitBreak {
+                                cell_id: "kernel".to_string(),
+                            });
+                            let _ = oversight_ctx.emit_failure(
+                                "circuit_break: kernel",
+                                "supervisor circuit breaker open",
+                            );
+                            continue;
+                        }
+
+                        for (handle, queued) in kernel_cells {
+                            for _ in 0..queued {
+                                if let Ok(Some(_msg)) = kernel.receive(&handle).await {
+                                    let env = SignalEnvelope {
+                                        msg_id: MsgId::new("kernel-msg"),
+                                        correlation_id: CorrelationId::new("kernel"),
+                                        trace_id: None,
+                                        signal_type: "KernelMessage".into(),
+                                        vector_clock: VectorClock::new(),
+                                        timestamp_ns: 0,
+                                        kind: SignalKind::Event,
+                                        source_layer: Layer::Exec,
+                                        target_layer: Layer::Exec,
+                                        source_cell: None,
+                                        target_cell: None,
+                                        payload: serde_json::Value::Null,
+                                        schema_version: SchemaVersion::new(1),
+                                        parent_msg_id: None,
+                                        hop_count: 0,
+                                    };
+                                    let _ = bus.publish(env).await;
+                                }
+                            }
+                            supervisor.record_success(handle.id.to_string().as_str()).await;
+                        }
+                        continue;
+                    }
+                }
 
                 for (mb, cid, layer, cell, factory) in &cells_data {
                     if !supervisor.before_handle(cid.as_str()).await {
@@ -91,7 +137,7 @@ pub async fn run_dispatch_loop(
                                             "cell handle panicked"
                                         );
                                         (
-                                            Err(AxiomError::CellCrashed {
+                                            Err(KernelError::CellCrashed {
                                                 cell_id: cid.as_str().to_string(),
                                                 message: msg.to_string(),
                                             }),
@@ -136,7 +182,7 @@ pub async fn run_dispatch_loop(
                                                     "cell_id": witness.cell_id,
                                                     "reason": reason,
                                                 }),
-                                                schema_version: axiom_core::SchemaVersion::new(1),
+                                                schema_version: SchemaVersion::new(1),
                                                 parent_msg_id: witness.triggering_msg_id.clone(),
                                                 hop_count: 0,
                                             };

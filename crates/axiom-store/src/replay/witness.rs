@@ -12,18 +12,29 @@ pub struct WitnessReplayResult<S> {
     pub replay_duration_ms: u64,
 }
 
+fn verify_witness_chain_integrity(witnesses: &[axiom_kernel::Witness]) -> bool {
+    for window in witnesses.windows(2) {
+        let prev = &window[0];
+        let curr = &window[1];
+        if curr.prev_hash.as_ref() != Some(&prev.hash) {
+            return false;
+        }
+    }
+    true
+}
+
 pub struct WitnessReplay;
 
 impl WitnessReplay {
     pub fn replay<S: ReplayableState + Default>(
-        witnesses: &[axiom_core::Witness],
+        witnesses: &[axiom_kernel::Witness],
     ) -> WitnessReplayResult<S> {
         let start = std::time::Instant::now();
-        let chain_valid = axiom_core::Witness::verify_chain_integrity(witnesses);
+        let chain_valid = verify_witness_chain_integrity(witnesses);
         let mut state = S::default();
 
         for w in witnesses {
-            if let Ok(_event) = serde_json::from_value::<axiom_core::WitnessEvent>(
+            if let Ok(_event) = serde_json::from_value::<axiom_kernel::WitnessEvent>(
                 serde_json::to_value(&w.summary).unwrap_or_default(),
             ) {
                 if let Err(err) =
@@ -49,12 +60,12 @@ impl WitnessReplay {
         let mut witnesses = Vec::new();
 
         for e in events {
-            if let Ok(w) = serde_json::from_value::<axiom_core::Witness>(e.payload.clone()) {
+            if let Ok(w) = serde_json::from_value::<axiom_kernel::Witness>(e.payload.clone()) {
                 witnesses.push(w);
             }
         }
 
-        let chain_valid = axiom_core::Witness::verify_chain_integrity(&witnesses);
+        let chain_valid = verify_witness_chain_integrity(&witnesses);
         let mut state = S::default();
 
         for w in &witnesses {
@@ -135,14 +146,14 @@ mod tests {
 
     #[tokio::test]
     async fn test_witness_replay_from_events() {
-        use axiom_core::Witness;
+        use axiom_kernel::Witness;
 
         let store = Arc::new(MemoryStore::new());
         let witness = Witness {
-            witness_id: axiom_core::id::WitnessId::new("w1"),
-            schema_version: axiom_core::version::SchemaVersion::new(1),
+            witness_id: axiom_kernel::id::WitnessId::new("w1"),
+            schema_version: axiom_kernel::version::SchemaVersion::new(1),
             cell_id: "c1".into(),
-            correlation_id: axiom_core::id::CorrelationId::new("corr"),
+            correlation_id: axiom_kernel::id::CorrelationId::new("corr"),
             trace_id: None,
             triggering_msg_id: None,
             vector_clock: Default::default(),
@@ -150,14 +161,14 @@ mod tests {
             prev_hash: None,
             state_before_hash: None,
             state_after_hash: None,
-            hash: axiom_core::witness::WitnessHash([1; 32]),
+            hash: axiom_kernel::witness::WitnessHash([1; 32]),
             summary: "test".into(),
-            outcome: axiom_core::witness::TransitionOutcome::Success,
+            outcome: axiom_kernel::witness::TransitionOutcome::Success,
             metrics: Default::default(),
-            version_info: axiom_core::version::VersionInfo::current(),
+            version_info: axiom_kernel::version::VersionInfo::current(),
             signal_fingerprint: [0; 32],
             payload_size_bytes: 0,
-            kind: axiom_core::witness::WitnessKind::StateTransition,
+            kind: axiom_kernel::witness::WitnessKind::StateTransition,
         };
 
         let payload = serde_json::to_value(&witness).unwrap();

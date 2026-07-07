@@ -6,7 +6,7 @@ impl AxiomRuntime {
         self.health.read().await.clone()
     }
 
-    pub async fn snapshot_viz(&self) -> Result<serde_json::Value, axiom_core::error::AxiomError> {
+    pub async fn snapshot_viz(&self) -> Result<serde_json::Value, axiom_kernel::error::AxiomError> {
         let cells = self.cells.read().await;
         let cell_nodes = cells
             .iter()

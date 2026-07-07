@@ -1,6 +1,6 @@
 //! Witness timeline data for time-travel debugging.
 
-use axiom_core::layer::Layer;
+use axiom_kernel::layer::Layer;
 use serde::Serialize;
 
 #[derive(Debug, Clone, Serialize)]

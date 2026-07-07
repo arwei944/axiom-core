@@ -5,10 +5,10 @@
 //! 2. Message serialization and ordering guarantees
 //! 3. Backpressure under high load
 
-use axiom_core::id::{CorrelationId, MsgId};
-use axiom_core::layer::Layer;
-use axiom_core::signal::{SignalEnvelope, SignalKind, VectorClock};
-use axiom_core::version::SchemaVersion;
+use axiom_kernel::id::{CorrelationId, MsgId};
+use axiom_kernel::layer::Layer;
+use axiom_kernel::signal::{SignalEnvelope, SignalKind, VectorClock};
+use axiom_kernel::version::SchemaVersion;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
 
@@ -129,7 +129,7 @@ fn test_concurrent_dlq_enqueue() {
 
 #[tokio::test]
 async fn test_concurrent_supervisor_multiple_cells() {
-    use axiom_core::cell::SupervisionStrategy;
+    use axiom_kernel::cell::SupervisionStrategy;
     use axiom_runtime::supervisor::Supervisor;
 
     let supervisor = Arc::new(Supervisor::new());
@@ -231,7 +231,7 @@ async fn test_concurrent_guardian_intercept() {
 
 #[test]
 fn test_witness_concurrent_hash_computation() {
-    use axiom_core::witness::{Witness, WitnessHash};
+    use axiom_kernel::witness::{Witness, WitnessHash};
     use std::thread;
 
     let num_threads = 4;
@@ -285,10 +285,10 @@ fn make_test_env() -> SignalEnvelope {
     }
 }
 
-fn make_test_witness(seq: usize) -> axiom_core::witness::Witness {
-    use axiom_core::id::WitnessId;
-    use axiom_core::version::VersionInfo;
-    use axiom_core::witness::{TransitionOutcome, Witness, WitnessHash, WitnessMetrics};
+fn make_test_witness(seq: usize) -> axiom_kernel::witness::Witness {
+    use axiom_kernel::id::WitnessId;
+    use axiom_kernel::version::VersionInfo;
+    use axiom_kernel::witness::{TransitionOutcome, Witness, WitnessHash, WitnessMetrics};
 
     Witness {
         witness_id: WitnessId::new(format!("wit-{}", seq)),
@@ -309,6 +309,6 @@ fn make_test_witness(seq: usize) -> axiom_core::witness::Witness {
         version_info: VersionInfo::current(),
         signal_fingerprint: [0u8; 32],
         payload_size_bytes: 0,
-        kind: axiom_core::witness::WitnessKind::StateTransition,
+        kind: axiom_kernel::witness::WitnessKind::StateTransition,
     }
 }

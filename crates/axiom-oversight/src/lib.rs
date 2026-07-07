@@ -5,6 +5,7 @@ pub mod error;
 pub mod health;
 pub mod intent_auditor;
 pub mod interceptors;
+pub mod kernel;
 pub mod loop_detector;
 pub mod meta_oversight;
 pub mod prelude;
@@ -22,6 +23,7 @@ pub use entropy_governor::{
 pub use error::{OversightError, OversightResult};
 pub use health::{CellHealth, HealthCollectorCell, HealthStatus, SystemHealth};
 pub use intent_auditor::{IntentAuditorCell, IntentProfile};
+pub use kernel::OversightKernelAdapter;
 pub use loop_detector::LoopDetector;
 pub use meta_oversight::MetaOversightCell;
 pub use resource_manager::{ConcurrencyLimiter, ResourceManagerCell, ResourceStats, TokenBucket};

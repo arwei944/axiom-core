@@ -7,12 +7,12 @@
 //! 4. Cell crash recovery via Supervisor
 //! 5. Mailbox bounded capacity
 
-use axiom_core::cell::SupervisionStrategy;
-use axiom_core::id::{CorrelationId, MsgId, WitnessId};
-use axiom_core::layer::Layer;
-use axiom_core::signal::{SignalEnvelope, SignalKind, VectorClock};
-use axiom_core::version::VersionInfo;
-use axiom_core::witness::{TransitionOutcome, Witness, WitnessHash, WitnessKind, WitnessMetrics};
+use axiom_kernel::cell::SupervisionStrategy;
+use axiom_kernel::id::{CorrelationId, MsgId, WitnessId};
+use axiom_kernel::layer::Layer;
+use axiom_kernel::signal::{SignalEnvelope, SignalKind, VectorClock};
+use axiom_kernel::version::VersionInfo;
+use axiom_kernel::witness::{TransitionOutcome, Witness, WitnessHash, WitnessKind, WitnessMetrics};
 use axiom_runtime::bus::BusInterceptor;
 use axiom_runtime::guardian::ArchitectureGuardian;
 use std::sync::Arc;
@@ -338,7 +338,7 @@ fn make_env(
         source_cell: Some(source.to_string()),
         target_cell: Some(target.to_string()),
         payload: serde_json::json!({}),
-        schema_version: axiom_core::version::SchemaVersion::new(1),
+        schema_version: axiom_kernel::version::SchemaVersion::new(1),
         parent_msg_id: None,
         hop_count: 0,
     }
@@ -347,7 +347,7 @@ fn make_env(
 fn make_witness(cell_id: &str, seq: u64, prev_hash: Option<WitnessHash>, summary: &str) -> Witness {
     let w = Witness {
         witness_id: WitnessId::new(format!("wit-{}", seq)),
-        schema_version: axiom_core::version::SchemaVersion::new(1),
+        schema_version: axiom_kernel::version::SchemaVersion::new(1),
         cell_id: cell_id.to_string(),
         correlation_id: CorrelationId::new("test-corr"),
         trace_id: None,

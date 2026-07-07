@@ -1,0 +1,17 @@
+[package]
+name = "axiom-plugin-test"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+description = "Test native plugin for axiom-kernel."
+repository.workspace = true
+
+[lib]
+crate-type = ["rlib", "cdylib"]
+
+[dependencies]
+axiom-kernel = { path = "../axiom-kernel" }
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["rt-multi-thread", "macros", "time"] }

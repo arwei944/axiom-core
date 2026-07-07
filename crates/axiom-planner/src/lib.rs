@@ -1,4 +1,4 @@
-//! Planning strategies for axiom-core agents.
+//! Planning strategies for axiom-kernel agents.
 //!
 //! Provides:
 //! - Planner trait for extensible planning strategies
@@ -6,11 +6,13 @@
 //! - Plan-and-Execute planner
 //! - Step tracking and replanning support
 
+pub mod kernel;
 pub mod plan_execute;
 pub mod planner;
 pub mod react;
 pub mod step;
 
+pub use kernel::PlannerKernelAdapter;
 pub use plan_execute::PlanAndExecutePlanner;
 pub use planner::{Planner, PlannerError, PlanningResult};
 pub use react::ReActPlanner;

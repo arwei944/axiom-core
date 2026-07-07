@@ -1,6 +1,7 @@
 use crate::bus::MessageBus;
 use crate::dlq::DeadLetterQueue;
 use crate::entropy_gov::EntropyGovernorCell;
+use crate::runtime::RuntimeKernelBridge;
 use crate::supervisor::Supervisor;
 use crate::AxiomRuntime;
 use crate::RuntimeConfig;
@@ -33,6 +34,7 @@ impl AxiomRuntime {
             throttle_state,
             emergency_mode,
             events_since_snapshot,
+            kernel_bridge: RuntimeKernelBridge::new(),
             #[cfg(feature = "metrics")]
             metrics_server: crate::MetricsServer::default(),
         }

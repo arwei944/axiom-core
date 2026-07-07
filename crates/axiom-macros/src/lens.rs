@@ -93,12 +93,12 @@ pub fn impl_lens(attr: TokenStream, item: TokenStream) -> TokenStream {
         let dep_lens_ids: Vec<_> = depends_on
             .iter()
             .map(|d| {
-                quote! { ::axiom_core::id::LensId::new(#d) }
+                quote! { ::axiom_kernel::id::LensId::new(#d) }
             })
             .collect();
         let len = depends_on.len();
         quote! {
-            static DEPS: [::axiom_core::id::LensId; #len] = [
+            static DEPS: [::axiom_kernel::id::LensId; #len] = [
                 #(#dep_lens_ids),*
             ];
         }
@@ -108,7 +108,7 @@ pub fn impl_lens(attr: TokenStream, item: TokenStream) -> TokenStream {
 
     let _depends_on_impl = if !depends_on.is_empty() {
         quote! {
-            fn depends_on(&self) -> &[::axiom_core::id::LensId] {
+            fn depends_on(&self) -> &[::axiom_kernel::id::LensId] {
                 #deps_static
                 &DEPS
             }
@@ -139,7 +139,6 @@ pub fn impl_lens(attr: TokenStream, item: TokenStream) -> TokenStream {
         &format!("__LENS_ENTRY_FN_{}", name_str.to_uppercase()),
         proc_macro2::Span::call_site(),
     );
-
     let cap_reg_static = syn::Ident::new(
         &format!("__CAP_REG_{}", name_str.to_uppercase()),
         proc_macro2::Span::call_site(),
@@ -159,37 +158,37 @@ pub fn impl_lens(attr: TokenStream, item: TokenStream) -> TokenStream {
 
             #[doc(hidden)]
             #[allow(non_upper_case_globals)]
-            pub fn #reg_entry() -> &'static dyn ::axiom_core::lens::Projectable {
+            pub fn #reg_entry() -> &'static dyn ::axiom_kernel::axiom::DynLens {
                 use std::sync::OnceLock;
                 static INSTANCE: OnceLock<#name> = OnceLock::new();
                 let instance = INSTANCE.get_or_init(|| #name::default());
-                static REF: OnceLock<&'static dyn ::axiom_core::lens::Projectable> = OnceLock::new();
+                static REF: OnceLock<&'static dyn ::axiom_kernel::axiom::DynLens> = OnceLock::new();
                 *REF.get_or_init(|| {
                     let boxed = Box::new(instance.clone());
-                    Box::leak(boxed) as &dyn ::axiom_core::lens::Projectable
+                    Box::leak(boxed) as &dyn ::axiom_kernel::axiom::DynLens
                 })
             }
 
-            #[linkme::distributed_slice(::axiom_core::lens::LENS_REGISTRY)]
+            #[linkme::distributed_slice(::axiom_kernel::registry::LENS_REGISTRY)]
     #[linkme(crate = linkme)]
             #[doc(hidden)]
-            pub static #reg_entry_fn: fn() -> &'static dyn ::axiom_core::lens::Projectable = #reg_entry;
+            pub static #reg_entry_fn: fn() -> &'static dyn ::axiom_kernel::axiom::DynLens = #reg_entry;
 
             #[doc(hidden)]
             #[allow(non_upper_case_globals)]
-            pub static #cap_reg_static: ::axiom_core::CapabilityDescriptor = ::axiom_core::CapabilityDescriptor {
-                dimension: ::axiom_core::CapabilityDimension::Schema,
+            pub static #cap_reg_static: ::axiom_kernel::registry::CapabilityDescriptor = ::axiom_kernel::registry::CapabilityDescriptor {
+                dimension: ::axiom_kernel::registry::CapabilityDimension::Schema,
                 name: #name_str,
-                version: ::axiom_core::Version::new(#major, #minor, #patch),
-                compatibility: ::axiom_core::Compatibility::SemVer,
+                version: ::axiom_kernel::version::Version::new(#major, #minor, #patch),
+                compatibility: ::axiom_kernel::version::Compatibility::Exact,
                 applies_to_layer: None,
                 migration_chain_start: None,
             };
 
-            #[linkme::distributed_slice(::axiom_core::CAPABILITY_REGISTRY)]
+            #[linkme::distributed_slice(::axiom_kernel::registry::CAPABILITY_REGISTRY)]
     #[linkme(crate = linkme)]
             #[doc(hidden)]
-            pub static #cap_reg_entry: &'static ::axiom_core::CapabilityDescriptor = &#cap_reg_static;
+            pub static #cap_reg_entry: &'static ::axiom_kernel::registry::CapabilityDescriptor = &#cap_reg_static;
         };
 
     TokenStream::from(expanded)

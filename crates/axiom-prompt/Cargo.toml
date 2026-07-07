@@ -6,6 +6,8 @@ license = "MIT"
 description = "Type-safe prompt template system with composition and version management"
 
 [dependencies]
+axiom-kernel = { path = "../axiom-kernel" }
+
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 thiserror = "1"

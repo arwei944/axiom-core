@@ -1,22 +1,23 @@
-use axiom_core::error::AxiomError;
-use axiom_core::layer::Layer;
-use axiom_core::witness::Witness;
+use axiom_kernel::id::MsgId;
+use axiom_kernel::layer::Layer;
+use axiom_kernel::witness::Witness;
+use axiom_kernel::KernelError;
 use axiom_store::Event;
 
-pub fn witness_to_event(witness: &Witness, layer: Layer) -> Result<Event, AxiomError> {
-    let payload = serde_json::to_value(witness).map_err(|e| AxiomError::WitnessSerialization {
+pub fn witness_to_event(witness: &Witness, layer: Layer) -> Result<Event, KernelError> {
+    let payload = serde_json::to_value(witness).map_err(|e| KernelError::WitnessSerialization {
         cell_id: witness.cell_id.clone(),
         message: e.to_string(),
     })?;
 
     let outcome = match &witness.outcome {
-        axiom_core::witness::TransitionOutcome::Success => axiom_store::EventOutcome::Success,
-        axiom_core::witness::TransitionOutcome::Failed { reason } => {
+        axiom_kernel::witness::TransitionOutcome::Success => axiom_store::EventOutcome::Success,
+        axiom_kernel::witness::TransitionOutcome::Failed { reason } => {
             axiom_store::EventOutcome::Failed {
                 reason: reason.clone(),
             }
         }
-        axiom_core::witness::TransitionOutcome::AxiomViolated {
+        axiom_kernel::witness::TransitionOutcome::AxiomViolated {
             axiom_name,
             message,
         } => axiom_store::EventOutcome::AxiomViolated {
@@ -41,7 +42,7 @@ pub fn witness_to_event(witness: &Witness, layer: Layer) -> Result<Event, AxiomE
             witness
                 .triggering_msg_id
                 .clone()
-                .unwrap_or_else(|| axiom_core::id::MsgId::new("unknown")),
+                .unwrap_or_else(|| MsgId::new("unknown")),
         )
         .vector_clock(witness.vector_clock.clone())
         .layer(layer)

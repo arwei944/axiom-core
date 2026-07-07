@@ -2,12 +2,13 @@ use proc_macro2::TokenStream as TokenStream2;
 use quote::quote;
 use syn::{DeriveInput, LitInt};
 
+#[allow(dead_code)]
 pub fn parse_layer_marker(lit: &syn::LitStr) -> Result<TokenStream2, syn::Error> {
     match lit.value().as_str() {
-        "exec" => Ok(quote! { ::axiom_core::sealed::ExecLayer }),
-        "validate" => Ok(quote! { ::axiom_core::sealed::ValidateLayer }),
-        "agent" => Ok(quote! { ::axiom_core::sealed::AgentLayer }),
-        "oversight" => Ok(quote! { ::axiom_core::sealed::OversightLayer }),
+        "exec" => Ok(quote! { ::axiom_kernel::sealed::ExecLayer }),
+        "validate" => Ok(quote! { ::axiom_kernel::sealed::ValidateLayer }),
+        "agent" => Ok(quote! { ::axiom_kernel::sealed::AgentLayer }),
+        "oversight" => Ok(quote! { ::axiom_kernel::sealed::OversightLayer }),
         other => Err(syn::Error::new(
             lit.span(),
             format!(
@@ -20,10 +21,10 @@ pub fn parse_layer_marker(lit: &syn::LitStr) -> Result<TokenStream2, syn::Error>
 
 pub fn parse_layer_variant(lit: &syn::LitStr) -> Result<TokenStream2, syn::Error> {
     match lit.value().as_str() {
-        "exec" => Ok(quote! { ::axiom_core::Layer::Exec }),
-        "validate" => Ok(quote! { ::axiom_core::Layer::Validate }),
-        "agent" => Ok(quote! { ::axiom_core::Layer::Agent }),
-        "oversight" => Ok(quote! { ::axiom_core::Layer::Oversight }),
+        "exec" => Ok(quote! { ::axiom_kernel::Layer::Exec }),
+        "validate" => Ok(quote! { ::axiom_kernel::Layer::Validate }),
+        "agent" => Ok(quote! { ::axiom_kernel::Layer::Agent }),
+        "oversight" => Ok(quote! { ::axiom_kernel::Layer::Oversight }),
         other => Err(syn::Error::new(
             lit.span(),
             format!(
@@ -36,10 +37,10 @@ pub fn parse_layer_variant(lit: &syn::LitStr) -> Result<TokenStream2, syn::Error
 
 pub fn parse_signal_kind(lit: &syn::LitStr) -> Result<TokenStream2, syn::Error> {
     match lit.value().as_str() {
-        "command" => Ok(quote! { ::axiom_core::SignalKind::Command }),
-        "event" => Ok(quote! { ::axiom_core::SignalKind::Event }),
-        "query" => Ok(quote! { ::axiom_core::SignalKind::Query }),
-        "response" => Ok(quote! { ::axiom_core::SignalKind::Response }),
+        "command" => Ok(quote! { ::axiom_kernel::signal::SignalKind::Command }),
+        "event" => Ok(quote! { ::axiom_kernel::signal::SignalKind::Event }),
+        "query" => Ok(quote! { ::axiom_kernel::signal::SignalKind::Query }),
+        "response" => Ok(quote! { ::axiom_kernel::signal::SignalKind::Response }),
         other => Err(syn::Error::new(
             lit.span(),
             format!(

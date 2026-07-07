@@ -29,6 +29,7 @@ futures = { workspace = true }
 linkme = { workspace = true }
 parking_lot = { workspace = true }
 axiom-macros = { workspace = true }
+axiom-kernel = { workspace = true }
 dashmap = { workspace = true }
 toml = "0.8"
 
@@ -40,4 +41,3 @@ linkme = { workspace = true }
 [build-dependencies]
 archcheck = { path = "../../tools/archcheck" }
 toml = "0.8"
-

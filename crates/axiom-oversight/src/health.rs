@@ -2,7 +2,7 @@
 
 use crate::entropy_governor::{EntropyGovernorCell, EntropyLevel, EntropySnapshot};
 use crate::resource_manager::ResourceStats;
-use axiom_core::id::CellId;
+use axiom_kernel::id::CellId;
 use parking_lot::Mutex;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;

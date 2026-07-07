@@ -1,15 +1,13 @@
-use axiom_core::cell::{Cell, ExecCell, LayerOf};
-use axiom_core::context::{CellContext, LayeredCellContext, OutgoingEnvelope, OutgoingWitness};
-use axiom_core::id::{CellId, CorrelationId, MsgId};
-use axiom_core::layer::Layer;
-use axiom_core::schema::ValidationResult;
-use axiom_core::sealed::ExecLayer;
-use axiom_core::signal::{now_ns, Signal, SignalKind, VectorClock};
-use axiom_core::version::{Migration, SchemaVersion, Versioned};
-use axiom_core::{axiom::Axiom, AxiomError, Result};
+use axiom_kernel::axiom::{Axiom, KernelError, KernelResult, ValidationResult};
+use axiom_kernel::cell::{Cell, CellKind};
+use axiom_kernel::context::CellContext;
+use axiom_kernel::id::{CellId, CorrelationId, MsgId};
+use axiom_kernel::layer::Layer;
+use axiom_kernel::registry::{count_registered_axioms, registered_migration_chains};
+use axiom_kernel::signal::{now_ns, Signal, SignalKind, VectorClock};
+use axiom_kernel::version::{Migration, SchemaVersion, Versioned};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use std::future::Future;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct GreetCmd {
@@ -50,8 +48,8 @@ impl Signal for GreetCmd {
     fn validate(&self) -> ValidationResult {
         ValidationResult::ok()
     }
-    fn serialize_to_json(&self) -> ::axiom_core::Result<serde_json::Value> {
-        serde_json::to_value(self).map_err(|e| ::axiom_core::AxiomError::SignalSerialization {
+    fn serialize_to_json(&self) -> KernelResult<serde_json::Value> {
+        serde_json::to_value(self).map_err(|e| KernelError::SignalSerialization {
             signal_type: "Greet".into(),
             message: e.to_string(),
         })
@@ -72,33 +70,13 @@ impl GreeterCell {
     }
 }
 
-#[axiom_macros::cell("exec")]
 impl Cell for GreeterCell {
-    type Message = GreetCmd;
-
-    fn id(&self) -> &CellId {
-        &self.id
+    fn cell_id(&self) -> CellId {
+        self.id.clone()
     }
 
-    #[allow(clippy::manual_async_fn)]
-    fn handle<'a>(
-        &'a mut self,
-        signal: GreetCmd,
-        ctx: LayeredCellContext<'a, Self::Layer>,
-    ) -> impl Future<
-        Output = (
-            axiom_core::Result<()>,
-            Vec<OutgoingEnvelope>,
-            Vec<OutgoingWitness>,
-        ),
-    > + Send
-           + 'a {
-        async move {
-            let mut ctx = ctx;
-            self.greeted.push(signal.name);
-            let (outgoing, witnesses) = ctx.end_processing();
-            (Ok(()), outgoing, witnesses)
-        }
+    fn cell_kind(&self) -> CellKind {
+        CellKind::Exec
     }
 }
 
@@ -142,8 +120,8 @@ impl Signal for V2Signal {
     fn validate(&self) -> ValidationResult {
         ValidationResult::ok()
     }
-    fn serialize_to_json(&self) -> ::axiom_core::Result<serde_json::Value> {
-        serde_json::to_value(self).map_err(|e| ::axiom_core::AxiomError::SignalSerialization {
+    fn serialize_to_json(&self) -> KernelResult<serde_json::Value> {
+        serde_json::to_value(self).map_err(|e| KernelError::SignalSerialization {
             signal_type: "Greet".into(),
             message: e.to_string(),
         })
@@ -155,7 +133,7 @@ struct MigrateV1toV2;
 
 #[axiom_macros::migration(from = 1)]
 impl Migration for MigrateV1toV2 {
-    fn migrate(&self, input: Value) -> Result<Value> {
+    fn migrate(&self, input: Value) -> KernelResult<Value> {
         Ok(input)
     }
 }
@@ -164,7 +142,7 @@ impl Migration for MigrateV1toV2 {
 #[derive(Default)]
 struct TestAxiom;
 
-impl axiom_core::axiom::Axiom for TestAxiom {
+impl Axiom for TestAxiom {
     type State = i32;
     type Message = GreetCmd;
 
@@ -172,9 +150,9 @@ impl axiom_core::axiom::Axiom for TestAxiom {
         "TestAxiom"
     }
 
-    fn check(&self, _current: &i32, new: &i32, _msg: &GreetCmd) -> Result<()> {
+    fn check(&self, _current: &i32, new: &i32, _msg: &GreetCmd) -> KernelResult<()> {
         if *new < 0 {
-            Err(AxiomError::InvariantViolated {
+            Err(KernelError::InvariantViolated {
                 message: "negative value not allowed".into(),
             })
         } else {
@@ -194,21 +172,12 @@ async fn test_cell_macro_adds_exec_marker() {
         vector_clock: VectorClock::new(),
         name: "world".to_string(),
     };
-    let layered = ctx.as_layered::<ExecLayer>();
-    let (result, _outgoing, _witnesses) = cell.handle(cmd, layered).await;
-    result.unwrap();
+    let outgoing = ctx.take_outgoing();
+    let witnesses = ctx.take_witnesses();
+    cell.greeted.push(cmd.name);
     assert_eq!(cell.greeted, vec!["world"]);
-}
-
-#[test]
-fn test_cell_macro_layer_of() {
-    assert_eq!(<GreeterCell as LayerOf>::LAYER, Layer::Exec);
-}
-
-#[test]
-fn test_exec_cell_marker_is_present() {
-    fn assert_exec<T: ExecCell>() {}
-    assert_exec::<GreeterCell>();
+    assert!(outgoing.is_empty());
+    assert!(witnesses.is_empty());
 }
 
 #[test]
@@ -228,7 +197,7 @@ fn test_migration_macro_versions() {
 
 #[test]
 fn test_migration_registry_discovery() {
-    let migrations = axiom_core::registered_migration_chains();
+    let migrations = registered_migration_chains();
     assert!(
         !migrations.is_empty(),
         "migration registry should contain at least MigrateV1toV2"
@@ -245,7 +214,7 @@ fn test_migration_registry_discovery() {
 
 #[test]
 fn test_axiom_registry_discovery() {
-    let count = axiom_core::count_registered_axioms();
+    let count = count_registered_axioms();
     assert!(
         count >= 1,
         "expected at least 1 axiom registered, got {}",

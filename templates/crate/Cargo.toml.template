@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2021"
 description = "Axiom {{name}} crate"
 license = "MIT"
-repository = "https://github.com/arwei944/axiom-core"
+repository = "https://github.com/arwei944/axiom-kernel"
 
 [lib]
 name = "{{lib_name}}"

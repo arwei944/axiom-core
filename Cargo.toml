@@ -1,6 +1,10 @@
 [workspace]
 members = [
     "crates/axiom-core",
+    "crates/axiom-kernel",
+    "crates/axiom-plugin-test",
+    "crates/axiom-plugin-wasm-sdk",
+    "crates/axiom-plugin-example-wasm",
     "crates/axiom-runtime",
     "crates/axiom-store",
     "crates/axiom-oversight",
@@ -24,15 +28,16 @@ members = [
 resolver = "2"
 
 [workspace.package]
-version = "0.3.0"
+version = "0.4.0"
 edition = "2021"
 license = "MIT"
-repository = "https://github.com/arwei944/axiom-core"
-description = "Axiom Core - Deterministic-first runtime architecture for reliable agentic systems with built-in Oversight, CLI, and complete agent toolkit"
+authors = ["Axiom Core Contributors"]
+repository = "https://github.com/arwei944/axiom-kernel"
+description = "Axiom Kernel - Deterministic-first runtime architecture for reliable agentic systems with built-in Oversight, CLI, and complete agent toolkit"
 rust-version = "1.85"
 
 [workspace.dependencies]
-tokio = { version = "1", features = ["rt-multi-thread", "sync", "macros", "time", "fs", "io-util"] }
+tokio = { version = "1", features = ["rt-multi-thread", "sync", "macros", "time", "fs", "io-util", "net"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 thiserror = "1"
@@ -56,6 +61,8 @@ prometheus = "0.13"
 axum = "0.7"
 proptest = "1"
 loom = "0.7"
+glob = "0.3"
+toml = { version = "0.8", features = ["parse"] }
 
 axiom-core = { path = "crates/axiom-core" }
 axiom-runtime = { path = "crates/axiom-runtime" }
@@ -70,3 +77,4 @@ axiom-memory = { path = "crates/axiom-memory" }
 axiom-planner = { path = "crates/axiom-planner" }
 axiom-prompt = { path = "crates/axiom-prompt" }
 axiom-identity = { path = "crates/axiom-identity" }
+axiom-kernel = { path = "crates/axiom-kernel" }

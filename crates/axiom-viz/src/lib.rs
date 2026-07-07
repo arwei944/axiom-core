@@ -11,12 +11,14 @@ use serde::Serialize;
 
 pub mod cell_flow;
 pub mod entropy;
+pub mod kernel;
 pub mod metrics;
 pub mod timeline;
 pub mod topology;
 
 pub use cell_flow::{CellFlowRecord, CellFlowSnapshot};
 pub use entropy::EntropyData;
+pub use kernel::VizKernelAdapter;
 #[cfg(feature = "metrics")]
 pub use metrics::PrometheusRegistry;
 pub use metrics::{

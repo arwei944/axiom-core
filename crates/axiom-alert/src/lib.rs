@@ -8,6 +8,7 @@
 
 pub mod alert;
 pub mod governance;
+pub mod kernel;
 pub mod router;
 pub mod silence;
 pub mod store;
@@ -15,6 +16,7 @@ pub mod threshold;
 
 pub use alert::{Alert, AlertRule, AlertSink, AlertStatus, Severity};
 pub use governance::GovernanceMapper;
+pub use kernel::AlertKernelAdapter;
 pub use router::AlertRouter;
 pub use silence::Silence;
 pub use store::MemoryAlertStore;

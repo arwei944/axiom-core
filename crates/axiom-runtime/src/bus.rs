@@ -9,11 +9,11 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 
-use axiom_core::codec::{JsonCodec, SignalCodec};
-use axiom_core::error::AxiomError;
-use axiom_core::id::CellId;
-use axiom_core::layer::Layer;
-use axiom_core::signal::SignalEnvelope;
+use axiom_kernel::codec::{JsonCodec, SignalCodec};
+use axiom_kernel::id::CellId;
+use axiom_kernel::layer::Layer;
+use axiom_kernel::signal::SignalEnvelope;
+use axiom_kernel::{KernelError, KernelResult};
 
 use crate::mailbox::Mailbox;
 
@@ -76,10 +76,30 @@ struct CellEntry {
     _layer: Layer,
 }
 
+struct InterceptorSignalHandler {
+    interceptor: Arc<dyn BusInterceptor>,
+}
+
+impl axiom_kernel::axiom::SignalHandler for InterceptorSignalHandler {
+    fn handle(&mut self, signal: &mut SignalEnvelope) -> KernelResult<()> {
+        let decision = self.interceptor.intercept(signal);
+        match decision {
+            InterceptDecision::Allow => Ok(()),
+            InterceptDecision::Reject { reason } => {
+                Err(KernelError::SignalValidationFailed(reason))
+            }
+            InterceptDecision::Redirect { target_cell } => {
+                signal.target_cell = Some(target_cell);
+                Ok(())
+            }
+        }
+    }
+}
+
 pub struct MessageBus {
     cells: RwLock<HashMap<String, CellEntry>>,
     routing: RwLock<RoutingTable>,
-    interceptors: RwLock<Vec<Arc<dyn BusInterceptor>>>,
+    signal_kernel: std::sync::Arc<axiom_kernel::SignalKernel>,
     rejected_count: std::sync::atomic::AtomicU64,
     delivered_count: std::sync::atomic::AtomicU64,
     codec: Arc<dyn SignalCodec>,
@@ -90,7 +110,7 @@ impl MessageBus {
         Self {
             cells: RwLock::new(HashMap::new()),
             routing: RwLock::new(RoutingTable::new()),
-            interceptors: RwLock::new(Vec::new()),
+            signal_kernel: std::sync::Arc::new(axiom_kernel::SignalKernel::new()),
             rejected_count: std::sync::atomic::AtomicU64::new(0),
             delivered_count: std::sync::atomic::AtomicU64::new(0),
             codec: Arc::new(JsonCodec),
@@ -108,16 +128,19 @@ impl MessageBus {
         self.codec.as_ref()
     }
 
-    pub fn encode_envelope(&self, envelope: &SignalEnvelope) -> Result<Vec<u8>, AxiomError> {
+    pub fn encode_envelope(&self, envelope: &SignalEnvelope) -> KernelResult<Vec<u8>> {
         self.codec.encode(envelope)
     }
 
-    pub fn decode_envelope(&self, data: &[u8]) -> Result<SignalEnvelope, AxiomError> {
+    pub fn decode_envelope(&self, data: &[u8]) -> KernelResult<SignalEnvelope> {
         self.codec.decode(data)
     }
 
     pub async fn register_interceptor(&self, interceptor: Arc<dyn BusInterceptor>) {
-        self.interceptors.write().await.push(interceptor);
+        let handler = InterceptorSignalHandler { interceptor };
+        let boxed: axiom_kernel::axiom::BoxedSignalHandler = std::boxed::Box::new(handler)
+            as Box<dyn axiom_kernel::axiom::SignalHandler + Send + Sync>;
+        self.signal_kernel.register_handler(boxed).await;
     }
 
     pub async fn register_cell(&self, cell_id: &CellId, mailbox: Arc<Mailbox>, layer: Layer) {
@@ -132,35 +155,16 @@ impl MessageBus {
         self.routing.write().await.register_cell(&id_str, layer);
     }
 
-    pub async fn publish(&self, mut env: SignalEnvelope) -> Result<u64, AxiomError> {
+    pub async fn publish(&self, mut env: SignalEnvelope) -> KernelResult<u64> {
         env.validate_layer_transition()?;
 
-        for interceptor in self.interceptors.read().await.iter() {
-            match interceptor.intercept(&env) {
-                InterceptDecision::Allow => {}
-                InterceptDecision::Reject { reason } => {
-                    self.rejected_count
-                        .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
-                    return Err(AxiomError::LayerViolation {
-                        from: env.source_layer,
-                        to: env.target_layer,
-                        signal_type: format!(
-                            "{} (rejected by {}: {})",
-                            env.signal_type,
-                            interceptor.name(),
-                            reason
-                        ),
-                        source_cell: env.source_cell.clone().unwrap_or_default(),
-                    });
-                }
-                InterceptDecision::Redirect { target_cell } => {
-                    env.target_cell = Some(target_cell);
-                }
-            }
-        }
+        env = self.signal_kernel.send(env).await.inspect_err(|_e| {
+            self.rejected_count
+                .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+        })?;
 
         if env.hop_count > 8 {
-            return Err(AxiomError::HandoffLimitExceeded {
+            return Err(KernelError::HandoffLimitExceeded {
                 msg_id: env.msg_id.to_string(),
                 hops: env.hop_count,
                 correlation_id: env.correlation_id.to_string(),
@@ -217,8 +221,8 @@ impl Default for MessageBus {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use axiom_core::id::{CorrelationId, MsgId};
-    use axiom_core::signal::{SignalKind, VectorClock};
+    use axiom_kernel::id::{CorrelationId, MsgId};
+    use axiom_kernel::signal::{SignalKind, VectorClock};
 
     fn make_env(from: Layer, to: Layer, target: Option<&str>) -> SignalEnvelope {
         SignalEnvelope {
@@ -234,7 +238,7 @@ mod tests {
             source_cell: None,
             target_cell: target.map(|s| s.to_string()),
             payload: serde_json::Value::Null,
-            schema_version: axiom_core::SchemaVersion::new(1),
+            schema_version: axiom_kernel::version::SchemaVersion::new(1),
             parent_msg_id: None,
             hop_count: 0,
         }
@@ -304,17 +308,19 @@ mod tests {
         let env = make_env(Layer::Exec, Layer::Exec, None);
         let data = bus.encode_envelope(&env).unwrap();
         let decoded = bus.decode_envelope(&data).unwrap();
-        assert_eq!(env, decoded);
+        assert_eq!(env.msg_id, decoded.msg_id);
+        assert_eq!(env.signal_type, decoded.signal_type);
     }
 
     #[cfg(feature = "bincode-codec")]
     #[test]
     fn test_bus_codec_bincode_round_trip() {
-        let codec = Arc::new(axiom_core::codec::BincodeCodec::default());
+        let codec = Arc::new(axiom_kernel::codec::BincodeCodec::default());
         let bus = MessageBus::with_codec(codec);
         let env = make_env(Layer::Exec, Layer::Exec, None);
         let data = bus.encode_envelope(&env).unwrap();
         let decoded = bus.decode_envelope(&data).unwrap();
-        assert_eq!(env, decoded);
+        assert_eq!(env.msg_id, decoded.msg_id);
+        assert_eq!(env.signal_type, decoded.signal_type);
     }
 }

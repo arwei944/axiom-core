@@ -48,14 +48,14 @@ pub fn impl_capability(attr: TokenStream, item: TokenStream) -> TokenStream {
 
     let dim_str = dimension.clone().unwrap_or_else(|| "witness".to_string());
     let dim_variant = match dim_str.as_str() {
-        "witness" => quote! { ::axiom_core::CapabilityDimension::Witness },
-        "schema" => quote! { ::axiom_core::CapabilityDimension::Schema },
-        "layer" => quote! { ::axiom_core::CapabilityDimension::Layer },
-        "tool" => quote! { ::axiom_core::CapabilityDimension::Tool },
-        "guard" => quote! { ::axiom_core::CapabilityDimension::Guard },
-        "identity" => quote! { ::axiom_core::CapabilityDimension::Identity },
-        "entropy" => quote! { ::axiom_core::CapabilityDimension::Entropy },
-        "runtime" => quote! { ::axiom_core::CapabilityDimension::Runtime },
+        "witness" => quote! { ::axiom_kernel::registry::CapabilityDimension::Witness },
+        "schema" => quote! { ::axiom_kernel::registry::CapabilityDimension::Schema },
+        "layer" => quote! { ::axiom_kernel::registry::CapabilityDimension::Layer },
+        "tool" => quote! { ::axiom_kernel::registry::CapabilityDimension::Tool },
+        "guard" => quote! { ::axiom_kernel::registry::CapabilityDimension::Guard },
+        "identity" => quote! { ::axiom_kernel::registry::CapabilityDimension::Identity },
+        "entropy" => quote! { ::axiom_kernel::registry::CapabilityDimension::Entropy },
+        "runtime" => quote! { ::axiom_kernel::registry::CapabilityDimension::Runtime },
         _ => {
             return syn::Error::new_spanned(&input, format!("invalid dimension: {}", dim_str))
                 .to_compile_error()
@@ -98,10 +98,10 @@ pub fn impl_capability(attr: TokenStream, item: TokenStream) -> TokenStream {
 
     let layer_variant = if let Some(l) = layer {
         match l.as_str() {
-            "exec" => quote! { Some(::axiom_core::Layer::Exec) },
-            "validate" => quote! { Some(::axiom_core::Layer::Validate) },
-            "agent" => quote! { Some(::axiom_core::Layer::Agent) },
-            "oversight" => quote! { Some(::axiom_core::Layer::Oversight) },
+            "exec" => quote! { Some(::axiom_kernel::Layer::Exec) },
+            "validate" => quote! { Some(::axiom_kernel::Layer::Validate) },
+            "agent" => quote! { Some(::axiom_kernel::Layer::Agent) },
+            "oversight" => quote! { Some(::axiom_kernel::Layer::Oversight) },
             "all" => quote! { None },
             _ => {
                 return syn::Error::new_spanned(&input, format!("invalid layer: {}", l))
@@ -128,19 +128,19 @@ pub fn impl_capability(attr: TokenStream, item: TokenStream) -> TokenStream {
 
             #[doc(hidden)]
             #[allow(non_upper_case_globals)]
-            pub static #reg_static: ::axiom_core::CapabilityDescriptor = ::axiom_core::CapabilityDescriptor {
+            pub static #reg_static: ::axiom_kernel::registry::CapabilityDescriptor = ::axiom_kernel::registry::CapabilityDescriptor {
                 dimension: #dim_variant,
                 name: #name_str,
-                version: ::axiom_core::Version::new(#major, #minor, #patch),
-                compatibility: ::axiom_core::Compatibility::SemVer,
+                version: ::axiom_kernel::version::Version::new(#major, #minor, #patch),
+                compatibility: ::axiom_kernel::version::Compatibility::Exact,
                 applies_to_layer: #layer_variant,
                 migration_chain_start: None,
             };
 
-            #[linkme::distributed_slice(::axiom_core::CAPABILITY_REGISTRY)]
+            #[linkme::distributed_slice(::axiom_kernel::registry::CAPABILITY_REGISTRY)]
     #[linkme(crate = linkme)]
             #[doc(hidden)]
-            pub static #reg_entry: &'static ::axiom_core::CapabilityDescriptor = &#reg_static;
+            pub static #reg_entry: &'static ::axiom_kernel::registry::CapabilityDescriptor = &#reg_static;
         };
 
     TokenStream::from(expanded)

@@ -1,6 +1,6 @@
 //! IntentAuditor - detects agent intent drift.
 
-use axiom_core::id::CellId;
+use axiom_kernel::id::CellId;
 use parking_lot::Mutex;
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};

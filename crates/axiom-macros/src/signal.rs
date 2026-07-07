@@ -10,8 +10,8 @@ pub fn impl_derive_signal_payload(input: TokenStream) -> TokenStream {
     let name = &input.ident;
     let (impl_generics, ty_generics, where_clause) = input.generics.split_for_impl();
 
-    let mut kind = quote! { ::axiom_core::SignalKind::Command };
-    let mut layer = quote! { ::axiom_core::Layer::Exec };
+    let mut kind = quote! { ::axiom_kernel::signal::SignalKind::Command };
+    let mut layer = quote! { ::axiom_kernel::Layer::Exec };
 
     for attr in &input.attrs {
         if attr.path().is_ident("signal") {
@@ -33,7 +33,7 @@ pub fn impl_derive_signal_payload(input: TokenStream) -> TokenStream {
     let has_trace = has_trace_id_field(&input);
     let has_sender = has_sender_field(&input);
 
-    let skip_schema = input.attrs.iter().any(|attr| {
+    let _skip_schema = input.attrs.iter().any(|attr| {
         if attr.path().is_ident("schema") {
             let mut skip = false;
             let _ = attr.parse_nested_meta(|meta| {
@@ -49,7 +49,7 @@ pub fn impl_derive_signal_payload(input: TokenStream) -> TokenStream {
     });
 
     let trace_id_impl = if has_trace {
-        quote! { fn trace_id(&self) -> Option<&::axiom_core::TraceId> { Some(&self.trace_id) } }
+        quote! { fn trace_id(&self) -> Option<&::axiom_kernel::id::TraceId> { Some(&self.trace_id) } }
     } else {
         quote! {}
     };
@@ -62,20 +62,8 @@ pub fn impl_derive_signal_payload(input: TokenStream) -> TokenStream {
 
     let schema_version_impl = if let Some(ver) = find_schema_version(&input.attrs) {
         quote! {
-            fn schema_version(&self) -> ::axiom_core::SchemaVersion {
-                ::axiom_core::SchemaVersion::new(#ver)
-            }
-        }
-    } else {
-        quote! {}
-    };
-
-    let default_schema_impl = if !skip_schema {
-        quote! {
-            impl #impl_generics ::axiom_core::Schema for #name #ty_generics #where_clause {
-                fn validate(&self) -> ::axiom_core::ValidationResult {
-                    ::axiom_core::ValidationResult::ok()
-                }
+            fn schema_version(&self) -> ::axiom_kernel::version::SchemaVersion {
+                ::axiom_kernel::version::SchemaVersion::new(#ver)
             }
         }
     } else {
@@ -83,24 +71,27 @@ pub fn impl_derive_signal_payload(input: TokenStream) -> TokenStream {
     };
 
     let expanded = quote! {
-        impl #impl_generics ::axiom_core::Signal for #name #ty_generics #where_clause {
+        impl #impl_generics ::axiom_kernel::signal::Signal for #name #ty_generics #where_clause {
             fn signal_type(&self) -> &'static str {
                 stringify!(#name)
             }
-            fn msg_id(&self) -> &::axiom_core::MsgId {
+            fn msg_id(&self) -> &::axiom_kernel::id::MsgId {
                 &self.msg_id
             }
-            fn correlation_id(&self) -> &::axiom_core::CorrelationId {
+            fn correlation_id(&self) -> &::axiom_kernel::id::CorrelationId {
                 &self.correlation_id
             }
             #trace_id_impl
-            fn vector_clock(&self) -> &::axiom_core::signal::VectorClock {
+            fn vector_clock(&self) -> &::axiom_kernel::signal::VectorClock {
                 &self.vector_clock
             }
-            fn kind(&self) -> ::axiom_core::SignalKind {
+            fn timestamp_ns(&self) -> u64 {
+                0
+            }
+            fn kind(&self) -> ::axiom_kernel::signal::SignalKind {
                 #kind
             }
-            fn layer(&self) -> ::axiom_core::Layer {
+            fn layer(&self) -> ::axiom_kernel::Layer {
                 #layer
             }
             #sender_impl
@@ -108,22 +99,17 @@ pub fn impl_derive_signal_payload(input: TokenStream) -> TokenStream {
             fn as_any(&self) -> &dyn std::any::Any {
                 self
             }
-            fn clone_signal(&self) -> Box<dyn ::axiom_core::Signal> {
+            fn clone_signal(&self) -> Box<dyn ::axiom_kernel::signal::Signal> {
                 Box::new(Clone::clone(self))
             }
-            fn validate(&self) -> ::axiom_core::ValidationResult {
-                <Self as ::axiom_core::Schema>::validate(self)
+            fn validate(&self) -> ::axiom_kernel::axiom::ValidationResult {
+                ::axiom_kernel::axiom::ValidationResult::ok()
             }
-            fn serialize_to_json(&self) -> ::axiom_core::Result<serde_json::Value> {
+            fn serialize_to_json(&self) -> ::axiom_kernel::KernelResult<serde_json::Value> {
                 serde_json::to_value(self)
-                    .map_err(|e| ::axiom_core::AxiomError::SignalSerialization {
-                        signal_type: <Self as ::axiom_core::Signal>::signal_type(self).to_string(),
-                        message: e.to_string(),
-                    })
+                    .map_err(|e| ::axiom_kernel::KernelError::SerializationError(e.to_string()))
             }
         }
-
-        #default_schema_impl
     };
 
     TokenStream::from(expanded)
@@ -134,8 +120,8 @@ pub fn impl_signal(attr: TokenStream, item: TokenStream) -> TokenStream {
     let name = &input.ident;
     let (impl_generics, ty_generics, where_clause) = input.generics.split_for_impl();
 
-    let mut kind = quote! { ::axiom_core::SignalKind::Command };
-    let mut layer = quote! { ::axiom_core::Layer::Exec };
+    let mut kind = quote! { ::axiom_kernel::signal::SignalKind::Command };
+    let mut layer = quote! { ::axiom_kernel::Layer::Exec };
     let mut has_trace = false;
     let mut has_sender = false;
 
@@ -158,7 +144,7 @@ pub fn impl_signal(attr: TokenStream, item: TokenStream) -> TokenStream {
                     let s = s.trim_matches('"').to_string();
                     layer =
                         parse_layer_variant(&syn::LitStr::new(&s, proc_macro2::Span::call_site()))
-                            .expect("valid layer variant"); // foxguard: ignore[rs/no-unwrap-in-lib]
+                            .expect("valid layer variant");
                 }
             } else if ident == "trace" {
                 has_trace = true;
@@ -169,14 +155,14 @@ pub fn impl_signal(attr: TokenStream, item: TokenStream) -> TokenStream {
     }
 
     let required_fields = quote! {
-        pub msg_id: ::axiom_core::id::MsgId,
-        pub correlation_id: ::axiom_core::id::CorrelationId,
-        pub vector_clock: ::axiom_core::signal::VectorClock,
+        pub msg_id: ::axiom_kernel::id::MsgId,
+        pub correlation_id: ::axiom_kernel::id::CorrelationId,
+        pub vector_clock: ::axiom_kernel::signal::VectorClock,
     };
 
     let optional_fields = if has_trace || has_sender {
         let trace_field = if has_trace {
-            quote! { pub trace_id: Option<::axiom_core::id::TraceId>, }
+            quote! { pub trace_id: Option<::axiom_kernel::id::TraceId>, }
         } else {
             quote! {}
         };
@@ -215,7 +201,7 @@ pub fn impl_signal(attr: TokenStream, item: TokenStream) -> TokenStream {
     };
 
     let trace_id_impl = if has_trace {
-        quote! { fn trace_id(&self) -> Option<&::axiom_core::TraceId> { self.trace_id.as_ref() } }
+        quote! { fn trace_id(&self) -> Option<&::axiom_kernel::id::TraceId> { self.trace_id.as_ref() } }
     } else {
         quote! {}
     };
@@ -228,7 +214,7 @@ pub fn impl_signal(attr: TokenStream, item: TokenStream) -> TokenStream {
 
     let trace_setter = if has_trace {
         quote! {
-            pub fn with_trace_id(mut self, trace: ::axiom_core::id::TraceId) -> Self {
+            pub fn with_trace_id(mut self, trace: ::axiom_kernel::id::TraceId) -> Self {
                 self.trace_id = Some(trace);
                 self
             }
@@ -326,18 +312,18 @@ pub fn impl_signal(attr: TokenStream, item: TokenStream) -> TokenStream {
         } #where_clause
 
         impl #impl_generics #name #ty_generics #where_clause {
-            pub fn new(msg_id: ::axiom_core::id::MsgId, correlation_id: ::axiom_core::id::CorrelationId #data_field_params) -> Self {
+            pub fn new(msg_id: ::axiom_kernel::id::MsgId, correlation_id: ::axiom_kernel::id::CorrelationId #data_field_params) -> Self {
                 Self {
                     msg_id,
                     correlation_id,
-                    vector_clock: ::axiom_core::signal::VectorClock::new(),
+                    vector_clock: ::axiom_kernel::signal::VectorClock::new(),
                     #trace_field_init
                     #sender_field_init
                     #data_field_inits
                 }
             }
 
-            pub fn with_vector_clock(mut self, vc: ::axiom_core::signal::VectorClock) -> Self {
+            pub fn with_vector_clock(mut self, vc: ::axiom_kernel::signal::VectorClock) -> Self {
                 self.vector_clock = vc;
                 self
             }
@@ -346,48 +332,42 @@ pub fn impl_signal(attr: TokenStream, item: TokenStream) -> TokenStream {
             #sender_setter
         }
 
-        impl #impl_generics ::axiom_core::Signal for #name #ty_generics #where_clause {
+        impl #impl_generics ::axiom_kernel::signal::Signal for #name #ty_generics #where_clause {
             fn signal_type(&self) -> &'static str {
                 stringify!(#name)
             }
-            fn msg_id(&self) -> &::axiom_core::MsgId {
+            fn msg_id(&self) -> &::axiom_kernel::id::MsgId {
                 &self.msg_id
             }
-            fn correlation_id(&self) -> &::axiom_core::CorrelationId {
+            fn correlation_id(&self) -> &::axiom_kernel::id::CorrelationId {
                 &self.correlation_id
             }
             #trace_id_impl
-            fn vector_clock(&self) -> &::axiom_core::signal::VectorClock {
+            fn vector_clock(&self) -> &::axiom_kernel::signal::VectorClock {
                 &self.vector_clock
             }
-            fn kind(&self) -> ::axiom_core::SignalKind {
+            fn timestamp_ns(&self) -> u64 {
+                0
+            }
+            fn kind(&self) -> ::axiom_kernel::signal::SignalKind {
                 #kind
             }
-            fn layer(&self) -> ::axiom_core::Layer {
+            fn layer(&self) -> ::axiom_kernel::Layer {
                 #layer
             }
             #sender_impl
             fn as_any(&self) -> &dyn std::any::Any {
                 self
             }
-            fn clone_signal(&self) -> Box<dyn ::axiom_core::Signal> {
+            fn clone_signal(&self) -> Box<dyn ::axiom_kernel::signal::Signal> {
                 Box::new(self.clone())
             }
-            fn validate(&self) -> ::axiom_core::ValidationResult {
-                ::axiom_core::ValidationResult::ok()
+            fn validate(&self) -> ::axiom_kernel::axiom::ValidationResult {
+                ::axiom_kernel::axiom::ValidationResult::ok()
             }
-            fn serialize_to_json(&self) -> ::axiom_core::Result<serde_json::Value> {
+            fn serialize_to_json(&self) -> ::axiom_kernel::KernelResult<serde_json::Value> {
                 serde_json::to_value(self)
-                    .map_err(|e| ::axiom_core::AxiomError::SignalSerialization {
-                        signal_type: stringify!(#name).to_string(),
-                        message: e.to_string(),
-                    })
-            }
-        }
-
-        impl #impl_generics ::axiom_core::Schema for #name #ty_generics #where_clause {
-            fn validate(&self) -> ::axiom_core::ValidationResult {
-                ::axiom_core::ValidationResult::ok()
+                    .map_err(|e| ::axiom_kernel::KernelError::SerializationError(e.to_string()))
             }
         }
     };
