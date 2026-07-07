@@ -34,7 +34,10 @@ impl PluginRegistry {
         plugins.remove(id)
     }
 
-    pub async fn get_all_by_kind(&self, kind: PluginKind) -> Vec<Box<dyn crate::plugin::abi::AxiomPlugin>> {
+    pub async fn get_all_by_kind(
+        &self,
+        kind: PluginKind,
+    ) -> Vec<Box<dyn crate::plugin::abi::AxiomPlugin>> {
         let kinds = self.kinds.read().await;
         let plugins = self.plugins.read().await;
         if let Some(ids) = kinds.get(&kind) {
@@ -54,7 +57,8 @@ impl PluginRegistry {
     pub async fn dependencies_resolved(&self, id: &str) -> bool {
         let plugins = self.plugins.read().await;
         let mut visited = HashSet::new();
-        self.resolve(id, &mut visited, &mut Vec::new(), &plugins).is_ok()
+        self.resolve(id, &mut visited, &mut Vec::new(), &plugins)
+            .is_ok()
     }
 
     pub async fn resolve_dependencies(&self) -> PluginResult<()> {
@@ -66,7 +70,7 @@ impl PluginRegistry {
         Ok(())
     }
 
-    fn resolve<'a>(
+    fn resolve(
         &self,
         id: &str,
         visited: &mut HashSet<String>,

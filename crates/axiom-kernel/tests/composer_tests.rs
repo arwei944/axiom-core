@@ -1,7 +1,7 @@
-use axiom_kernel::plugin::composer::{Composer, SystemComposition};
+use axiom_kernel::plugin::composer::Composer;
 
 #[test]
-fn test_composer_from_str() {
+fn test_composer_parse() {
     let toml = r#"
 [system]
 name = "test-system"
@@ -16,7 +16,7 @@ instance = 1
 from = ["echo", "out"]
 to = ["counter", "in"]
 "#;
-    let composition = Composer::from_str(toml).unwrap();
+    let composition = Composer::parse(toml).unwrap();
     assert_eq!(composition.system.name, "test-system");
     assert_eq!(composition.plugins.len(), 1);
     assert_eq!(composition.plugins[0].id, "echo");

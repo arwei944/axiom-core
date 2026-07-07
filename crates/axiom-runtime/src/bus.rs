@@ -137,11 +137,9 @@ impl MessageBus {
     }
 
     pub async fn register_interceptor(&self, interceptor: Arc<dyn BusInterceptor>) {
-        let handler = InterceptorSignalHandler {
-            interceptor,
-        };
-        let boxed: axiom_kernel::axiom::BoxedSignalHandler =
-            std::boxed::Box::new(handler) as Box<dyn axiom_kernel::axiom::SignalHandler + Send + Sync>;
+        let handler = InterceptorSignalHandler { interceptor };
+        let boxed: axiom_kernel::axiom::BoxedSignalHandler = std::boxed::Box::new(handler)
+            as Box<dyn axiom_kernel::axiom::SignalHandler + Send + Sync>;
         self.signal_kernel.register_handler(boxed).await;
     }
 
@@ -160,10 +158,9 @@ impl MessageBus {
     pub async fn publish(&self, mut env: SignalEnvelope) -> KernelResult<u64> {
         env.validate_layer_transition()?;
 
-        env = self.signal_kernel.send(env).await.map_err(|e| {
+        env = self.signal_kernel.send(env).await.inspect_err(|_e| {
             self.rejected_count
                 .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
-            e
         })?;
 
         if env.hop_count > 8 {

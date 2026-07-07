@@ -1,4 +1,6 @@
-use axiom_kernel::plugin::abi::{AxiomPlugin, PluginContext, PluginError, PluginKind, PluginMessage, PluginReply, PluginResult};
+use axiom_kernel::plugin::abi::{
+    AxiomPlugin, PluginContext, PluginKind, PluginMessage, PluginReply, PluginResult,
+};
 use axiom_kernel::plugin::registry::PluginRegistry;
 
 #[derive(Default)]
@@ -50,8 +52,18 @@ async fn test_registry_register_and_get() {
 #[tokio::test]
 async fn test_registry_list_all() {
     let registry = PluginRegistry::new();
-    registry.register(Box::new(TestPlugin { id: "p1", deps: &[] })).await;
-    registry.register(Box::new(TestPlugin { id: "p2", deps: &[] })).await;
+    registry
+        .register(Box::new(TestPlugin {
+            id: "p1",
+            deps: &[],
+        }))
+        .await;
+    registry
+        .register(Box::new(TestPlugin {
+            id: "p2",
+            deps: &[],
+        }))
+        .await;
     let all = registry.list_all().await;
     assert_eq!(all.len(), 2);
 }
@@ -59,8 +71,18 @@ async fn test_registry_list_all() {
 #[tokio::test]
 async fn test_registry_get_all_by_kind() {
     let registry = PluginRegistry::new();
-    registry.register(Box::new(TestPlugin { id: "p1", deps: &[] })).await;
-    registry.register(Box::new(TestPlugin { id: "p2", deps: &[] })).await;
+    registry
+        .register(Box::new(TestPlugin {
+            id: "p1",
+            deps: &[],
+        }))
+        .await;
+    registry
+        .register(Box::new(TestPlugin {
+            id: "p2",
+            deps: &[],
+        }))
+        .await;
     let tools = registry.get_all_by_kind(PluginKind::Llm).await;
     assert_eq!(tools.len(), 2);
 }
@@ -68,8 +90,18 @@ async fn test_registry_get_all_by_kind() {
 #[tokio::test]
 async fn test_registry_resolve_dependencies_cycle() {
     let registry = PluginRegistry::new();
-    registry.register(Box::new(TestPlugin { id: "a", deps: &["b"] })).await;
-    registry.register(Box::new(TestPlugin { id: "b", deps: &["a"] })).await;
+    registry
+        .register(Box::new(TestPlugin {
+            id: "a",
+            deps: &["b"],
+        }))
+        .await;
+    registry
+        .register(Box::new(TestPlugin {
+            id: "b",
+            deps: &["a"],
+        }))
+        .await;
     let result = registry.resolve_dependencies().await;
     assert!(result.is_err());
 }
@@ -77,7 +109,14 @@ async fn test_registry_resolve_dependencies_cycle() {
 #[tokio::test]
 async fn test_registry_dependencies_resolved_true() {
     let registry = PluginRegistry::new();
-    registry.register(Box::new(TestPlugin { id: "a", deps: &["b"] })).await;
-    registry.register(Box::new(TestPlugin { id: "b", deps: &[], })).await;
+    registry
+        .register(Box::new(TestPlugin {
+            id: "a",
+            deps: &["b"],
+        }))
+        .await;
+    registry
+        .register(Box::new(TestPlugin { id: "b", deps: &[] }))
+        .await;
     assert!(registry.dependencies_resolved("a").await);
 }

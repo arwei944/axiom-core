@@ -81,7 +81,10 @@ impl AxiomRuntime {
                 for i in &issues {
                     tracing::error!("preflight: {i}");
                 }
-                return Err(KernelError::InternalError(format!("preflight failed: {}", issues.join("; "))));
+                return Err(KernelError::InternalError(format!(
+                    "preflight failed: {}",
+                    issues.join("; ")
+                )));
             }
         }
 

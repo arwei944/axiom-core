@@ -209,7 +209,7 @@ impl WitnessBuilder {
     }
 
     pub fn emit(self, ctx: &mut crate::context::CellContext<'_>) -> KernelResult<()> {
-        let witness_id = crate::id::WitnessId::new(&uuid::Uuid::new_v4().to_string());
+        let witness_id = crate::id::WitnessId::new(uuid::Uuid::new_v4().to_string());
 
         let correlation = ctx
             .current_correlation
@@ -249,7 +249,7 @@ impl WitnessBuilder {
             })?
             .len();
 
-        let mut witness = Witness {
+        let witness = Witness {
             witness_id,
             schema_version: crate::version::SchemaVersion::new(1),
             cell_id,
@@ -317,9 +317,7 @@ impl WitnessKernel {
         }
     }
 
-    pub fn with_heatmap(
-        _heatmap: std::sync::Arc<RwLock<HeatmapCollector>>,
-    ) -> Self {
+    pub fn with_heatmap(_heatmap: std::sync::Arc<RwLock<HeatmapCollector>>) -> Self {
         Self::new()
     }
 

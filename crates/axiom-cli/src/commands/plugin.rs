@@ -3,9 +3,7 @@ use std::process::ExitCode;
 use anyhow::{Context, Result};
 use clap::{Args, Subcommand};
 
-use axiom_kernel::plugin::{
-    abi::PluginKind, package::unpack_from_file, RuntimeKernelBridge,
-};
+use axiom_kernel::plugin::{abi::PluginKind, package::unpack_from_file, RuntimeKernelBridge};
 
 #[derive(Debug, Args)]
 pub struct PluginArgs {
@@ -82,8 +80,10 @@ fn run_list(args: &ListArgs) -> Result<ExitCode> {
     let runtime = tokio::runtime::Runtime::new().context("Failed to create tokio runtime")?;
 
     let kind = match &args.kind {
-        Some(kind_str) => Some(plugin_kind_from_str(kind_str)
-            .ok_or_else(|| anyhow::anyhow!("unknown plugin kind: {kind_str}"))?),
+        Some(kind_str) => Some(
+            plugin_kind_from_str(kind_str)
+                .ok_or_else(|| anyhow::anyhow!("unknown plugin kind: {kind_str}"))?,
+        ),
         None => None,
     };
 
@@ -127,7 +127,10 @@ fn run_install(args: &InstallArgs) -> Result<ExitCode> {
             "Installing plugin: {} v{}",
             package.manifest.id, package.manifest.version
         );
-        println!("  description: {}", package.manifest.description.as_deref().unwrap_or(""));
+        println!(
+            "  description: {}",
+            package.manifest.description.as_deref().unwrap_or("")
+        );
         println!("  kind: {:?}", package.manifest.kind);
     } else {
         let loader = axiom_kernel::plugin::NativePluginLoader::new();

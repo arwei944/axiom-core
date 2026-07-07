@@ -1,9 +1,9 @@
 //! Event - immutable fact stored in the event log.
 
+use axiom_kernel::clock::global_clock;
 use axiom_kernel::id::{CorrelationId, MsgId};
 use axiom_kernel::layer::Layer;
 use axiom_kernel::signal::VectorClock;
-use axiom_kernel::clock::global_clock;
 use axiom_kernel::version::{EventSchema, SchemaVersion, Versioned};
 use serde::{Deserialize, Serialize};
 

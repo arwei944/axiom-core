@@ -160,7 +160,8 @@ impl Supervisor {
             let until = Instant::now()
                 + match s.strategy {
                     axiom_kernel::cell::SupervisionStrategy::CircuitBreak {
-                        reset_after_ms, ..
+                        reset_after_ms,
+                        ..
                     } => Duration::from_millis(reset_after_ms),
                     _ => Duration::from_secs(30),
                 };

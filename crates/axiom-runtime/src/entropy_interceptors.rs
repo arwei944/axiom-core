@@ -137,28 +137,28 @@ impl BusInterceptor for EmergencyInterceptor {
 mod tests {
     use super::*;
     use axiom_kernel::id::{CorrelationId, MsgId};
-use axiom_kernel::layer::Layer;
-use axiom_kernel::signal::{SignalKind, VectorClock};
+    use axiom_kernel::layer::Layer;
+    use axiom_kernel::signal::{SignalKind, VectorClock};
 
-fn make_env(target_cell: Option<&str>, source_layer: Layer) -> SignalEnvelope {
-    SignalEnvelope {
-        msg_id: MsgId::new("test"),
-        correlation_id: CorrelationId::new("corr"),
-        trace_id: None,
-        signal_type: "TestSignal".into(),
-        vector_clock: VectorClock::new(),
-        timestamp_ns: 0,
-        kind: SignalKind::Command,
-        source_layer,
-        target_layer: Layer::Exec,
-        source_cell: None,
-        target_cell: target_cell.map(|s| s.to_string()),
-        payload: serde_json::Value::Null,
-        schema_version: axiom_kernel::version::SchemaVersion::new(1),
-        parent_msg_id: None,
-        hop_count: 0,
+    fn make_env(target_cell: Option<&str>, source_layer: Layer) -> SignalEnvelope {
+        SignalEnvelope {
+            msg_id: MsgId::new("test"),
+            correlation_id: CorrelationId::new("corr"),
+            trace_id: None,
+            signal_type: "TestSignal".into(),
+            vector_clock: VectorClock::new(),
+            timestamp_ns: 0,
+            kind: SignalKind::Command,
+            source_layer,
+            target_layer: Layer::Exec,
+            source_cell: None,
+            target_cell: target_cell.map(|s| s.to_string()),
+            payload: serde_json::Value::Null,
+            schema_version: axiom_kernel::version::SchemaVersion::new(1),
+            parent_msg_id: None,
+            hop_count: 0,
+        }
     }
-}
 
     #[test]
     fn throttle_allows_when_no_factor() {

@@ -29,14 +29,26 @@ pub fn run_why(args: &WhyArgs) -> Result<ExitCode> {
                 entity_id: "kernel-bus".to_string(),
                 entity_type: "Signal".to_string(),
                 relationship: "Dispatched by".to_string(),
-                timestamp: format!("{}", std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_secs()),
+                timestamp: format!(
+                    "{}",
+                    std::time::SystemTime::now()
+                        .duration_since(std::time::UNIX_EPOCH)
+                        .unwrap()
+                        .as_secs()
+                ),
                 details: Some(format!("{} cells registered", cells.len())),
             }],
             effects: vec![CausalLink {
                 entity_id: format!("witness-chain-{}", witness_count),
                 entity_type: "Witness".to_string(),
                 relationship: "Produced".to_string(),
-                timestamp: format!("{}", std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_secs()),
+                timestamp: format!(
+                    "{}",
+                    std::time::SystemTime::now()
+                        .duration_since(std::time::UNIX_EPOCH)
+                        .unwrap()
+                        .as_secs()
+                ),
                 details: Some(format!("{} witnesses recorded", witness_count)),
             }],
         }

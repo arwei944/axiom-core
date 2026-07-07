@@ -114,7 +114,10 @@ pub enum Compatibility {
 
 impl Compatibility {
     pub fn is_compatible(self) -> bool {
-        matches!(self, Compatibility::Exact | Compatibility::Patch | Compatibility::NewerMinor)
+        matches!(
+            self,
+            Compatibility::Exact | Compatibility::Patch | Compatibility::NewerMinor
+        )
     }
 }
 

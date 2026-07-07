@@ -106,9 +106,12 @@ impl Check for VerifyCheck {
                 }
                 let dep_level = order.get(dep.as_str()).copied().unwrap_or(max_order);
                 if dep_level < crate_level {
-                    violations.push(format!(
-                        "{crate_name} (level {crate_level}) depends on {dep} (level {dep_level}) - REVERSE DEPENDENCY"
-                    ));
+                    let is_exempt = axiom_kernel::gate::verify_dependencies(crate_name, &[dep.clone()]).is_empty();
+                    if !is_exempt {
+                        violations.push(format!(
+                            "{crate_name} (level {crate_level}) depends on {dep} (level {dep_level}) - REVERSE DEPENDENCY"
+                        ));
+                    }
                 }
             }
         }
@@ -140,9 +143,10 @@ mod tests {
     #[test]
     fn test_dep_order_matches_gate_constants() {
         for (name, level) in axiom_kernel::gate::crate_layers() {
-            assert!(*level <= 8, "unexpected level for {name}");
+            assert!(*level <= 9, "unexpected level for {name}");
         }
         assert_eq!(axiom_kernel::gate::crate_level("axiom-kernel"), Some(7));
         assert_eq!(axiom_kernel::gate::crate_level("axiom-cli"), Some(0));
+        assert_eq!(axiom_kernel::gate::crate_level("axiom-plugin-wasm-sdk"), Some(9));
     }
 }

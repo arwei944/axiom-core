@@ -1,12 +1,15 @@
 use axiom_kernel::plugin::abi::{PluginContext, PluginMessage, PluginReply};
-use axiom_kernel::{AxiomPlugin, CellKernel, SignalKernel, LensKernel, AxiomKernel, WitnessKernel, PluginRegistry, HeatmapCollector};
+use axiom_kernel::{
+    AxiomKernel, AxiomPlugin, CellKernel, HeatmapCollector, LensKernel, PluginRegistry,
+    SignalKernel, WitnessKernel,
+};
 use axiom_plugin_example_wasm::counter::WasmCounterPlugin;
 use axiom_plugin_example_wasm::echo::WasmEchoPlugin;
 use axiom_plugin_example_wasm::transformer::WasmTransformerPlugin;
 
 #[tokio::test]
 async fn test_wasm_echo_plugin_basic() {
-    let mut plugin = WasmEchoPlugin::default();
+    let mut plugin = WasmEchoPlugin;
     let ctx = PluginContext::new(
         CellKernel::new(),
         SignalKernel::new(),
@@ -14,9 +17,7 @@ async fn test_wasm_echo_plugin_basic() {
         AxiomKernel::new(),
         WitnessKernel::new(),
         PluginRegistry::new(),
-        std::sync::Arc::new(tokio::sync::RwLock::new(
-            HeatmapCollector::new(),
-        )),
+        std::sync::Arc::new(tokio::sync::RwLock::new(HeatmapCollector::new())),
     );
     plugin.init(ctx).unwrap();
 
@@ -43,9 +44,7 @@ async fn test_wasm_counter_plugin_increments() {
         AxiomKernel::new(),
         WitnessKernel::new(),
         PluginRegistry::new(),
-        std::sync::Arc::new(tokio::sync::RwLock::new(
-            HeatmapCollector::new(),
-        )),
+        std::sync::Arc::new(tokio::sync::RwLock::new(HeatmapCollector::new())),
     );
     plugin.init(ctx).unwrap();
 
@@ -63,10 +62,7 @@ async fn test_wasm_counter_plugin_increments() {
         .unwrap();
 
     match (reply1, reply2) {
-        (
-            PluginReply::Ok(a),
-            PluginReply::Ok(b),
-        ) => {
+        (PluginReply::Ok(a), PluginReply::Ok(b)) => {
             assert_eq!(a, b"1");
             assert_eq!(b, b"2");
         }
@@ -76,7 +72,7 @@ async fn test_wasm_counter_plugin_increments() {
 
 #[tokio::test]
 async fn test_wasm_transformer_plugin_adds_one() {
-    let mut plugin = WasmTransformerPlugin::default();
+    let mut plugin = WasmTransformerPlugin;
     let ctx = PluginContext::new(
         CellKernel::new(),
         SignalKernel::new(),
@@ -84,9 +80,7 @@ async fn test_wasm_transformer_plugin_adds_one() {
         AxiomKernel::new(),
         WitnessKernel::new(),
         PluginRegistry::new(),
-        std::sync::Arc::new(tokio::sync::RwLock::new(
-            HeatmapCollector::new(),
-        )),
+        std::sync::Arc::new(tokio::sync::RwLock::new(HeatmapCollector::new())),
     );
     plugin.init(ctx).unwrap();
 

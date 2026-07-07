@@ -21,6 +21,12 @@ pub struct RepositoryIndex {
     pub plugins: Vec<PluginVersion>,
 }
 
+impl Default for RepositoryIndex {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl RepositoryIndex {
     pub fn new() -> Self {
         Self {

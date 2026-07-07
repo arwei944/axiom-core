@@ -13,6 +13,7 @@ pub struct OutgoingWitness(pub Witness);
 
 pub struct CellContext<'a> {
     pub(crate) cell_id: &'a CellId,
+    #[allow(dead_code)]
     pub(crate) layer: Layer,
     pub(crate) current_msg_id: Option<crate::id::MsgId>,
     pub(crate) current_correlation: Option<crate::id::CorrelationId>,
@@ -25,6 +26,7 @@ pub struct CellContext<'a> {
     pub(crate) vector_clock: crate::signal::VectorClock,
     pub(crate) outgoing: Vec<OutgoingEnvelope>,
     pub(crate) witnesses: Vec<OutgoingWitness>,
+    #[allow(dead_code)]
     pub(crate) witness_sample_rate: f64,
 }
 
@@ -82,8 +84,7 @@ impl<'a> CellContext<'a> {
 
     pub fn emit_axiom_violation(&mut self, axiom_name: &str, message: &str) -> KernelResult<()> {
         let builder =
-            self
-                .witness()
+            self.witness()
                 .summary("axiom violation")
                 .outcome(TransitionOutcome::AxiomViolated {
                     axiom_name: axiom_name.to_string(),

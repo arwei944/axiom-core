@@ -1,5 +1,4 @@
-use axiom_kernel::plugin::abi::{PluginContext, PluginMessage, PluginReply};
-use axiom_kernel::AxiomPlugin;
+use axiom_kernel::plugin::abi::PluginContext;
 
 #[tokio::test]
 async fn test_plugin_context_creation() {

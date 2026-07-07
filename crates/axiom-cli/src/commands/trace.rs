@@ -43,7 +43,12 @@ pub fn run_trace(args: &TraceArgs) -> Result<ExitCode> {
     println!("Queued: {}", snapshot.queued);
     println!(
         "Heatmap signals: {}",
-        snapshot.heatmap.hot_signals.iter().map(|(_, v)| v).sum::<u64>()
+        snapshot
+            .heatmap
+            .hot_signals
+            .iter()
+            .map(|(_, v)| v)
+            .sum::<u64>()
     );
 
     Ok(ExitCode::SUCCESS)

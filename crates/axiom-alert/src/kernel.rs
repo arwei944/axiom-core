@@ -10,6 +10,12 @@ pub struct AlertKernelAdapter {
     alerts: Vec<Alert>,
 }
 
+impl Default for AlertKernelAdapter {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl AlertKernelAdapter {
     pub fn new() -> Self {
         Self { alerts: Vec::new() }

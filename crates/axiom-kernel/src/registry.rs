@@ -72,10 +72,7 @@ impl LensRegistry {
     }
 
     pub fn get_by_id(id: &str) -> Option<&'static dyn DynLens> {
-        LENS_REGISTRY
-            .iter()
-            .find(|f| f().id() == id)
-            .map(|f| f())
+        LENS_REGISTRY.iter().find(|f| f().id() == id).map(|f| f())
     }
 
     pub fn get_by_aggregate(aggregate_id: &str) -> Vec<&'static dyn DynLens> {

@@ -9,7 +9,11 @@ use axiom_kernel::signal::{SignalKind, VectorClock};
 use axiom_kernel::version::Version;
 use std::time::Duration;
 
-fn env_from_to(from: Layer, to: Layer, target: Option<&str>) -> axiom_kernel::signal::SignalEnvelope {
+fn env_from_to(
+    from: Layer,
+    to: Layer,
+    target: Option<&str>,
+) -> axiom_kernel::signal::SignalEnvelope {
     axiom_kernel::signal::SignalEnvelope {
         msg_id: MsgId::new("test-msg"),
         correlation_id: CorrelationId::new("test-corr"),

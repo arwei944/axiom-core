@@ -1,8 +1,8 @@
 use crate::axiom::{KernelError, KernelResult, Message};
 use crate::context::{CellContext, OutgoingEnvelope, OutgoingWitness};
-use crate::HeatmapCollector;
 use crate::id::CellId;
 use crate::signal::SignalEnvelope;
+use crate::HeatmapCollector;
 use serde::{Deserialize, Serialize};
 use std::future::Future;
 use std::pin::Pin;
@@ -74,12 +74,8 @@ pub struct RuntimeCellHandle {
 }
 
 impl RuntimeCellHandle {
-    pub fn new<C>(cell: C) -> Self
-    where
-        C: crate::signal::Signal + Send + 'static,
-        C: for<'de> Deserialize<'de>,
-    {
-        unimplemented!()
+    pub fn new(inner: Box<dyn DynHandleCell>) -> Self {
+        Self { inner }
     }
 
     pub fn downcast_ref<C: 'static>(&self) -> Option<&C> {
@@ -150,7 +146,10 @@ impl CellKernel {
         if let Some((_, state)) = cells.iter_mut().find(|(h, _)| h.id == handle.id) {
             state.inbox.push_back(msg);
             drop(cells);
-            self.heatmap.write().await.record_cell_message(handle.id.to_string());
+            self.heatmap
+                .write()
+                .await
+                .record_cell_message(handle.id.to_string());
             Ok(())
         } else {
             Err(KernelError::CellNotFound(handle.id.to_string()))

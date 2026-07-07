@@ -1,9 +1,9 @@
 //! Constraint runtime tests: interceptors, guard, capability version, witness records.
 
-use axiom_kernel::KernelError;
 use axiom_kernel::id::{CorrelationId, MsgId};
 use axiom_kernel::layer::Layer;
 use axiom_kernel::signal::{SignalKind, VectorClock};
+use axiom_kernel::KernelError;
 use axiom_runtime::bus::{BusInterceptor, InterceptDecision, MessageBus};
 use axiom_runtime::constraint_validator::{ConstraintValidator, ValidationContext};
 use axiom_runtime::interceptors::{

@@ -1,27 +1,35 @@
 use axiom_kernel::layer::Layer;
-use axiom_kernel::registry::{CAPABILITY_REGISTRY, CapabilityDimension, CapabilityVersionRegistry};
+use axiom_kernel::registry::{CapabilityDimension, CapabilityVersionRegistry, CAPABILITY_REGISTRY};
 
+#[allow(dead_code)]
 #[axiom_macros::capability(dim = "witness", version = "1.0.0")]
 struct WitnessCapability;
 
+#[allow(dead_code)]
 #[axiom_macros::capability(dim = "schema", version = "2.1.0")]
 struct SchemaCapability;
 
+#[allow(dead_code)]
 #[axiom_macros::capability(dim = "layer", version = "1.0.0", layer = "exec")]
 struct ExecLayerCapability;
 
+#[allow(dead_code)]
 #[axiom_macros::capability(dim = "tool", version = "1.2.0")]
 struct ToolCapability;
 
+#[allow(dead_code)]
 #[axiom_macros::capability(dim = "guard", version = "1.0.0", layer = "all")]
 struct GuardCapability;
 
+#[allow(dead_code)]
 #[axiom_macros::capability(dim = "identity", version = "1.0.0")]
 struct IdentityCapability;
 
+#[allow(dead_code)]
 #[axiom_macros::capability(dim = "entropy", version = "1.0.0")]
 struct EntropyCapability;
 
+#[allow(dead_code)]
 #[axiom_macros::capability(dim = "runtime", version = "1.0.0")]
 struct RuntimeCapability;
 
@@ -30,7 +38,10 @@ fn test_capability_macro_auto_registration() {
     let caps = CAPABILITY_REGISTRY.iter().copied().collect::<Vec<_>>();
     assert!(caps.len() >= 8);
 
-    let witness_caps: Vec<_> = caps.iter().filter(|c| c.name == "WitnessCapability").collect();
+    let witness_caps: Vec<_> = caps
+        .iter()
+        .filter(|c| c.name == "WitnessCapability")
+        .collect();
     assert!(!witness_caps.is_empty());
 }
 
@@ -59,7 +70,8 @@ fn test_capability_layer_association() {
 
 #[test]
 fn test_latest_version_for_dimension() {
-    let witness_version = CapabilityVersionRegistry::latest_version_for_dimension(&CapabilityDimension::Schema);
+    let witness_version =
+        CapabilityVersionRegistry::latest_version_for_dimension(&CapabilityDimension::Schema);
     assert!(witness_version.is_some());
 }
 

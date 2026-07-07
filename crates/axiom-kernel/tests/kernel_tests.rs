@@ -5,13 +5,18 @@ use axiom_kernel::layer::Layer;
 use axiom_kernel::lens::LensKernel;
 use axiom_kernel::signal::{SignalEnvelope, SignalKernel};
 use axiom_kernel::version::{SchemaVersion, VersionInfo};
-use axiom_kernel::witness::{TransitionOutcome, Witness, WitnessHash, WitnessKind, WitnessKernel, WitnessMetrics};
+use axiom_kernel::witness::{
+    TransitionOutcome, Witness, WitnessHash, WitnessKernel, WitnessKind, WitnessMetrics,
+};
 
 #[tokio::test]
 async fn test_cell_kernel_send_receive() {
     let kernel = CellKernel::new();
     let handle = kernel.create(CellKind::Exec).await;
-    kernel.send(&handle, Message::new(b"hello".to_vec())).await.unwrap();
+    kernel
+        .send(&handle, Message::new(b"hello".to_vec()))
+        .await
+        .unwrap();
     let received = kernel.receive(&handle).await.unwrap();
     assert_eq!(received.unwrap().payload, b"hello");
 }

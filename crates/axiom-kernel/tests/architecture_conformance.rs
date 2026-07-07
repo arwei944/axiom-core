@@ -1,10 +1,13 @@
 use axiom_kernel::axiom::ValidationResult;
 use axiom_kernel::id::{CorrelationId, MsgId};
 use axiom_kernel::layer::Layer;
-use axiom_kernel::sealed::{AgentLayer, CanSendTo, ExecLayer, LayerMarker, OversightLayer, ValidateLayer};
+use axiom_kernel::sealed::{
+    AgentLayer, CanSendTo, ExecLayer, LayerMarker, OversightLayer, ValidateLayer,
+};
 use axiom_kernel::signal::{now_ns, Signal, SignalKind, VectorClock};
 use serde::{Deserialize, Serialize};
 
+#[allow(dead_code)]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct TestSignal {
     msg_id: MsgId,
@@ -44,7 +47,8 @@ impl Signal for TestSignal {
         ValidationResult::ok()
     }
     fn serialize_to_json(&self) -> axiom_kernel::KernelResult<serde_json::Value> {
-        serde_json::to_value(self).map_err(|e| axiom_kernel::KernelError::SerializationError(e.to_string()))
+        serde_json::to_value(self)
+            .map_err(|e| axiom_kernel::KernelError::SerializationError(e.to_string()))
     }
 }
 
@@ -93,7 +97,10 @@ fn conformance_layer_marker_sealed() {
 
 #[test]
 fn conformance_entropy_governor_is_oversight_layer() {
-    assert_eq!(axiom_kernel::sealed::OversightLayer::LAYER, Layer::Oversight);
+    assert_eq!(
+        axiom_kernel::sealed::OversightLayer::LAYER,
+        Layer::Oversight
+    );
 }
 
 #[test]

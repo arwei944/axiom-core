@@ -2,6 +2,7 @@ use proc_macro2::TokenStream as TokenStream2;
 use quote::quote;
 use syn::{DeriveInput, LitInt};
 
+#[allow(dead_code)]
 pub fn parse_layer_marker(lit: &syn::LitStr) -> Result<TokenStream2, syn::Error> {
     match lit.value().as_str() {
         "exec" => Ok(quote! { ::axiom_kernel::sealed::ExecLayer }),

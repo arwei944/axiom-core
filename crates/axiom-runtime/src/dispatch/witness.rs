@@ -1,7 +1,7 @@
 use axiom_kernel::id::MsgId;
-use axiom_kernel::KernelError;
 use axiom_kernel::layer::Layer;
 use axiom_kernel::witness::Witness;
+use axiom_kernel::KernelError;
 use axiom_store::Event;
 
 pub fn witness_to_event(witness: &Witness, layer: Layer) -> Result<Event, KernelError> {

@@ -156,11 +156,13 @@ fn render_cell_list(cells: &[(axiom_kernel::cell::CellHandle, usize)], detailed:
     for (handle, queued) in cells {
         output.push_str(&format!(
             "{:<24} {:<12} {}\n",
-            handle.id, format!("{:?}", handle.kind), queued
+            handle.id,
+            format!("{:?}", handle.kind),
+            queued
         ));
 
         if detailed {
-            output.push_str(&format!("  State: Running\n"));
+            output.push_str("  State: Running\n");
         }
     }
 

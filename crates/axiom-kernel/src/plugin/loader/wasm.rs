@@ -1,4 +1,6 @@
-use crate::plugin::abi::{AxiomPlugin, PluginContext, PluginError, PluginMessage, PluginReply, PluginResult};
+use crate::plugin::abi::{
+    AxiomPlugin, PluginContext, PluginError, PluginMessage, PluginReply, PluginResult,
+};
 use std::path::Path;
 use wasmtime::*;
 
@@ -26,7 +28,8 @@ impl WasmPluginLoader {
             .get_typed_func::<(), i32>(&mut store, "axiom_plugin_create")
             .map_err(|e| PluginError::MissingSymbol(e.to_string()))?;
 
-        let ptr = create.call(&mut store, ())
+        let ptr = create
+            .call(&mut store, ())
             .map_err(|e| PluginError::LoadFailed(e.to_string()))?;
 
         if ptr <= 0 {
@@ -35,7 +38,11 @@ impl WasmPluginLoader {
             ));
         }
 
-        Ok(Box::new(WasmPluginInstance { store, instance, ptr }))
+        Ok(Box::new(WasmPluginInstance {
+            store,
+            instance,
+            ptr,
+        }))
     }
 
     pub fn unload(&self, _plugin: &dyn AxiomPlugin) -> PluginResult<()> {
@@ -82,8 +89,8 @@ impl AxiomPlugin for WasmPluginInstance {
         Ok(())
     }
     fn handle_message(&mut self, msg: PluginMessage) -> PluginResult<PluginReply> {
-        let bytes = postcard::to_allocvec(&msg)
-            .map_err(|e| PluginError::LoadFailed(e.to_string()))?;
+        let bytes =
+            postcard::to_allocvec(&msg).map_err(|e| PluginError::LoadFailed(e.to_string()))?;
 
         let mut store = &mut self.store;
         let instance = &self.instance;
@@ -99,7 +106,8 @@ impl AxiomPlugin for WasmPluginInstance {
             .ok();
 
         let wasm_ptr = if let Some(alloc) = alloc {
-            alloc.call(&mut store, (bytes.len() as u32, 1))
+            alloc
+                .call(&mut store, (bytes.len() as u32, 1))
                 .map_err(|e| PluginError::LoadFailed(e.to_string()))?
         } else {
             return Err(PluginError::MissingSymbol(
@@ -116,9 +124,7 @@ impl AxiomPlugin for WasmPluginInstance {
                 data[start..end].copy_from_slice(&bytes);
             } else {
                 let _ = dealloc.as_ref().map(|d| d.call(&mut store, wasm_ptr));
-                return Err(PluginError::LoadFailed(
-                    "wasm memory out of bounds".into(),
-                ));
+                return Err(PluginError::LoadFailed("wasm memory out of bounds".into()));
             }
         }
 
@@ -142,8 +148,7 @@ impl AxiomPlugin for WasmPluginInstance {
                     len += 1;
                 }
                 let slice = &data[start..start + len];
-                postcard::from_bytes(slice)
-                    .map_err(|e| PluginError::LoadFailed(e.to_string()))?
+                postcard::from_bytes(slice).map_err(|e| PluginError::LoadFailed(e.to_string()))?
             } else {
                 PluginReply::Err("wasm memory unavailable".into())
             }
@@ -154,7 +159,9 @@ impl AxiomPlugin for WasmPluginInstance {
         let _ = dealloc.as_ref().map(|d| d.call(&mut store, wasm_ptr));
         if let PluginReply::Ok(data) = &reply {
             if !data.is_empty() {
-                let _ = dealloc.as_ref().map(|d| d.call(&mut store, data.as_ptr() as u32));
+                let _ = dealloc
+                    .as_ref()
+                    .map(|d| d.call(&mut store, data.as_ptr() as u32));
             }
         }
 
@@ -162,11 +169,16 @@ impl AxiomPlugin for WasmPluginInstance {
     }
 
     fn clone_box(&self) -> Box<dyn AxiomPlugin> {
-        Box::new(WasmPluginInstance {
-            store: Store::new(&Engine::default(), ()),
-            instance: unsafe { std::ptr::read(&self.instance) },
-            ptr: self.ptr,
-        })
+        // SAFETY: We're copying the wasmtime Instance handle which is safe because
+        // wasmtime instances are shareable and we're creating a new Store context.
+        // The ptr field contains a raw pointer to the wasm export which remains valid.
+        unsafe {
+            Box::new(WasmPluginInstance {
+                store: Store::new(&Engine::default(), ()),
+                instance: std::ptr::read(&self.instance),
+                ptr: self.ptr,
+            })
+        }
     }
 }
 

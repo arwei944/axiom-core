@@ -1,9 +1,11 @@
 use anyhow::Result;
 use clap::Args;
-use std::process::ExitCode;
 use std::path::PathBuf;
+use std::process::ExitCode;
 
-use axiom_kernel::heatmap::{HeatmapCollector, HeatmapExporter, JsonExporter, PrometheusExporter, VizExporter};
+use axiom_kernel::heatmap::{
+    HeatmapCollector, HeatmapExporter, JsonExporter, PrometheusExporter, VizExporter,
+};
 
 #[derive(Debug, Args)]
 pub struct HeatmapArgs {

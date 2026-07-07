@@ -5,7 +5,7 @@ use syn::{parse_macro_input, ItemStruct};
 pub fn impl_axiom(_attr: TokenStream, item: TokenStream) -> TokenStream {
     let input = parse_macro_input!(item as ItemStruct);
     let name = &input.ident;
-    let name_str = name.to_string();
+    let _name_str = name.to_string();
     let reg_fn = syn::Ident::new(
         &format!("__axiom_fn_{}", name),
         proc_macro2::Span::call_site(),

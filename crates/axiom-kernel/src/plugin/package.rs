@@ -46,7 +46,9 @@ pub fn unpack(data: &[u8]) -> Result<PluginPackage, PluginError> {
     }
     let version = u32::from_le_bytes([data[4], data[5], data[6], data[7]]);
     if version != AXIOM_PLUGIN_VERSION {
-        return Err(PluginError::LoadFailed(format!("unsupported version: {version}")));
+        return Err(PluginError::LoadFailed(format!(
+            "unsupported version: {version}"
+        )));
     }
     let json_len = u32::from_le_bytes([data[8], data[9], data[10], data[11]]) as usize;
     if data.len() < 12 + json_len {

@@ -1,8 +1,8 @@
-use crate::axiom::{KernelResult, ValidationResult, ValidationError, ValidationSeverity};
-use crate::HeatmapCollector;
+use crate::axiom::{KernelResult, ValidationResult};
 use crate::id::{CorrelationId, MsgId, TraceId};
 use crate::layer::Layer;
 use crate::version::SchemaVersion;
+use crate::HeatmapCollector;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use tokio::sync::RwLock;
@@ -75,9 +75,13 @@ pub struct SignalEnvelope {
 }
 
 impl SignalEnvelope {
-    pub fn new(source_layer: crate::Layer, target_layer: crate::Layer, signal_type: impl Into<String>) -> Self {
+    pub fn new(
+        source_layer: crate::Layer,
+        target_layer: crate::Layer,
+        signal_type: impl Into<String>,
+    ) -> Self {
         Self {
-            msg_id: crate::id::MsgId::new(&Uuid::new_v4().to_string()),
+            msg_id: crate::id::MsgId::new(Uuid::new_v4().to_string()),
             correlation_id: crate::id::CorrelationId::new("kernel"),
             trace_id: None,
             signal_type: signal_type.into(),
@@ -151,7 +155,10 @@ impl SignalKernel {
             handler.handle(&mut envelope)?;
         }
         drop(handlers);
-        self.heatmap.write().await.record_signal_send(envelope.signal_type.clone());
+        self.heatmap
+            .write()
+            .await
+            .record_signal_send(envelope.signal_type.clone());
         Ok(envelope)
     }
 

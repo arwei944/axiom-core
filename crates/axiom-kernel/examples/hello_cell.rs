@@ -13,17 +13,40 @@ struct HelloCommand {
 }
 
 impl Signal for HelloCommand {
-    fn signal_type(&self) -> &'static str { "HelloCommand" }
-    fn msg_id(&self) -> &MsgId { &self.msg_id }
-    fn correlation_id(&self) -> &CorrelationId { &self.correlation_id }
-    fn vector_clock(&self) -> &VectorClock { &self.vector_clock }
-    fn timestamp_ns(&self) -> u64 { 0 }
-    fn kind(&self) -> SignalKind { SignalKind::Command }
-    fn layer(&self) -> Layer { Layer::Exec }
-    fn as_any(&self) -> &dyn std::any::Any { self }
-    fn clone_signal(&self) -> Box<dyn Signal> { Box::new(self.clone()) }
-    fn validate(&self) -> axiom_kernel::axiom::ValidationResult { axiom_kernel::axiom::ValidationResult::ok() }
-    fn serialize_to_json(&self) -> KernelResult<serde_json::Value> { serde_json::to_value(self).map_err(|e| axiom_kernel::KernelError::SerializationError(e.to_string())) }
+    fn signal_type(&self) -> &'static str {
+        "HelloCommand"
+    }
+    fn msg_id(&self) -> &MsgId {
+        &self.msg_id
+    }
+    fn correlation_id(&self) -> &CorrelationId {
+        &self.correlation_id
+    }
+    fn vector_clock(&self) -> &VectorClock {
+        &self.vector_clock
+    }
+    fn timestamp_ns(&self) -> u64 {
+        0
+    }
+    fn kind(&self) -> SignalKind {
+        SignalKind::Command
+    }
+    fn layer(&self) -> Layer {
+        Layer::Exec
+    }
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
+    fn clone_signal(&self) -> Box<dyn Signal> {
+        Box::new(self.clone())
+    }
+    fn validate(&self) -> axiom_kernel::axiom::ValidationResult {
+        axiom_kernel::axiom::ValidationResult::ok()
+    }
+    fn serialize_to_json(&self) -> KernelResult<serde_json::Value> {
+        serde_json::to_value(self)
+            .map_err(|e| axiom_kernel::KernelError::SerializationError(e.to_string()))
+    }
 }
 
 struct HelloCell {

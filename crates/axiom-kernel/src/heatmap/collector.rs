@@ -46,6 +46,12 @@ pub struct HeatmapCollector {
     pub timeline: Vec<UsageSnapshot>,
 }
 
+impl Default for HeatmapCollector {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl HeatmapCollector {
     pub fn new() -> Self {
         Self {
@@ -63,7 +69,10 @@ impl HeatmapCollector {
     }
 
     pub fn record_signal_send(&mut self, signal_type: impl Into<String>) {
-        *self.signal_send_count.entry(signal_type.into()).or_default() += 1;
+        *self
+            .signal_send_count
+            .entry(signal_type.into())
+            .or_default() += 1;
     }
 
     pub fn record_tool_invoke(&mut self, tool_id: impl Into<String>) {
@@ -93,6 +102,6 @@ impl HeatmapCollector {
 
 fn top_n(map: &HashMap<String, u64>, n: usize) -> Vec<(String, u64)> {
     let mut items: Vec<_> = map.iter().map(|(k, v)| (k.clone(), *v)).collect();
-    items.sort_by(|a, b| b.1.cmp(&a.1));
+    items.sort_by_key(|b| std::cmp::Reverse(b.1));
     items.into_iter().take(n).collect()
 }

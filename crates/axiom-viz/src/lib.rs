@@ -18,6 +18,7 @@ pub mod topology;
 
 pub use cell_flow::{CellFlowRecord, CellFlowSnapshot};
 pub use entropy::EntropyData;
+pub use kernel::VizKernelAdapter;
 #[cfg(feature = "metrics")]
 pub use metrics::PrometheusRegistry;
 pub use metrics::{
@@ -27,7 +28,6 @@ pub use metrics::{
 };
 pub use timeline::{Timeline, TimelineEntry};
 pub use topology::{CellNode, TopologyGraph};
-pub use kernel::VizKernelAdapter;
 
 #[derive(Debug, Clone, Serialize)]
 pub struct VizSnapshot {

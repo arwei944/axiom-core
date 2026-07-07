@@ -4,7 +4,7 @@ use axiom_plugin_test::{CounterPlugin, EchoPlugin};
 
 #[tokio::test]
 async fn test_echo_plugin_basic() {
-    let mut plugin = EchoPlugin::default();
+    let mut plugin = EchoPlugin;
     let ctx = PluginContext::new(
         axiom_kernel::CellKernel::new(),
         axiom_kernel::SignalKernel::new(),
@@ -61,10 +61,7 @@ async fn test_counter_plugin_increments() {
         .unwrap();
 
     match (reply1, reply2) {
-        (
-            PluginReply::Ok(a),
-            PluginReply::Ok(b),
-        ) => {
+        (PluginReply::Ok(a), PluginReply::Ok(b)) => {
             assert_eq!(a, b"1");
             assert_eq!(b, b"2");
         }

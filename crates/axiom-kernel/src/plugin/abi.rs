@@ -22,7 +22,9 @@ pub enum PluginError {
     UnsupportedKind(String),
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize, Default)]
+#[derive(
+    Debug, Clone, Copy, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize, Default,
+)]
 pub enum PluginKind {
     #[default]
     Llm,
@@ -53,29 +55,12 @@ pub enum PluginStatus {
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub enum PluginMessage {
-    CallTool {
-        tool: String,
-        input: Vec<u8>,
-    },
-    QueryMemory {
-        key: String,
-    },
-    SendSignal {
-        signal: String,
-        payload: Vec<u8>,
-    },
-    CheckAxiom {
-        axiom: String,
-        state: Vec<u8>,
-    },
-    QueryLens {
-        lens: String,
-        state: Vec<u8>,
-    },
-    Custom {
-        kind: String,
-        payload: Vec<u8>,
-    },
+    CallTool { tool: String, input: Vec<u8> },
+    QueryMemory { key: String },
+    SendSignal { signal: String, payload: Vec<u8> },
+    CheckAxiom { axiom: String, state: Vec<u8> },
+    QueryLens { lens: String, state: Vec<u8> },
+    Custom { kind: String, payload: Vec<u8> },
 }
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
@@ -141,14 +126,16 @@ impl PluginContext {
         to: &str,
         msg: PluginMessage,
     ) -> PluginResult<PluginReply> {
-        let mut target = self.plugins.get(to).await.ok_or_else(|| {
-            PluginError::LoadFailed(format!("plugin `{to}` not found"))
-        })?;
+        let mut target = self
+            .plugins
+            .get(to)
+            .await
+            .ok_or_else(|| PluginError::LoadFailed(format!("plugin `{to}` not found")))?;
         self.heatmap
             .write()
             .await
             .record_tool_invoke(to.to_string());
-        Ok(target.handle_message(msg)?)
+        target.handle_message(msg)
     }
 }
 

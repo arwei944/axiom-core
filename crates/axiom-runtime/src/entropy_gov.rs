@@ -105,7 +105,7 @@ impl EntropyGovernorCell {
     pub async fn record_witness(&self, ev: &EntropyEvent) {
         if let Some(kernel) = &self.witness_kernel {
             let now = global_clock().now_ns();
-            let cell_id = match ev {
+            let _cell_id = match ev {
                 EntropyEvent::AxiomViolation { cell_id } => cell_id.clone(),
                 EntropyEvent::DroppedMessage { cell_id } => cell_id.clone(),
                 EntropyEvent::RejectedByGuardian { cell_id } => cell_id.clone(),
@@ -248,7 +248,7 @@ impl EntropyGovernorCell {
                 let hottest = snap
                     .per_cell
                     .iter()
-                    .max_by(|a, b| a.1.partial_cmp(&b.1).unwrap_or(std::cmp::Ordering::Equal))
+                    .max_by(|a, b| a.1.partial_cmp(b.1).unwrap_or(std::cmp::Ordering::Equal))
                     .map(|(k, _)| k.clone());
                 GovernanceAction::Throttle {
                     target_cell: hottest,

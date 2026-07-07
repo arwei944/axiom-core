@@ -43,7 +43,9 @@ impl LensKernel {
             }
             result
         } else {
-            Err(KernelError::LensNotFound { lens_id: id.to_string() })
+            Err(KernelError::LensNotFound {
+                lens_id: id.to_string(),
+            })
         }
     }
 }

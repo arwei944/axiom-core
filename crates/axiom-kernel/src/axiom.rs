@@ -63,15 +63,21 @@ impl ValidationResult {
     }
 
     pub fn is_valid(&self) -> bool {
-        self.errors.iter().all(|e| e.severity != ValidationSeverity::Error)
+        self.errors
+            .iter()
+            .all(|e| e.severity != ValidationSeverity::Error)
     }
 
     pub fn has_errors(&self) -> bool {
-        self.errors.iter().any(|e| e.severity == ValidationSeverity::Error)
+        self.errors
+            .iter()
+            .any(|e| e.severity == ValidationSeverity::Error)
     }
 
     pub fn has_warnings(&self) -> bool {
-        self.errors.iter().any(|e| e.severity == ValidationSeverity::Warning)
+        self.errors
+            .iter()
+            .any(|e| e.severity == ValidationSeverity::Warning)
     }
 
     pub fn extend(&mut self, other: ValidationResult) {
@@ -81,7 +87,11 @@ impl ValidationResult {
 
 impl std::fmt::Display for ValidationResult {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let messages: Vec<String> = self.errors.iter().map(|e| format!("{}: {}", e.field, e.message)).collect();
+        let messages: Vec<String> = self
+            .errors
+            .iter()
+            .map(|e| format!("{}: {}", e.field, e.message))
+            .collect();
         write!(f, "{}", messages.join("; "))
     }
 }
@@ -238,7 +248,11 @@ pub enum KernelError {
     },
 
     #[error("Token budget exceeded for {cell_id}: used {used}, budget {budget}")]
-    TokenBudgetExceeded { cell_id: String, used: u64, budget: u64 },
+    TokenBudgetExceeded {
+        cell_id: String,
+        used: u64,
+        budget: u64,
+    },
 
     #[error("Message loop detected: {message} (correlation: {correlation_id})")]
     LoopDetected {
@@ -350,7 +364,12 @@ pub trait Axiom: Send + Sync {
 
     fn name(&self) -> &'static str;
 
-    fn check(&self, current: &Self::State, new: &Self::State, msg: &Self::Message) -> KernelResult<()>;
+    fn check(
+        &self,
+        current: &Self::State,
+        new: &Self::State,
+        msg: &Self::Message,
+    ) -> KernelResult<()>;
 
     fn violation_action(&self) -> ViolationAction {
         ViolationAction::Reject
@@ -393,24 +412,25 @@ impl<T: Axiom + 'static> DynAxiom for T {
         new: &dyn std::any::Any,
         msg: &dyn std::any::Any,
     ) -> KernelResult<()> {
-        let current = current.downcast_ref::<T::State>().ok_or_else(|| {
-            KernelError::TypeMismatch {
+        let current =
+            current
+                .downcast_ref::<T::State>()
+                .ok_or_else(|| KernelError::TypeMismatch {
+                    expected: std::any::type_name::<T::State>(),
+                    actual: "unknown",
+                })?;
+        let new = new
+            .downcast_ref::<T::State>()
+            .ok_or_else(|| KernelError::TypeMismatch {
                 expected: std::any::type_name::<T::State>(),
                 actual: "unknown",
-            }
-        })?;
-        let new = new.downcast_ref::<T::State>().ok_or_else(|| {
-            KernelError::TypeMismatch {
-                expected: std::any::type_name::<T::State>(),
-                actual: "unknown",
-            }
-        })?;
-        let msg = msg.downcast_ref::<T::Message>().ok_or_else(|| {
-            KernelError::TypeMismatch {
+            })?;
+        let msg = msg
+            .downcast_ref::<T::Message>()
+            .ok_or_else(|| KernelError::TypeMismatch {
                 expected: std::any::type_name::<T::Message>(),
                 actual: "unknown",
-            }
-        })?;
+            })?;
         <T as Axiom>::check(self, current, new, msg)
     }
 

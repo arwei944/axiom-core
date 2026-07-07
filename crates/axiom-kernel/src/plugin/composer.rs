@@ -35,17 +35,22 @@ pub struct Composer;
 
 impl Composer {
     pub fn from_file(path: impl AsRef<Path>) -> PluginResult<SystemComposition> {
-        let content = std::fs::read_to_string(path).map_err(|e| PluginError::LoadFailed(e.to_string()))?;
-        Self::from_str(&content)
+        let content =
+            std::fs::read_to_string(path).map_err(|e| PluginError::LoadFailed(e.to_string()))?;
+        Self::parse(&content)
     }
 
-    pub fn from_str(content: &str) -> PluginResult<SystemComposition> {
+    pub fn parse(content: &str) -> PluginResult<SystemComposition> {
         let parsed: SystemComposition =
             toml::from_str(content).map_err(|e| PluginError::LoadFailed(e.to_string()))?;
         Ok(parsed)
     }
 
-    pub fn compose(&self, _composition: &SystemComposition, _registry: &mut crate::PluginRegistry) -> PluginResult<()> {
+    pub fn compose(
+        &self,
+        _composition: &SystemComposition,
+        _registry: &mut crate::PluginRegistry,
+    ) -> PluginResult<()> {
         for spec in &_composition.plugins {
             let _ = spec.id.clone();
         }

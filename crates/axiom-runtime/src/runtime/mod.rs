@@ -1,6 +1,6 @@
-use crate::runtime::kernel_bridge::RuntimeKernelBridge;
 use crate::entropy_gov::EntropyGovernorCell;
 use crate::mailbox::Mailbox;
+use crate::runtime::kernel_bridge::RuntimeKernelBridge;
 use crate::supervisor::Supervisor;
 use axiom_kernel::cell::RuntimeCellHandle;
 use axiom_kernel::cell::SupervisionStrategy;

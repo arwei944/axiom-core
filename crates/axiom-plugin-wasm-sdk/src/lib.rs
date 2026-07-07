@@ -32,8 +32,8 @@ impl Default for WasmPluginBuilder {
 #[macro_export]
 macro_rules! axiom_wasm_plugin {
     ($plugin_type:ty) => {
-        use $crate::wasm_sdk::WasmPluginBuilder;
         use std::sync::{Arc, Mutex};
+        use $crate::wasm_sdk::WasmPluginBuilder;
 
         #[no_mangle]
         pub extern "C" fn axiom_plugin_create() -> *mut () {
@@ -49,6 +49,8 @@ macro_rules! axiom_wasm_plugin {
         #[no_mangle]
         pub extern "C" fn axiom_plugin_destroy(ptr: *mut ()) {
             if !ptr.is_null() {
+                // SAFETY: The pointer was allocated by axiom_plugin_create using Box::into_raw,
+                // so it's safe to reconstruct and drop it here.
                 unsafe {
                     let _ = Box::from_raw(ptr as *mut dyn $crate::AxiomPlugin);
                 }
@@ -64,6 +66,8 @@ macro_rules! axiom_wasm_plugin {
             if ptr.is_null() || msg_ptr.is_null() || msg_len == 0 {
                 return std::ptr::null_mut();
             }
+            // SAFETY: Pointers validated non-null, ptr allocated by create and valid until destroy,
+            // msg_ptr points to valid byte slice of length msg_len
             unsafe {
                 let plugin = &mut *(ptr as *mut dyn $crate::AxiomPlugin);
                 let msg_slice = std::slice::from_raw_parts(msg_ptr, msg_len);

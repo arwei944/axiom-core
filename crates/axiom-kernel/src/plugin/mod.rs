@@ -7,8 +7,8 @@ pub mod registry;
 pub mod version;
 
 pub use abi::{
-    CapabilityDescriptor, PluginContext, PluginError, PluginKind, PluginMessage, PluginReply,
-    AxiomPlugin,
+    AxiomPlugin, CapabilityDescriptor, PluginContext, PluginError, PluginKind, PluginMessage,
+    PluginReply,
 };
 pub use composer::Composer;
 pub use kernel_bridge::RuntimeKernelBridge;
