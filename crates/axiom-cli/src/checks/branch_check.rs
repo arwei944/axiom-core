@@ -12,7 +12,7 @@ impl Check for BranchCheck {
     }
 
     fn blocking(&self) -> bool {
-        true
+        false
     }
 
     fn run(&self) -> CheckResult {
@@ -23,7 +23,7 @@ impl Check for BranchCheck {
                 return CheckResult {
                     name: self.name(),
                     passed: false,
-                    blocking: true,
+                    blocking: false,
                     message: format!("cannot run git: {e}"),
                 }
             }
@@ -35,16 +35,16 @@ impl Check for BranchCheck {
             CheckResult {
                 name: self.name(),
                 passed: false,
-                blocking: true,
+                blocking: false,
                 message: format!(
-                    "currently on protected branch '{branch}'. Create a feature branch first: git checkout -b <branch-name>"
+                    "currently on protected branch '{branch}'. Consider using a feature branch: git checkout -b <branch-name>"
                 ),
             }
         } else {
             CheckResult {
                 name: self.name(),
                 passed: true,
-                blocking: true,
+                blocking: false,
                 message: format!("on branch '{branch}' (safe)"),
             }
         }

@@ -6,7 +6,7 @@ pub struct CargoBuildCheck;
 
 impl Check for CargoBuildCheck {
     fn name(&self) -> &'static str {
-        "cargo build (warnings as errors)"
+        "cargo check (warnings as errors)"
     }
 
     fn blocking(&self) -> bool {
@@ -15,7 +15,7 @@ impl Check for CargoBuildCheck {
 
     fn run(&self) -> CheckResult {
         let output = Command::new("cargo")
-            .args(["build", "--workspace"])
+            .args(["check", "--workspace", "--all-targets"])
             .env("RUSTFLAGS", "-D warnings")
             .output();
 
@@ -24,23 +24,23 @@ impl Check for CargoBuildCheck {
                 name: self.name(),
                 passed: true,
                 blocking: true,
-                message: "build succeeded with zero warnings".into(),
+                message: "check passed with zero warnings".into(),
             },
             Ok(o) => {
                 let stderr = String::from_utf8_lossy(&o.stderr);
-                let errors: Vec<&str> = stderr
+                let issues: Vec<&str> = stderr
                     .lines()
-                    .filter(|l| l.contains("error") || l.contains("warning"))
+                    .filter(|l| l.starts_with("error") || l.starts_with("warning"))
                     .take(5)
                     .collect();
                 CheckResult {
                     name: self.name(),
                     passed: false,
                     blocking: true,
-                    message: if errors.is_empty() {
-                        "build failed".into()
+                    message: if issues.is_empty() {
+                        "check failed".into()
                     } else {
-                        format!("build issues:\n    {}", errors.join("\n    "))
+                        format!("check issues:\n    {}", issues.join("\n    "))
                     },
                 }
             }
@@ -48,7 +48,7 @@ impl Check for CargoBuildCheck {
                 name: self.name(),
                 passed: false,
                 blocking: true,
-                message: format!("failed to run cargo build: {e}"),
+                message: format!("failed to run cargo check: {e}"),
             },
         }
     }

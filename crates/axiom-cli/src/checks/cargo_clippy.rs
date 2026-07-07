@@ -28,7 +28,7 @@ impl Check for CargoClippyCheck {
                 let stderr = String::from_utf8_lossy(&o.stderr);
                 let issues: Vec<&str> = stderr
                     .lines()
-                    .filter(|l| l.contains("error") || l.contains("warning"))
+                    .filter(|l| l.starts_with("error") || l.starts_with("warning"))
                     .take(5)
                     .collect();
                 CheckResult {
