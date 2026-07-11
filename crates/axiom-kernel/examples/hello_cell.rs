@@ -1,5 +1,5 @@
 use axiom_kernel::id::{CorrelationId, MsgId};
-use axiom_kernel::layer::Layer;
+use axiom_kernel::layer::RuntimeTier;
 use axiom_kernel::signal::{Signal, SignalKind, VectorClock};
 use axiom_kernel::KernelResult;
 use serde::{Deserialize, Serialize};
@@ -31,8 +31,8 @@ impl Signal for HelloCommand {
     fn kind(&self) -> SignalKind {
         SignalKind::Command
     }
-    fn layer(&self) -> Layer {
-        Layer::Exec
+    fn layer(&self) -> RuntimeTier {
+        RuntimeTier::Exec
     }
     fn as_any(&self) -> &dyn std::any::Any {
         self
@@ -73,7 +73,7 @@ fn main() {
         message: "Hello, Axiom!".to_string(),
     };
     assert_eq!(signal.signal_type(), "HelloCommand");
-    assert_eq!(signal.layer(), Layer::Exec);
+    assert_eq!(signal.layer(), RuntimeTier::Exec);
     assert_eq!(signal.kind(), SignalKind::Command);
 
     cell.process(signal.message);

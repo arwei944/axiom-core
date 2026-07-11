@@ -28,7 +28,7 @@ bincode = { version = "1.3", optional = true }
 sha2 = { version = "0.10", optional = true }
 
 [features]
-default = ["native-loader"]
+default = ["native-loader", "sha2-id"]
 native-loader = ["libloading"]
 wasm-loader = ["wasmtime", "wasmtime-wasi", "wasmtime-component-util", "postcard"]
 bincode-codec = ["bincode"]

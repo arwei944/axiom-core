@@ -3,7 +3,7 @@ use crate::store::StoreError;
 use crate::SqliteStoreConfig;
 use crate::WitnessHashData;
 use axiom_kernel::id::CorrelationId;
-use axiom_kernel::layer::Layer;
+use axiom_kernel::layer::RuntimeTier;
 use serde_json::Value;
 use sqlx::sqlite::{SqlitePool, SqlitePoolOptions};
 use sqlx::Row;
@@ -36,6 +36,16 @@ impl SqliteStore {
     }
 
     pub async fn run_migrations(&self) -> Result<(), StoreError> {
+        sqlx::query("PRAGMA journal_mode = WAL")
+            .execute(&self.pool)
+            .await
+            .map_err(|e| StoreError::Storage(format!("sqlite wal mode: {e}")))?;
+
+        sqlx::query("PRAGMA synchronous = NORMAL")
+            .execute(&self.pool)
+            .await
+            .map_err(|e| StoreError::Storage(format!("sqlite synchronous mode: {e}")))?;
+
         sqlx::query(
             r#"
             CREATE TABLE IF NOT EXISTS events (
@@ -130,7 +140,7 @@ impl SqliteStore {
                 row.get::<i32, _>("schema_version") as u16,
             ),
             metadata: crate::EventMetadata {
-                layer: serde_json::from_str(row.get::<&str, _>("layer")).unwrap_or(Layer::Exec),
+                layer: serde_json::from_str(row.get::<&str, _>("layer")).unwrap_or(RuntimeTier::Exec),
                 processing_time_ms: row.get::<i64, _>("processing_time_ms") as u64,
                 was_replayed: row.get::<i32, _>("was_replayed") != 0,
                 outcome: serde_json::from_str(row.get::<&str, _>("outcome")).unwrap_or_default(),

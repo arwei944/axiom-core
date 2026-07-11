@@ -34,12 +34,12 @@ pub fn impl_guard(attr: TokenStream, item: TokenStream) -> TokenStream {
             fn id(&self) -> &'static str {
                 #name_str
             }
-            fn layer(&self) -> Option<::axiom_kernel::Layer> {
+            fn layer(&self) -> Option<::axiom_kernel::RuntimeTier> {
                 match #layer_str {
-                    "exec" => Some(::axiom_kernel::Layer::Exec),
-                    "validate" => Some(::axiom_kernel::Layer::Validate),
-                    "agent" => Some(::axiom_kernel::Layer::Agent),
-                    "oversight" => Some(::axiom_kernel::Layer::Oversight),
+                    "exec" => Some(::axiom_kernel::RuntimeTier::Exec),
+                    "validate" => Some(::axiom_kernel::RuntimeTier::Validate),
+                    "agent" => Some(::axiom_kernel::RuntimeTier::Agent),
+                    "oversight" => Some(::axiom_kernel::RuntimeTier::Oversight),
                     _ => None,
                 }
             }

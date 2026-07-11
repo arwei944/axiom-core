@@ -5,10 +5,10 @@ use syn::{DeriveInput, LitInt};
 #[allow(dead_code)]
 pub fn parse_layer_marker(lit: &syn::LitStr) -> Result<TokenStream2, syn::Error> {
     match lit.value().as_str() {
-        "exec" => Ok(quote! { ::axiom_kernel::sealed::ExecLayer }),
-        "validate" => Ok(quote! { ::axiom_kernel::sealed::ValidateLayer }),
-        "agent" => Ok(quote! { ::axiom_kernel::sealed::AgentLayer }),
-        "oversight" => Ok(quote! { ::axiom_kernel::sealed::OversightLayer }),
+        "exec" => Ok(quote! { ::axiom_kernel::sealed::ExecTier }),
+        "validate" => Ok(quote! { ::axiom_kernel::sealed::ValidateTier }),
+        "agent" => Ok(quote! { ::axiom_kernel::sealed::AgentTier }),
+        "oversight" => Ok(quote! { ::axiom_kernel::sealed::OversightTier }),
         other => Err(syn::Error::new(
             lit.span(),
             format!("invalid layer '{}': expected exec|validate|agent|oversight", other),
@@ -18,10 +18,10 @@ pub fn parse_layer_marker(lit: &syn::LitStr) -> Result<TokenStream2, syn::Error>
 
 pub fn parse_layer_variant(lit: &syn::LitStr) -> Result<TokenStream2, syn::Error> {
     match lit.value().as_str() {
-        "exec" => Ok(quote! { ::axiom_kernel::Layer::Exec }),
-        "validate" => Ok(quote! { ::axiom_kernel::Layer::Validate }),
-        "agent" => Ok(quote! { ::axiom_kernel::Layer::Agent }),
-        "oversight" => Ok(quote! { ::axiom_kernel::Layer::Oversight }),
+        "exec" => Ok(quote! { ::axiom_kernel::RuntimeTier::Exec }),
+        "validate" => Ok(quote! { ::axiom_kernel::RuntimeTier::Validate }),
+        "agent" => Ok(quote! { ::axiom_kernel::RuntimeTier::Agent }),
+        "oversight" => Ok(quote! { ::axiom_kernel::RuntimeTier::Oversight }),
         other => Err(syn::Error::new(
             lit.span(),
             format!("invalid layer '{}': expected exec|validate|agent|oversight", other),

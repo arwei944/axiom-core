@@ -58,17 +58,28 @@ impl LlmClient {
     async fn with_retry<F, Fut, T>(&self, f: F) -> Result<T, LlmError>
     where
         F: Fn() -> Fut,
-        Fut: std::future::Future<Output = Result<T, LlmError>>,
+        Fut: std::future::Future<Output = Result<T, LlmError>> + Send + 'static,
+        T: Send + 'static,
     {
         let mut attempts = 0;
         let mut delay_ms = self.retry_config.initial_delay_ms;
+        let timeout = tokio::time::Duration::from_millis(self.retry_config.request_timeout_ms);
 
         loop {
-            match f().await {
-                Ok(result) => return Ok(result),
-                Err(e) => {
+            match tokio::time::timeout(timeout, f()).await {
+                Ok(Ok(result)) => return Ok(result),
+                Ok(Err(e)) => {
                     if !Self::is_retryable(&e) || attempts >= self.retry_config.max_retries {
                         return Err(e);
+                    }
+                    attempts += 1;
+                    tokio::time::sleep(tokio::time::Duration::from_millis(delay_ms)).await;
+                    delay_ms = (delay_ms as f64 * self.retry_config.backoff_factor) as u64;
+                    delay_ms = delay_ms.min(self.retry_config.max_delay_ms);
+                }
+                Err(_) => {
+                    if attempts >= self.retry_config.max_retries {
+                        return Err(LlmError::Timeout);
                     }
                     attempts += 1;
                     tokio::time::sleep(tokio::time::Duration::from_millis(delay_ms)).await;

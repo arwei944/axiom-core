@@ -43,7 +43,7 @@ Axiom Core 从底层重新设计，解决以下核心痛点：
 ├────────┼────────────────────────────────────────────────┤
 │  Lens  │ 按需状态投影——不是塞全部历史，而是精确查询      │
 ├────────┼────────────────────────────────────────────────┤
-│ Axiom  │ 全局不变量约束——违反即熔断，熵的减压阀          │
+│  Axiom │ 全局不变量约束——违反即熔断，熵的减压阀          │
 ├────────┼────────────────────────────────────────────────┤
 │Witness │ 不可篡改审计链——每次状态转换自动记录            │
 └─────────────────────────────────────────────────────────┘
@@ -98,19 +98,19 @@ struct WitnessCapability;
 Axiom Core 采用 **9 层分层架构**，所有架构规则定义在 [`.axiom/architecture.toml`](.axiom/architecture.toml) 中。
 
 ```
-Layer 0: 顶层应用 — axiom-cli, axiom-bench
-Layer 1: 可视化   — axiom-viz
-Layer 2: Agent 门面 — axiom-identity, axiom-prompt
-Layer 3: 监督与集成 — axiom-mcp, axiom-alert, axiom-agent, axiom-oversight
-Layer 4: 运行时与协调 — axiom-distributed, axiom-planner, axiom-runtime
-Layer 5: 存储与工具 — axiom-llm, axiom-tool, axiom-memory, axiom-store
-Layer 6: （预留）
-Layer 7: 核心原语 — axiom-kernel
-Layer 8: Proc-macro（豁免） — axiom-macros
-Layer 9: Plugin SDK 和示例 — axiom-plugin-wasm-sdk, axiom-plugin-example-wasm
+Crate Layer 0: 顶层应用 — axiom-cli, axiom-bench
+Crate Layer 1: 可视化   — axiom-viz
+Crate Layer 2: Agent 门面 — axiom-identity, axiom-prompt
+Crate Layer 3: 监督与集成 — axiom-mcp, axiom-alert, axiom-agent, axiom-oversight
+Crate Layer 4: 运行时与协调 — axiom-distributed, axiom-planner, axiom-runtime
+Crate Layer 5: 存储与工具 — axiom-llm, axiom-tool, axiom-memory, axiom-store
+Crate Layer 6: （预留）
+Crate Layer 7: 核心原语 — axiom-kernel
+Crate Layer 8: Proc-macro（豁免） — axiom-macros
+Crate Layer 9: Plugin SDK 和示例 — axiom-plugin-wasm-sdk, axiom-plugin-example-wasm
 ```
 
-**铁律**：Layer N 的 crate **只能依赖** Layer >= N 的 crate（即只能向下依赖）。
+**铁律**：Crate Layer N 的 crate **只能依赖** Crate Layer >= N 的 crate（即只能向下依赖）。
 
 ### 架构治理
 
@@ -196,7 +196,7 @@ impl Cell for GreetingCell {
     type State = Vec<String>;
 
     fn cell_id(&self) -> CellId { CellId("greeting-cell".into()) }
-    fn layer(&self) -> Layer { Layer::Agent }
+    fn layer(&self) -> RuntimeTier { RuntimeTier::Agent }
 
     async fn handle(&mut self, signal: Self::Signal, ctx: &mut CellContext) -> Result<()> {
         self.greetings.push(signal.message.clone());

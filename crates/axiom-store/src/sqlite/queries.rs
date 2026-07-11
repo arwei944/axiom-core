@@ -30,6 +30,12 @@ impl EventStore for SqliteStore {
             let signal_fingerprint =
                 event.metadata.witness_hash.as_ref().map(|h| h.signal_fingerprint.to_vec());
 
+            let mut tx = self
+                .pool
+                .begin()
+                .await
+                .map_err(|e| StoreError::Storage(format!("sqlite tx begin: {e}")))?;
+
             let seq = sqlx::query(
                 r#"
                 INSERT INTO events (
@@ -67,9 +73,11 @@ impl EventStore for SqliteStore {
             .bind(witness_hash_bytes)
             .bind(signal_fingerprint)
             .bind(event.metadata.payload_size_bytes as i64)
-            .execute(&self.pool)
+            .execute(&mut *tx)
             .await
             .map_err(|e| StoreError::Storage(format!("sqlite append: {e}")))?;
+
+            tx.commit().await.map_err(|e| StoreError::Storage(format!("sqlite tx commit: {e}")))?;
 
             let sequence_number = seq.last_insert_rowid() as u64;
             let arc_event = std::sync::Arc::new(event.clone());

@@ -5,7 +5,7 @@
 //! the registry.
 
 use crate::axiom::DynAxiom;
-use crate::layer::Layer;
+use crate::layer::RuntimeTier;
 use crate::version::{Compatibility, Version};
 use crate::witness::Witness;
 use linkme::distributed_slice;
@@ -51,6 +51,10 @@ pub fn registered_axioms() -> Vec<&'static dyn DynAxiom> {
 
 pub fn count_registered_axioms() -> usize {
     AXIOM_REGISTRY.len()
+}
+
+pub fn is_axiom_registry_empty() -> bool {
+    AXIOM_REGISTRY.is_empty()
 }
 
 // ============================================================
@@ -128,7 +132,7 @@ pub struct CapabilityDescriptor {
     pub name: &'static str,
     pub version: Version,
     pub compatibility: Compatibility,
-    pub applies_to_layer: Option<Layer>,
+    pub applies_to_layer: Option<RuntimeTier>,
     pub migration_chain_start: Option<u16>,
 }
 
@@ -149,7 +153,7 @@ impl CapabilityDescriptor {
         }
     }
 
-    pub fn with_layer(mut self, layer: Layer) -> Self {
+    pub fn with_layer(mut self, layer: RuntimeTier) -> Self {
         self.applies_to_layer = Some(layer);
         self
     }
@@ -231,6 +235,14 @@ impl CapabilityVersionRegistry {
     pub fn count_by_dimension(dim: &CapabilityDimension) -> usize {
         Self::capabilities_by_dimension(dim).len()
     }
+
+    pub fn len() -> usize {
+        CAPABILITY_REGISTRY.len()
+    }
+
+    pub fn is_empty() -> bool {
+        CAPABILITY_REGISTRY.is_empty()
+    }
 }
 
 pub static CAPABILITY_VERSION_REGISTRY: CapabilityVersionRegistry = CapabilityVersionRegistry;
@@ -264,6 +276,10 @@ impl WitnessRegistry {
     pub fn is_empty(&self) -> bool {
         self.len() == 0
     }
+
+    pub fn clear(&self) {
+        self.witnesses.lock().clear();
+    }
 }
 
 impl Default for WitnessRegistry {
@@ -272,4 +288,127 @@ impl Default for WitnessRegistry {
     }
 }
 
+pub struct RegistryGuard {
+    previous: Vec<Witness>,
+}
+
+// SAFETY: RegistryGuard 仅持有已克隆的 Witness 快照，不共享可变状态。
+// WITNESS_REGISTRY 内部使用 parking_lot::Mutex 保证线程安全。
+unsafe impl Send for RegistryGuard {}
+unsafe impl Sync for RegistryGuard {}
+
+impl RegistryGuard {
+    pub fn new() -> Self {
+        let previous = WITNESS_REGISTRY.get_recent(usize::MAX);
+        Self { previous }
+    }
+}
+
+impl Drop for RegistryGuard {
+    fn drop(&mut self) {
+        WITNESS_REGISTRY.clear();
+        for witness in &self.previous {
+            WITNESS_REGISTRY.record(witness.clone());
+        }
+    }
+}
+
 pub static WITNESS_REGISTRY: WitnessRegistry = WitnessRegistry::new();
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::{CorrelationId, SchemaVersion, TransitionOutcome, VectorClock, WitnessHash, WitnessId, WitnessKind, WitnessMetrics};
+
+    #[test]
+    fn test_witness_registry_clear() {
+        let registry = WitnessRegistry::new();
+        for i in 0..5 {
+            registry.record(Witness {
+                witness_id: WitnessId::new(format!("w{}", i)),
+                schema_version: SchemaVersion::new(1),
+                cell_id: "c1".into(),
+                correlation_id: CorrelationId::new("corr"),
+                trace_id: None,
+                triggering_msg_id: None,
+                vector_clock: VectorClock::new(),
+                timestamp_ns: i,
+                prev_hash: None,
+                state_before_hash: None,
+                state_after_hash: None,
+                hash: WitnessHash::zero(),
+                summary: format!("witness {}", i),
+                outcome: TransitionOutcome::Success,
+                metrics: WitnessMetrics {
+                    processing_time_us: 0,
+                    signals_sent: 0,
+                    witnesses_produced: 0,
+                },
+                version_info: crate::version::VersionInfo::current(),
+                signal_fingerprint: [0u8; 32],
+                payload_size_bytes: 0,
+                kind: WitnessKind::StateTransition,
+            });
+        }
+        assert_eq!(registry.len(), 5);
+        registry.clear();
+        assert_eq!(registry.len(), 0);
+        assert!(registry.is_empty());
+    }
+
+    #[test]
+    fn test_registry_guard_restores_state() {
+        let _guard = RegistryGuard::new();
+        WITNESS_REGISTRY.clear();
+        WITNESS_REGISTRY.record(Witness {
+            witness_id: WitnessId::new("guard-w1"),
+            schema_version: SchemaVersion::new(1),
+            cell_id: "c1".into(),
+            correlation_id: CorrelationId::new("corr"),
+            trace_id: None,
+            triggering_msg_id: None,
+            vector_clock: VectorClock::new(),
+            timestamp_ns: 1,
+            prev_hash: None,
+            state_before_hash: None,
+            state_after_hash: None,
+            hash: WitnessHash::zero(),
+            summary: "guard witness".into(),
+            outcome: TransitionOutcome::Success,
+            metrics: WitnessMetrics {
+                processing_time_us: 0,
+                signals_sent: 0,
+                witnesses_produced: 0,
+            },
+            version_info: crate::version::VersionInfo::current(),
+            signal_fingerprint: [0u8; 32],
+            payload_size_bytes: 0,
+            kind: WitnessKind::StateTransition,
+        });
+        assert_eq!(WITNESS_REGISTRY.len(), 1);
+    }
+
+    #[test]
+    fn test_registry_guard_restores_previous_witnesses() {
+        let initial_count = WITNESS_REGISTRY.len();
+        {
+            let _guard = RegistryGuard::new();
+            WITNESS_REGISTRY.clear();
+            assert_eq!(WITNESS_REGISTRY.len(), 0);
+        }
+        // guard 析构后应恢复
+        assert_eq!(WITNESS_REGISTRY.len(), initial_count);
+    }
+
+    #[test]
+    fn test_axiom_registry_query_methods() {
+        let _ = count_registered_axioms();
+        let _ = is_axiom_registry_empty();
+    }
+
+    #[test]
+    fn test_capability_registry_query_methods() {
+        let _ = CapabilityVersionRegistry::len();
+        let _ = CapabilityVersionRegistry::is_empty();
+    }
+}

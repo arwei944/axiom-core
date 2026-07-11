@@ -1,7 +1,7 @@
 //! Benchmark: Bus dispatch and interceptor chain overhead.
 
 use axiom_bench::common::make_signal;
-use axiom_kernel::layer::Layer;
+use axiom_kernel::layer::RuntimeTier;
 use axiom_runtime::bus::{BusInterceptor, MessageBus};
 use axiom_runtime::guardian::ArchitectureGuardian;
 use axiom_runtime::interceptors::HopLimitInterceptor;
@@ -25,8 +25,8 @@ fn bench_guardian_intercept(c: &mut Criterion) {
 fn bench_guardian_intercept_reject(c: &mut Criterion) {
     let guardian = ArchitectureGuardian::new();
     let mut env = make_signal("Bench", "src", "dst");
-    env.source_layer = Layer::Exec;
-    env.target_layer = Layer::Agent;
+    env.source_layer = RuntimeTier::Exec;
+    env.target_layer = RuntimeTier::Agent;
 
     c.bench_function("guardian_intercept_reject", |b| {
         b.iter(|| {
@@ -56,7 +56,7 @@ fn bench_bus_register_publish(c: &mut Criterion) {
             let bus = MessageBus::new();
             let mailbox = Arc::new(Mailbox::new(1024));
             rt.block_on(async {
-                bus.register_cell(&axiom_kernel::id::CellId::new("dst"), mailbox, Layer::Exec)
+                bus.register_cell(&axiom_kernel::id::CellId::new("dst"), mailbox, RuntimeTier::Exec)
                     .await;
                 let env = make_signal("Bench", "src", "dst");
                 let _ = bus.publish(env).await;
@@ -71,7 +71,7 @@ fn bench_bus_publish_only(c: &mut Criterion) {
     let bus = MessageBus::new();
     let mailbox = Arc::new(Mailbox::new(1024));
     rt.block_on(async {
-        bus.register_cell(&axiom_kernel::id::CellId::new("dst"), mailbox, Layer::Exec).await;
+        bus.register_cell(&axiom_kernel::id::CellId::new("dst"), mailbox, RuntimeTier::Exec).await;
     });
 
     c.bench_function("bus_publish_only", |b| {

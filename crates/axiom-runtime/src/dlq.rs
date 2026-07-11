@@ -1,7 +1,9 @@
 //! Dead Letter Queue - captures undeliverable messages for analysis.
 
+use crate::constants::DEFAULT_DLQ_CAPACITY;
 use axiom_kernel::clock::global_clock;
 use axiom_kernel::signal::SignalEnvelope;
+use axiom_kernel::KernelError;
 use parking_lot::RwLock;
 use std::collections::VecDeque;
 
@@ -22,16 +24,20 @@ impl DeadLetterQueue {
         Self { letters: RwLock::new(VecDeque::with_capacity(capacity)), capacity }
     }
 
-    pub fn enqueue(&self, envelope: SignalEnvelope, reason: &str) {
+    pub fn enqueue(&self, envelope: SignalEnvelope, reason: &str) -> Result<(), KernelError> {
         let mut letters = self.letters.write();
         if letters.len() >= self.capacity {
-            letters.pop_front();
+            return Err(KernelError::ResourceExhausted {
+                resource: format!("dlq capacity {} exceeded", self.capacity),
+                cell_id: "dlq".to_string(),
+            });
         }
         letters.push_back(DeadLetter {
             envelope,
             reason: reason.to_string(),
             timestamp_ns: global_clock().now_ns(),
         });
+        Ok(())
     }
 
     pub fn len(&self) -> usize {
@@ -54,7 +60,7 @@ impl DeadLetterQueue {
 
 impl Default for DeadLetterQueue {
     fn default() -> Self {
-        Self::new(1000)
+        Self::new(DEFAULT_DLQ_CAPACITY)
     }
 }
 
@@ -62,7 +68,7 @@ impl Default for DeadLetterQueue {
 mod tests {
     use super::*;
     use axiom_kernel::id::{CorrelationId, MsgId};
-    use axiom_kernel::layer::Layer;
+    use axiom_kernel::layer::RuntimeTier;
     use axiom_kernel::signal::{SignalKind, VectorClock};
 
     fn make_env() -> SignalEnvelope {
@@ -74,8 +80,8 @@ mod tests {
             vector_clock: VectorClock::new(),
             timestamp_ns: 1,
             kind: SignalKind::Command,
-            source_layer: Layer::Exec,
-            target_layer: Layer::Exec,
+            source_layer: RuntimeTier::Exec,
+            target_layer: RuntimeTier::Exec,
             source_cell: None,
             target_cell: Some("c1".to_string()),
             payload: serde_json::Value::Null,
@@ -88,8 +94,8 @@ mod tests {
     #[test]
     fn test_dlq_enqueue_and_drain() {
         let dlq = DeadLetterQueue::new(10);
-        dlq.enqueue(make_env(), "mailbox full");
-        dlq.enqueue(make_env(), "target not found");
+        dlq.enqueue(make_env(), "mailbox full").unwrap();
+        dlq.enqueue(make_env(), "target not found").unwrap();
         assert_eq!(dlq.len(), 2);
         let drained = dlq.drain();
         assert_eq!(drained.len(), 2);
@@ -98,16 +104,18 @@ mod tests {
     }
 
     #[test]
-    fn test_dlq_capacity_evicts_oldest() {
+    fn test_dlq_capacity_returns_error_when_full() {
         let dlq = DeadLetterQueue::new(3);
-        for i in 0..5 {
+        for i in 0..3 {
             let mut env = make_env();
             env.msg_id = MsgId::new(format!("m{}", i));
-            dlq.enqueue(env, &format!("reason{}", i));
+            dlq.enqueue(env, &format!("reason{}", i)).unwrap();
         }
         assert_eq!(dlq.len(), 3);
-        let all = dlq.peek_all();
-        assert_eq!(all[0].reason, "reason2");
-        assert_eq!(all[2].reason, "reason4");
+        let mut env = make_env();
+        env.msg_id = MsgId::new("m-full");
+        let result = dlq.enqueue(env, "overflow");
+        assert!(result.is_err());
+        assert_eq!(dlq.len(), 3);
     }
 }

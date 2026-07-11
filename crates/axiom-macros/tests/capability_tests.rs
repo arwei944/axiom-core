@@ -1,4 +1,4 @@
-use axiom_kernel::layer::Layer;
+use axiom_kernel::layer::RuntimeTier;
 use axiom_kernel::registry::{CapabilityDimension, CapabilityVersionRegistry, CAPABILITY_REGISTRY};
 
 #[allow(dead_code)]
@@ -11,7 +11,7 @@ struct SchemaCapability;
 
 #[allow(dead_code)]
 #[axiom_macros::capability(dim = "layer", version = "1.0.0", layer = "exec")]
-struct ExecLayerCapability;
+struct ExecTierCapability;
 
 #[allow(dead_code)]
 #[axiom_macros::capability(dim = "tool", version = "1.2.0")]
@@ -55,10 +55,10 @@ fn test_capability_version_parsing() {
 #[test]
 fn test_capability_layer_association() {
     let caps = CAPABILITY_REGISTRY.iter().copied().collect::<Vec<_>>();
-    let exec_layer_cap = caps.iter().find(|c| c.name == "ExecLayerCapability").unwrap();
+    let exec_layer_cap = caps.iter().find(|c| c.name == "ExecTierCapability").unwrap();
     let guard_cap = caps.iter().find(|c| c.name == "GuardCapability").unwrap();
 
-    assert_eq!(exec_layer_cap.applies_to_layer, Some(Layer::Exec));
+    assert_eq!(exec_layer_cap.applies_to_layer, Some(RuntimeTier::Exec));
     assert_eq!(guard_cap.applies_to_layer, None);
 }
 

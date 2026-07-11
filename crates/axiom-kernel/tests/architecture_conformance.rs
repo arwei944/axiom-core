@@ -1,8 +1,8 @@
 use axiom_kernel::axiom::ValidationResult;
 use axiom_kernel::id::{CorrelationId, MsgId};
-use axiom_kernel::layer::Layer;
+use axiom_kernel::layer::RuntimeTier;
 use axiom_kernel::sealed::{
-    AgentLayer, CanSendTo, ExecLayer, LayerMarker, OversightLayer, ValidateLayer,
+    AgentTier, CanSendTo, ExecTier, RuntimeTierMarker, OversightTier, ValidateTier,
 };
 use axiom_kernel::signal::{now_ns, Signal, SignalKind, VectorClock};
 use serde::{Deserialize, Serialize};
@@ -34,8 +34,8 @@ impl Signal for TestSignal {
     fn kind(&self) -> SignalKind {
         SignalKind::Command
     }
-    fn layer(&self) -> Layer {
-        Layer::Exec
+    fn layer(&self) -> RuntimeTier {
+        RuntimeTier::Exec
     }
     fn as_any(&self) -> &dyn std::any::Any {
         self
@@ -52,55 +52,55 @@ impl Signal for TestSignal {
     }
 }
 
-fn assert_send_compile<S: CanSendTo<T>, T: LayerMarker>() {}
+fn assert_send_compile<S: CanSendTo<T>, T: RuntimeTierMarker>() {}
 
 #[test]
 fn conformance_can_send_to_matrix_legal_directions() {
-    assert_send_compile::<OversightLayer, OversightLayer>();
-    assert_send_compile::<OversightLayer, AgentLayer>();
-    assert_send_compile::<OversightLayer, ValidateLayer>();
-    assert_send_compile::<OversightLayer, ExecLayer>();
+    assert_send_compile::<OversightTier, OversightTier>();
+    assert_send_compile::<OversightTier, AgentTier>();
+    assert_send_compile::<OversightTier, ValidateTier>();
+    assert_send_compile::<OversightTier, ExecTier>();
 
-    assert_send_compile::<AgentLayer, AgentLayer>();
-    assert_send_compile::<AgentLayer, ValidateLayer>();
+    assert_send_compile::<AgentTier, AgentTier>();
+    assert_send_compile::<AgentTier, ValidateTier>();
 
-    assert_send_compile::<ValidateLayer, ValidateLayer>();
-    assert_send_compile::<ValidateLayer, ExecLayer>();
-    assert_send_compile::<ValidateLayer, AgentLayer>();
+    assert_send_compile::<ValidateTier, ValidateTier>();
+    assert_send_compile::<ValidateTier, ExecTier>();
+    assert_send_compile::<ValidateTier, AgentTier>();
 
-    assert_send_compile::<ExecLayer, ExecLayer>();
+    assert_send_compile::<ExecTier, ExecTier>();
 }
 
 #[test]
 fn conformance_can_send_to_matrix_runtime_illegal_directions() {
-    assert!(!Layer::Exec.can_send_to(Layer::Agent));
-    assert!(!Layer::Exec.can_send_to(Layer::Validate));
-    assert!(!Layer::Exec.can_send_to(Layer::Oversight));
+    assert!(!RuntimeTier::Exec.can_send_to(RuntimeTier::Agent));
+    assert!(!RuntimeTier::Exec.can_send_to(RuntimeTier::Validate));
+    assert!(!RuntimeTier::Exec.can_send_to(RuntimeTier::Oversight));
 
-    assert!(!Layer::Validate.can_send_to(Layer::Oversight));
+    assert!(!RuntimeTier::Validate.can_send_to(RuntimeTier::Oversight));
 
-    assert!(!Layer::Agent.can_send_to(Layer::Oversight));
+    assert!(!RuntimeTier::Agent.can_send_to(RuntimeTier::Oversight));
 }
 
 #[test]
 fn conformance_layer_marker_sealed() {
-    let _ = std::mem::size_of::<OversightLayer>();
-    let _ = std::mem::size_of::<AgentLayer>();
-    let _ = std::mem::size_of::<ValidateLayer>();
-    let _ = std::mem::size_of::<ExecLayer>();
+    let _ = std::mem::size_of::<OversightTier>();
+    let _ = std::mem::size_of::<AgentTier>();
+    let _ = std::mem::size_of::<ValidateTier>();
+    let _ = std::mem::size_of::<ExecTier>();
 
-    assert_eq!(OversightLayer::LAYER, Layer::Oversight);
-    assert_eq!(AgentLayer::LAYER, Layer::Agent);
-    assert_eq!(ValidateLayer::LAYER, Layer::Validate);
-    assert_eq!(ExecLayer::LAYER, Layer::Exec);
+    assert_eq!(OversightTier::LAYER, RuntimeTier::Oversight);
+    assert_eq!(AgentTier::LAYER, RuntimeTier::Agent);
+    assert_eq!(ValidateTier::LAYER, RuntimeTier::Validate);
+    assert_eq!(ExecTier::LAYER, RuntimeTier::Exec);
 }
 
 #[test]
 fn conformance_entropy_governor_is_oversight_layer() {
-    assert_eq!(axiom_kernel::sealed::OversightLayer::LAYER, Layer::Oversight);
+    assert_eq!(axiom_kernel::sealed::OversightTier::LAYER, RuntimeTier::Oversight);
 }
 
 #[test]
 fn conformance_compile_fail_test_validates_illegal_calls() {
-    assert!(!Layer::Exec.can_send_to(Layer::Agent));
+    assert!(!RuntimeTier::Exec.can_send_to(RuntimeTier::Agent));
 }

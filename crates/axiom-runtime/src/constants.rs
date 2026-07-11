@@ -1,0 +1,11 @@
+pub const MAX_HOPS: u32 = 8;
+
+pub const DEFAULT_DLQ_CAPACITY: usize = 1000;
+
+pub const ENTROPY_COOLDOWN_NS: u64 = 30_000_000_000;
+
+pub const DEFAULT_THROTTLE_FACTOR: f64 = 0.5;
+
+pub const IDEMPOTENCY_SET_CAPACITY: usize = 1024;
+
+pub const IDEMPOTENCY_CLEANUP_THRESHOLD: usize = 100_000;

@@ -108,6 +108,7 @@ async fn test_retry_on_failure() {
         initial_delay_ms: 10,
         max_delay_ms: 100,
         backoff_factor: 2.0,
+        request_timeout_ms: 5000,
     };
 
     let client = LlmClient::new(provider.clone()).with_retry_config(retry_config);
@@ -127,6 +128,7 @@ async fn test_retry_exhausted() {
         initial_delay_ms: 10,
         max_delay_ms: 100,
         backoff_factor: 2.0,
+        request_timeout_ms: 5000,
     };
 
     let client = LlmClient::new(provider.clone()).with_retry_config(retry_config);
@@ -145,4 +147,61 @@ async fn test_reset_budget() {
 
     client.reset_budget();
     assert_eq!(client.remaining_budget(), 100);
+}
+
+#[tokio::test]
+async fn test_request_timeout() {
+    struct DelayedProvider;
+
+    impl LlmProvider for DelayedProvider {
+        fn complete<'a>(
+            &'a self,
+            _prompt: &'a str,
+        ) -> crate::BoxLlmFuture<'a, Result<CompletionResponse, LlmError>> {
+            Box::pin(async move {
+                tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
+                Ok(CompletionResponse {
+                    text: "delayed".to_string(),
+                    usage: TokenUsage { prompt_tokens: 10, completion_tokens: 10, total_tokens: 20 },
+                    model: "delayed-model".to_string(),
+                })
+            })
+        }
+
+        fn chat<'a>(
+            &'a self,
+            _messages: &'a [ChatMessage],
+        ) -> crate::BoxLlmFuture<'a, Result<ChatResponse, LlmError>> {
+            Box::pin(async move {
+                tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
+                Ok(ChatResponse {
+                    message: ChatMessage {
+                        role: MessageRole::Assistant,
+                        content: "delayed".to_string(),
+                        name: None,
+                        tool_call_id: None,
+                    },
+                    usage: TokenUsage { prompt_tokens: 10, completion_tokens: 10, total_tokens: 20 },
+                    model: "delayed-model".to_string(),
+                })
+            })
+        }
+    }
+
+    let retry_config = types::RetryConfig {
+        max_retries: 0,
+        initial_delay_ms: 10,
+        max_delay_ms: 100,
+        backoff_factor: 2.0,
+        request_timeout_ms: 50,
+    };
+
+    let client = LlmClient::new(Arc::new(DelayedProvider)).with_retry_config(retry_config);
+
+    let result = client.complete("test").await;
+    assert!(result.is_err());
+    if let Err(LlmError::Timeout) = result {
+    } else {
+        panic!("Expected Timeout error, got {:?}", result);
+    }
 }

@@ -2,6 +2,7 @@
 
 use crate::bus::{BusInterceptor, InterceptDecision};
 use crate::constraint_validator::{ConstraintValidator, ValidationContext};
+use crate::constants::{IDEMPOTENCY_CLEANUP_THRESHOLD, IDEMPOTENCY_SET_CAPACITY, MAX_HOPS};
 use crate::loop_detector::LoopDetector;
 use axiom_kernel::signal::SignalEnvelope;
 use parking_lot::RwLock;
@@ -19,7 +20,7 @@ impl HopLimitInterceptor {
 
 impl Default for HopLimitInterceptor {
     fn default() -> Self {
-        Self { max_hops: 8 }
+        Self { max_hops: MAX_HOPS }
     }
 }
 
@@ -46,7 +47,7 @@ pub struct IdempotencyInterceptor {
 
 impl Default for IdempotencyInterceptor {
     fn default() -> Self {
-        Self { seen: RwLock::new(HashSet::with_capacity(1024)) }
+        Self { seen: RwLock::new(HashSet::with_capacity(IDEMPOTENCY_SET_CAPACITY)) }
     }
 }
 
@@ -60,7 +61,7 @@ impl BusInterceptor for IdempotencyInterceptor {
         if set.contains(&id) {
             return InterceptDecision::Reject { reason: format!("duplicate message id: {id}") };
         }
-        if set.len() >= 100_000 {
+        if set.len() >= IDEMPOTENCY_CLEANUP_THRESHOLD {
             set.clear();
         }
         set.insert(id);
@@ -165,7 +166,7 @@ impl BusInterceptor for GuardInterceptor {
 mod tests {
     use super::*;
     use axiom_kernel::id::{CorrelationId, MsgId};
-    use axiom_kernel::layer::Layer;
+    use axiom_kernel::layer::RuntimeTier;
     use axiom_kernel::signal::{SignalKind, VectorClock};
 
     fn make_env(hops: u32, id: &str) -> SignalEnvelope {
@@ -177,8 +178,8 @@ mod tests {
             vector_clock: VectorClock::new(),
             timestamp_ns: 0,
             kind: SignalKind::Command,
-            source_layer: Layer::Exec,
-            target_layer: Layer::Exec,
+            source_layer: RuntimeTier::Exec,
+            target_layer: RuntimeTier::Exec,
             source_cell: None,
             target_cell: None,
             payload: serde_json::Value::Null,

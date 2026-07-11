@@ -1,60 +1,73 @@
 //! Sealed trait pattern + CanSendTo direction matrix for compile-time enforcement.
 //!
-//! The Sealed trait prevents downstream crates from implementing layer marker
+//! The Sealed trait prevents downstream crates from implementing runtime tier marker
 //! traits, ensuring the direction matrix is exhaustive and cannot be extended.
 //!
 //! CanSendTo<Source, Target> is implemented only for legal transitions:
-//! Oversight can send to all layers; Agent→Agent|Validate; Validate→Validate|Exec; Exec→Exec.
+//! Oversight can send to all tiers; Agent->Agent|Validate; Validate->Validate|Exec; Exec->Exec.
 
-use crate::layer::Layer;
+use crate::layer::RuntimeTier;
 
 mod private {
     pub trait Sealed {}
-    impl Sealed for super::OversightLayer {}
-    impl Sealed for super::AgentLayer {}
-    impl Sealed for super::ValidateLayer {}
-    impl Sealed for super::ExecLayer {}
+    impl Sealed for super::OversightTier {}
+    impl Sealed for super::AgentTier {}
+    impl Sealed for super::ValidateTier {}
+    impl Sealed for super::ExecTier {}
 }
 
-pub trait LayerMarker: private::Sealed + Send + Sync + 'static {
-    const LAYER: Layer;
+pub trait RuntimeTierMarker: private::Sealed + Send + Sync + 'static {
+    const TIER: RuntimeTier;
 }
 
-pub struct OversightLayer;
-pub struct AgentLayer;
-pub struct ValidateLayer;
-pub struct ExecLayer;
+pub struct OversightTier;
+pub struct AgentTier;
+pub struct ValidateTier;
+pub struct ExecTier;
 
-impl LayerMarker for OversightLayer {
-    const LAYER: Layer = Layer::Oversight;
+impl OversightTier {
+    pub const LAYER: RuntimeTier = RuntimeTier::Oversight;
 }
-impl LayerMarker for AgentLayer {
-    const LAYER: Layer = Layer::Agent;
+impl AgentTier {
+    pub const LAYER: RuntimeTier = RuntimeTier::Agent;
 }
-impl LayerMarker for ValidateLayer {
-    const LAYER: Layer = Layer::Validate;
+impl ValidateTier {
+    pub const LAYER: RuntimeTier = RuntimeTier::Validate;
 }
-impl LayerMarker for ExecLayer {
-    const LAYER: Layer = Layer::Exec;
+impl ExecTier {
+    pub const LAYER: RuntimeTier = RuntimeTier::Exec;
 }
 
-pub trait CanSendTo<T: LayerMarker>: LayerMarker {}
+impl RuntimeTierMarker for OversightTier {
+    const TIER: RuntimeTier = RuntimeTier::Oversight;
+}
+impl RuntimeTierMarker for AgentTier {
+    const TIER: RuntimeTier = RuntimeTier::Agent;
+}
+impl RuntimeTierMarker for ValidateTier {
+    const TIER: RuntimeTier = RuntimeTier::Validate;
+}
+impl RuntimeTierMarker for ExecTier {
+    const TIER: RuntimeTier = RuntimeTier::Exec;
+}
 
-impl CanSendTo<OversightLayer> for OversightLayer {}
-impl CanSendTo<AgentLayer> for OversightLayer {}
-impl CanSendTo<ValidateLayer> for OversightLayer {}
-impl CanSendTo<ExecLayer> for OversightLayer {}
+pub trait CanSendTo<T: RuntimeTierMarker>: RuntimeTierMarker {}
 
-impl CanSendTo<AgentLayer> for AgentLayer {}
-impl CanSendTo<ValidateLayer> for AgentLayer {}
+impl CanSendTo<OversightTier> for OversightTier {}
+impl CanSendTo<AgentTier> for OversightTier {}
+impl CanSendTo<ValidateTier> for OversightTier {}
+impl CanSendTo<ExecTier> for OversightTier {}
 
-impl CanSendTo<ValidateLayer> for ValidateLayer {}
-impl CanSendTo<ExecLayer> for ValidateLayer {}
-impl CanSendTo<AgentLayer> for ValidateLayer {}
+impl CanSendTo<AgentTier> for AgentTier {}
+impl CanSendTo<ValidateTier> for AgentTier {}
 
-impl CanSendTo<ExecLayer> for ExecLayer {}
+impl CanSendTo<ValidateTier> for ValidateTier {}
+impl CanSendTo<ExecTier> for ValidateTier {}
+impl CanSendTo<AgentTier> for ValidateTier {}
 
-pub fn can_send_at_runtime(from: Layer, to: Layer) -> bool {
+impl CanSendTo<ExecTier> for ExecTier {}
+
+pub fn can_send_at_runtime(from: RuntimeTier, to: RuntimeTier) -> bool {
     from.can_send_to(to)
 }
 
@@ -62,28 +75,28 @@ pub fn can_send_at_runtime(from: Layer, to: Layer) -> bool {
 mod tests {
     use super::*;
 
-    fn assert_send<S: CanSendTo<T>, T: LayerMarker>() {}
+    fn assert_send<S: CanSendTo<T>, T: RuntimeTierMarker>() {}
 
     #[test]
     fn test_legal_directions_compile() {
-        assert_send::<OversightLayer, OversightLayer>();
-        assert_send::<OversightLayer, AgentLayer>();
-        assert_send::<OversightLayer, ValidateLayer>();
-        assert_send::<OversightLayer, ExecLayer>();
-        assert_send::<AgentLayer, AgentLayer>();
-        assert_send::<AgentLayer, ValidateLayer>();
-        assert_send::<ValidateLayer, ValidateLayer>();
-        assert_send::<ValidateLayer, ExecLayer>();
-        assert_send::<ValidateLayer, AgentLayer>();
-        assert_send::<ExecLayer, ExecLayer>();
+        assert_send::<OversightTier, OversightTier>();
+        assert_send::<OversightTier, AgentTier>();
+        assert_send::<OversightTier, ValidateTier>();
+        assert_send::<OversightTier, ExecTier>();
+        assert_send::<AgentTier, AgentTier>();
+        assert_send::<AgentTier, ValidateTier>();
+        assert_send::<ValidateTier, ValidateTier>();
+        assert_send::<ValidateTier, ExecTier>();
+        assert_send::<ValidateTier, AgentTier>();
+        assert_send::<ExecTier, ExecTier>();
     }
 
     #[test]
     fn test_runtime_direction_check() {
-        assert!(can_send_at_runtime(Layer::Oversight, Layer::Exec));
-        assert!(can_send_at_runtime(Layer::Agent, Layer::Validate));
-        assert!(!can_send_at_runtime(Layer::Exec, Layer::Agent));
-        assert!(!can_send_at_runtime(Layer::Agent, Layer::Oversight));
-        assert!(!can_send_at_runtime(Layer::Exec, Layer::Oversight));
+        assert!(can_send_at_runtime(RuntimeTier::Oversight, RuntimeTier::Exec));
+        assert!(can_send_at_runtime(RuntimeTier::Agent, RuntimeTier::Validate));
+        assert!(!can_send_at_runtime(RuntimeTier::Exec, RuntimeTier::Agent));
+        assert!(!can_send_at_runtime(RuntimeTier::Agent, RuntimeTier::Oversight));
+        assert!(!can_send_at_runtime(RuntimeTier::Exec, RuntimeTier::Oversight));
     }
 }

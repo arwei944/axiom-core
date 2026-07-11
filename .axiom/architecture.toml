@@ -3,8 +3,9 @@
 axiom-cli = 0
 axiom-bench = 0
 
-# Layer 1: 可视化
+# Layer 1: 可视化与API网关
 axiom-viz = 1
+axiom-api = 1
 
 # Layer 2: Agent 门面
 axiom-identity = 2
@@ -77,6 +78,7 @@ schemars = "JSON Schema 生成"
 reqwest = "HTTP 客户端"
 url = "URL 解析"
 axum = "Web 框架"
+tower = "服务抽象层（API 测试工具）"
 toml = "TOML 解析（build gate + archcheck）"
 walkdir = "目录遍历（archcheck）"
 once_cell = "延迟初始化（archcheck）"
@@ -105,3 +107,6 @@ axiom-agent = { allowed_deps = ["axiom-identity", "axiom-prompt"], reason = "Age
 axiom-plugin-example-wasm = { allowed_deps = ["axiom-kernel"], reason = "示例 WASM plugin 依赖 kernel API" }
 axiom-plugin-test = { allowed_deps = ["axiom-kernel"], reason = "测试 plugin 依赖 kernel API" }
 axiom-plugin-wasm-sdk = { allowed_deps = ["axiom-kernel"], reason = "WASM SDK 需要引用 kernel 类型定义" }
+
+[layer-leakage-exemptions]
+axiom-oversight.EntropyGovernorCell = { source_crate = "axiom-runtime", reason = "EntropyGovernorCell 定义在 axiom-runtime 中以避免循环依赖（oversight→runtime→oversight），oversight 仅重新导出供上层使用" }

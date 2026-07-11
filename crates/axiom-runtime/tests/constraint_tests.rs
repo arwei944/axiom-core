@@ -1,7 +1,7 @@
 //! Constraint runtime tests: interceptors, guard, capability version, witness records.
 
 use axiom_kernel::id::{CorrelationId, MsgId};
-use axiom_kernel::layer::Layer;
+use axiom_kernel::layer::RuntimeTier;
 use axiom_kernel::signal::{SignalKind, VectorClock};
 use axiom_kernel::KernelError;
 use axiom_runtime::bus::{BusInterceptor, InterceptDecision, MessageBus};
@@ -21,8 +21,8 @@ fn make_env(hops: u32, id: &str, signal_type: &str) -> axiom_kernel::signal::Sig
         vector_clock: VectorClock::new(),
         timestamp_ns: 0,
         kind: SignalKind::Command,
-        source_layer: Layer::Exec,
-        target_layer: Layer::Exec,
+        source_layer: RuntimeTier::Exec,
+        target_layer: RuntimeTier::Exec,
         source_cell: None,
         target_cell: None,
         payload: serde_json::Value::Null,
@@ -44,8 +44,8 @@ fn capability_version_interceptor_allows_when_no_registered() {
 fn guard_interceptor_blocks_forbidden_signal() {
     let interceptor = GuardInterceptor;
     let mut env = make_env(0, "guard-bad", "ForbiddenSignal");
-    env.source_layer = Layer::Exec;
-    env.target_layer = Layer::Exec;
+    env.source_layer = RuntimeTier::Exec;
+    env.target_layer = RuntimeTier::Exec;
     assert!(matches!(interceptor.intercept(&env), InterceptDecision::Reject { .. }));
 }
 
@@ -61,8 +61,8 @@ async fn bus_rejects_illegal_message_with_reason() {
     let bus = MessageBus::new();
     bus.register_interceptor(Arc::new(GuardInterceptor)).await;
     let mut env = make_env(0, "bus-bad", "ForbiddenSignal");
-    env.source_layer = Layer::Exec;
-    env.target_layer = Layer::Exec;
+    env.source_layer = RuntimeTier::Exec;
+    env.target_layer = RuntimeTier::Exec;
     let result = bus.publish(env).await;
     assert!(result.is_err());
     let err = result.unwrap_err();

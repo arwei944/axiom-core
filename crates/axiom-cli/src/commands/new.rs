@@ -105,7 +105,7 @@ tokio = {{ version = "1.0", features = ["full"] }}
 
 fn create_main_rs(project_path: &Path) -> Result<()> {
     let content = r#"use axiom_kernel::id::CellId;
-use axiom_kernel::layer::Layer;
+use axiom_kernel::layer::RuntimeTier;
 use axiom_runtime::RuntimeBuilder;
 use tracing_subscriber::fmt::format::FmtSpan;
 
@@ -120,7 +120,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     rt.register_cell(axiom_runtime::CellRegistration {
         id: CellId::new("hello-cell"),
-        layer: Layer::Exec,
+        layer: RuntimeTier::Exec,
         version: axiom_kernel::version::Version::new(0, 1, 0),
         supervision_strategy: axiom_kernel::cell::SupervisionStrategy::default(),
         cell: None,
@@ -152,14 +152,14 @@ fn create_cells_mod(project_path: &Path) -> Result<()> {
     let hello_cell_content = r#"use axiom_kernel::cell::Cell;
 use axiom_kernel::context::CellContext;
 use axiom_kernel::error::AxiomError;
-use axiom_kernel::layer::ExecLayer;
+use axiom_kernel::RuntimeTier::ExecTier;
 
 #[derive(Debug, Default)]
 pub struct HelloCell;
 
 impl Cell for HelloCell {
     type Message = HelloSignal;
-    type Layer = ExecLayer;
+    type Layer = ExecTier;
 
     fn id(&self) -> &axiom_kernel::id::CellId {
         static ID: axiom_kernel::id::CellId = axiom_kernel::id::CellId::new_static("hello-cell");

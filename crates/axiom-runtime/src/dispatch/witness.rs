@@ -1,10 +1,10 @@
 use axiom_kernel::id::MsgId;
-use axiom_kernel::layer::Layer;
+use axiom_kernel::layer::RuntimeTier;
 use axiom_kernel::witness::Witness;
 use axiom_kernel::KernelError;
 use axiom_store::Event;
 
-pub fn witness_to_event(witness: &Witness, layer: Layer) -> Result<Event, KernelError> {
+pub fn witness_to_event(witness: &Witness, layer: RuntimeTier) -> Result<Event, KernelError> {
     let payload = serde_json::to_value(witness).map_err(|e| KernelError::WitnessSerialization {
         cell_id: witness.cell_id.clone(),
         message: e.to_string(),

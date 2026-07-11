@@ -1,13 +1,13 @@
 use axiom_kernel::entropy::EntropyScore;
 use axiom_kernel::id::{CellId, CorrelationId, MsgId};
-use axiom_kernel::layer::Layer;
+use axiom_kernel::layer::RuntimeTier;
 use axiom_kernel::signal::{SignalEnvelope, SignalKind, VectorClock};
 use axiom_kernel::version::SchemaVersion;
 
 #[test]
 fn test_witness_chain_break() {
     let cell_id = CellId::new("witness-chain-test");
-    let mut ctx = axiom_kernel::context::CellContext::new(&cell_id, Layer::Exec);
+    let mut ctx = axiom_kernel::context::CellContext::new(&cell_id, RuntimeTier::Exec);
 
     let envelope = SignalEnvelope {
         msg_id: MsgId::generate(),
@@ -17,8 +17,8 @@ fn test_witness_chain_break() {
         vector_clock: VectorClock::new(),
         timestamp_ns: 0,
         kind: SignalKind::Command,
-        source_layer: Layer::Exec,
-        target_layer: Layer::Exec,
+        source_layer: RuntimeTier::Exec,
+        target_layer: RuntimeTier::Exec,
         source_cell: None,
         target_cell: Some(cell_id.to_string()),
         payload: serde_json::json!({}),
@@ -39,7 +39,7 @@ fn test_witness_chain_break() {
 #[test]
 fn test_cell_crash_recovery() {
     let cell_id = CellId::new("crash-recovery-test");
-    let mut ctx = axiom_kernel::context::CellContext::new(&cell_id, Layer::Exec);
+    let mut ctx = axiom_kernel::context::CellContext::new(&cell_id, RuntimeTier::Exec);
 
     let envelope = SignalEnvelope {
         msg_id: MsgId::generate(),
@@ -49,8 +49,8 @@ fn test_cell_crash_recovery() {
         vector_clock: VectorClock::new(),
         timestamp_ns: 0,
         kind: SignalKind::Command,
-        source_layer: Layer::Exec,
-        target_layer: Layer::Exec,
+        source_layer: RuntimeTier::Exec,
+        target_layer: RuntimeTier::Exec,
         source_cell: None,
         target_cell: Some(cell_id.to_string()),
         payload: serde_json::json!({}),

@@ -61,8 +61,8 @@ impl Signal for NaturalSignal {
         SignalKind::Command
     }
 
-    fn layer(&self) -> axiom_kernel::Layer {
-        axiom_kernel::Layer::Agent
+    fn layer(&self) -> axiom_kernel::RuntimeTier {
+        axiom_kernel::RuntimeTier::Agent
     }
 
     fn as_any(&self) -> &dyn std::any::Any {

@@ -46,7 +46,7 @@ pub struct CellHandle {
 
 pub trait DynCell: Send + 'static {
     fn id(&self) -> &CellId;
-    fn layer(&self) -> crate::Layer;
+    fn layer(&self) -> crate::RuntimeTier;
     fn as_any(&self) -> &dyn std::any::Any;
     fn as_any_mut(&mut self) -> &mut dyn std::any::Any;
 }

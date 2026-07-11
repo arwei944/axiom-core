@@ -5,7 +5,7 @@ use crate::supervisor::Supervisor;
 use axiom_kernel::cell::RuntimeCellHandle;
 use axiom_kernel::cell::SupervisionStrategy;
 use axiom_kernel::id::CellId;
-use axiom_kernel::layer::Layer;
+use axiom_kernel::layer::RuntimeTier;
 use axiom_kernel::version::Version;
 use std::sync::Arc;
 use tokio::sync::Mutex as TokioMutex;
@@ -14,7 +14,7 @@ pub struct CellRegistration {
     /// Cell 唯一标识。
     pub id: CellId,
     /// Cell 所属层，用于层间访问控制。
-    pub layer: Layer,
+    pub layer: RuntimeTier,
     /// Cell 实现的 schema 版本。
     pub version: Version,
     /// 监管策略：重启、停止、熔断或升级。
@@ -39,15 +39,34 @@ pub struct RuntimeConfig {
     pub metrics_endpoint: Option<String>,
     /// 是否启用遥测。
     pub telemetry_enabled: bool,
+    /// DeadLetterQueue 容量上限。
+    pub dlq_capacity: usize,
+    /// API 网关监听地址（如 "0.0.0.0:9092"），由应用层使用 axiom-api 启动。
+    pub api_endpoint: Option<std::net::SocketAddr>,
 }
 
+#[derive(Clone)]
 pub struct RegisteredCell {
     id: CellId,
     mailbox: Arc<Mailbox>,
-    layer: Layer,
+    layer: RuntimeTier,
     version: Version,
     cell: Option<Arc<TokioMutex<RuntimeCellHandle>>>,
     factory: Option<Arc<dyn Fn() -> RuntimeCellHandle + Send + Sync>>,
+}
+
+impl RegisteredCell {
+    pub fn id(&self) -> &str {
+        self.id.as_str()
+    }
+
+    pub fn layer(&self) -> RuntimeTier {
+        self.layer
+    }
+
+    pub fn version(&self) -> &Version {
+        &self.version
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -104,8 +123,6 @@ pub struct AxiomRuntime {
     emergency_mode: std::sync::Arc<parking_lot::RwLock<bool>>,
     events_since_snapshot:
         std::sync::Arc<parking_lot::RwLock<std::collections::HashMap<String, u64>>>,
-    #[cfg(feature = "metrics")]
-    metrics_server: crate::MetricsServer,
     pub kernel_bridge: RuntimeKernelBridge,
 }
 

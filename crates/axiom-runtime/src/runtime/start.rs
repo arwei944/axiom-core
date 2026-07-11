@@ -141,16 +141,18 @@ impl AxiomRuntime {
             rx,
             poll_interval,
             cells_data,
-            bus,
-            supervisor,
-            governor,
-            witness_store,
-            snapshot_store,
-            throttle_state,
-            emergency_mode,
-            dlq,
-            events_since_snapshot,
-            cell_kernel,
+            crate::dispatch::DispatchContext::new(
+                bus,
+                supervisor,
+                governor,
+                witness_store,
+                snapshot_store,
+                throttle_state,
+                emergency_mode,
+                dlq,
+                events_since_snapshot,
+                cell_kernel,
+            ),
         ));
 
         *self.dispatch_handle.lock().await = Some(handle);

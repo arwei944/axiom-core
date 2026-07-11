@@ -74,7 +74,7 @@ mod tests {
     async fn test_mailbox_push_pop() {
         let mb = Mailbox::new(8);
         use axiom_kernel::id::{CorrelationId, MsgId};
-        use axiom_kernel::layer::Layer;
+        use axiom_kernel::layer::RuntimeTier;
         use axiom_kernel::signal::{SignalKind, VectorClock};
 
         let env = SignalEnvelope {
@@ -85,8 +85,8 @@ mod tests {
             vector_clock: VectorClock::new(),
             timestamp_ns: 1,
             kind: SignalKind::Command,
-            source_layer: Layer::Exec,
-            target_layer: Layer::Exec,
+            source_layer: RuntimeTier::Exec,
+            target_layer: RuntimeTier::Exec,
             source_cell: None,
             target_cell: Some("cell-a".into()),
             payload: serde_json::Value::Null,
@@ -106,7 +106,7 @@ mod tests {
     async fn test_mailbox_capacity_reject() {
         let mb = Mailbox::new(1);
         use axiom_kernel::id::{CorrelationId, MsgId};
-        use axiom_kernel::layer::Layer;
+        use axiom_kernel::layer::RuntimeTier;
         use axiom_kernel::signal::{SignalKind, VectorClock};
 
         let make_env = |id: &str| SignalEnvelope {
@@ -117,8 +117,8 @@ mod tests {
             vector_clock: VectorClock::new(),
             timestamp_ns: 1,
             kind: SignalKind::Command,
-            source_layer: Layer::Exec,
-            target_layer: Layer::Exec,
+            source_layer: RuntimeTier::Exec,
+            target_layer: RuntimeTier::Exec,
             source_cell: None,
             target_cell: Some("cell-a".into()),
             payload: serde_json::Value::Null,

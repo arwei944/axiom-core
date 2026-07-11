@@ -1,5 +1,5 @@
 use axiom_kernel::id::{CorrelationId, MsgId};
-use axiom_kernel::layer::Layer;
+use axiom_kernel::layer::RuntimeTier;
 use axiom_kernel::witness::WitnessKind;
 use axiom_kernel::Guard;
 use axiom_kernel::Signal;
@@ -24,7 +24,7 @@ struct AutoGuard;
 fn test_guard_macro_auto_witness() {
     let guard = AutoGuard;
     assert_eq!(guard.id(), "AutoGuard");
-    assert_eq!(guard.layer(), Some(Layer::Exec));
+    assert_eq!(guard.layer(), Some(RuntimeTier::Exec));
 }
 
 #[test]

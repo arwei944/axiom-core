@@ -98,10 +98,10 @@ pub fn impl_capability(attr: TokenStream, item: TokenStream) -> TokenStream {
 
     let layer_variant = if let Some(l) = layer {
         match l.as_str() {
-            "exec" => quote! { Some(::axiom_kernel::Layer::Exec) },
-            "validate" => quote! { Some(::axiom_kernel::Layer::Validate) },
-            "agent" => quote! { Some(::axiom_kernel::Layer::Agent) },
-            "oversight" => quote! { Some(::axiom_kernel::Layer::Oversight) },
+            "exec" => quote! { Some(::axiom_kernel::RuntimeTier::Exec) },
+            "validate" => quote! { Some(::axiom_kernel::RuntimeTier::Validate) },
+            "agent" => quote! { Some(::axiom_kernel::RuntimeTier::Agent) },
+            "oversight" => quote! { Some(::axiom_kernel::RuntimeTier::Oversight) },
             "all" => quote! { None },
             _ => {
                 return syn::Error::new_spanned(&input, format!("invalid layer: {}", l))

@@ -6,7 +6,7 @@
 //! 3. Backpressure under high load
 
 use axiom_kernel::id::{CorrelationId, MsgId};
-use axiom_kernel::layer::Layer;
+use axiom_kernel::layer::RuntimeTier;
 use axiom_kernel::signal::{SignalEnvelope, SignalKind, VectorClock};
 use axiom_kernel::version::SchemaVersion;
 use std::sync::atomic::{AtomicUsize, Ordering};
@@ -109,7 +109,7 @@ fn test_concurrent_dlq_enqueue() {
         handles.push(thread::spawn(move || {
             for i in 0..per_thread {
                 let env = make_test_env();
-                dlq_clone.enqueue(env, &format!("thread-{}-err-{}", t, i));
+                dlq_clone.enqueue(env, &format!("thread-{}-err-{}", t, i)).unwrap();
             }
         }));
     }
@@ -188,9 +188,9 @@ async fn test_concurrent_guardian_intercept() {
 
             for i in 0..per_task {
                 let (src_layer, dst_layer) = if i % 2 == 0 {
-                    (Layer::Exec, Layer::Agent)
+                    (RuntimeTier::Exec, RuntimeTier::Agent)
                 } else {
-                    (Layer::Agent, Layer::Validate)
+                    (RuntimeTier::Agent, RuntimeTier::Validate)
                 };
 
                 let mut env = make_test_env();
@@ -271,8 +271,8 @@ fn make_test_env() -> SignalEnvelope {
         vector_clock: VectorClock::new(),
         timestamp_ns: 0,
         kind: SignalKind::Command,
-        source_layer: Layer::Exec,
-        target_layer: Layer::Exec,
+        source_layer: RuntimeTier::Exec,
+        target_layer: RuntimeTier::Exec,
         source_cell: Some("src".to_string()),
         target_cell: Some("dst".to_string()),
         payload: serde_json::json!({}),

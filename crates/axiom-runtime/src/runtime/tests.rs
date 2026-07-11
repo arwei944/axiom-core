@@ -4,14 +4,14 @@ use crate::runtime::RuntimeConfig;
 use axiom_kernel::cell::SupervisionStrategy;
 use axiom_kernel::clock::global_clock;
 use axiom_kernel::id::{CellId, CorrelationId, MsgId};
-use axiom_kernel::layer::Layer;
+use axiom_kernel::layer::RuntimeTier;
 use axiom_kernel::signal::{SignalKind, VectorClock};
 use axiom_kernel::version::Version;
 use std::time::Duration;
 
 fn env_from_to(
-    from: Layer,
-    to: Layer,
+    from: RuntimeTier,
+    to: RuntimeTier,
     target: Option<&str>,
 ) -> axiom_kernel::signal::SignalEnvelope {
     axiom_kernel::signal::SignalEnvelope {
@@ -39,7 +39,7 @@ async fn test_l2_guardian_blocks_exec_to_agent() {
     let _mb = rt
         .register_cell(CellRegistration {
             id: CellId::new("exec-cell"),
-            layer: Layer::Exec,
+            layer: RuntimeTier::Exec,
             version: Version::new(0, 1, 0),
             supervision_strategy: SupervisionStrategy::Restart { max_retries: 2 },
             cell: None,
@@ -49,14 +49,14 @@ async fn test_l2_guardian_blocks_exec_to_agent() {
         .unwrap();
     rt.start().await.unwrap();
 
-    let bad = env_from_to(Layer::Exec, Layer::Agent, None);
+    let bad = env_from_to(RuntimeTier::Exec, RuntimeTier::Agent, None);
     let result = rt.bus().publish(bad).await;
     assert!(
         result.is_err(),
         "Exec->Agent must be blocked by L2 guardian (compile-time CanSendTo already prevents it, but runtime doubles down)"
     );
 
-    let good = env_from_to(Layer::Oversight, Layer::Exec, Some("exec-cell"));
+    let good = env_from_to(RuntimeTier::Oversight, RuntimeTier::Exec, Some("exec-cell"));
     assert!(rt.bus().publish(good).await.is_ok());
 
     rt.stop().await;
@@ -68,7 +68,7 @@ async fn test_runtime_health_updates() {
     let _mb = rt
         .register_cell(CellRegistration {
             id: CellId::new("cell-1"),
-            layer: Layer::Exec,
+            layer: RuntimeTier::Exec,
             version: Version::new(0, 1, 0),
             supervision_strategy: SupervisionStrategy::default(),
             cell: None,
@@ -101,7 +101,7 @@ async fn test_preflight_rejects_bad_version() {
     let _ = rt
         .register_cell(CellRegistration {
             id: CellId::new("v1-cell"),
-            layer: Layer::Exec,
+            layer: RuntimeTier::Exec,
             version: Version::new(1, 0, 0),
             supervision_strategy: SupervisionStrategy::default(),
             cell: None,

@@ -91,7 +91,7 @@ impl LoopDetector {
 mod tests {
     use super::*;
     use axiom_kernel::id::{CorrelationId, MsgId};
-    use axiom_kernel::layer::Layer;
+    use axiom_kernel::layer::RuntimeTier;
     use axiom_kernel::signal::{SignalKind, VectorClock};
 
     fn env(target: &str, cid: &str) -> SignalEnvelope {
@@ -103,8 +103,8 @@ mod tests {
             vector_clock: VectorClock::new(),
             timestamp_ns: 1,
             kind: SignalKind::Command,
-            source_layer: Layer::Exec,
-            target_layer: Layer::Exec,
+            source_layer: RuntimeTier::Exec,
+            target_layer: RuntimeTier::Exec,
             source_cell: None,
             target_cell: Some(target.to_string()),
             payload: serde_json::Value::Null,

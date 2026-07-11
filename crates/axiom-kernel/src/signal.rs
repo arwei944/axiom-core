@@ -1,6 +1,6 @@
 use crate::axiom::{KernelResult, ValidationResult};
 use crate::id::{CorrelationId, MsgId, TraceId};
-use crate::layer::Layer;
+use crate::layer::RuntimeTier;
 use crate::version::SchemaVersion;
 use crate::HeatmapCollector;
 use serde::{Deserialize, Serialize};
@@ -64,8 +64,8 @@ pub struct SignalEnvelope {
     pub vector_clock: VectorClock,
     pub timestamp_ns: u64,
     pub kind: SignalKind,
-    pub source_layer: crate::Layer,
-    pub target_layer: crate::Layer,
+    pub source_layer: crate::RuntimeTier,
+    pub target_layer: crate::RuntimeTier,
     pub source_cell: Option<String>,
     pub target_cell: Option<String>,
     pub payload: serde_json::Value,
@@ -76,8 +76,8 @@ pub struct SignalEnvelope {
 
 impl SignalEnvelope {
     pub fn new(
-        source_layer: crate::Layer,
-        target_layer: crate::Layer,
+        source_layer: crate::RuntimeTier,
+        target_layer: crate::RuntimeTier,
         signal_type: impl Into<String>,
     ) -> Self {
         Self {
@@ -100,7 +100,7 @@ impl SignalEnvelope {
     }
 
     pub fn validate_layer_transition(&self) -> crate::KernelResult<()> {
-        use crate::Layer::*;
+        use crate::RuntimeTier::*;
         match (self.source_layer, self.target_layer) {
             (Exec, Agent) => Err(crate::KernelError::LayerViolation {
                 from: self.source_layer,
@@ -182,7 +182,7 @@ pub trait Signal: Send + Sync {
     fn vector_clock(&self) -> &VectorClock;
     fn timestamp_ns(&self) -> u64;
     fn kind(&self) -> SignalKind;
-    fn layer(&self) -> Layer;
+    fn layer(&self) -> RuntimeTier;
     fn sender(&self) -> Option<&str> {
         None
     }

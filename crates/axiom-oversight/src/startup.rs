@@ -104,18 +104,18 @@ impl StartupCheck for LayerCanSendToCheck {
         "layer-direction-matrix"
     }
     fn check(&self) -> Result<(), StartupError> {
-        use axiom_kernel::layer::Layer;
+        use axiom_kernel::layer::RuntimeTier;
         let legal_pairs = [
-            (Layer::Oversight, Layer::Oversight),
-            (Layer::Oversight, Layer::Agent),
-            (Layer::Oversight, Layer::Validate),
-            (Layer::Oversight, Layer::Exec),
-            (Layer::Agent, Layer::Agent),
-            (Layer::Agent, Layer::Validate),
-            (Layer::Validate, Layer::Validate),
-            (Layer::Validate, Layer::Exec),
-            (Layer::Validate, Layer::Agent),
-            (Layer::Exec, Layer::Exec),
+            (RuntimeTier::Oversight, RuntimeTier::Oversight),
+            (RuntimeTier::Oversight, RuntimeTier::Agent),
+            (RuntimeTier::Oversight, RuntimeTier::Validate),
+            (RuntimeTier::Oversight, RuntimeTier::Exec),
+            (RuntimeTier::Agent, RuntimeTier::Agent),
+            (RuntimeTier::Agent, RuntimeTier::Validate),
+            (RuntimeTier::Validate, RuntimeTier::Validate),
+            (RuntimeTier::Validate, RuntimeTier::Exec),
+            (RuntimeTier::Validate, RuntimeTier::Agent),
+            (RuntimeTier::Exec, RuntimeTier::Exec),
         ];
         for (a, b) in &legal_pairs {
             if !a.can_send_to(*b) {
@@ -126,10 +126,10 @@ impl StartupCheck for LayerCanSendToCheck {
             }
         }
         let illegal_pairs = [
-            (Layer::Exec, Layer::Agent),
-            (Layer::Exec, Layer::Oversight),
-            (Layer::Validate, Layer::Oversight),
-            (Layer::Agent, Layer::Oversight),
+            (RuntimeTier::Exec, RuntimeTier::Agent),
+            (RuntimeTier::Exec, RuntimeTier::Oversight),
+            (RuntimeTier::Validate, RuntimeTier::Oversight),
+            (RuntimeTier::Agent, RuntimeTier::Oversight),
         ];
         for (a, b) in &illegal_pairs {
             if a.can_send_to(*b) {

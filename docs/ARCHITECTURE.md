@@ -7,7 +7,8 @@
 ## 目录
 
 - [设计原则](#设计原则)
-- [分层架构](#分层架构)
+- [Crate Layer 分层架构](#crate-layer-分层架构)
+- [Runtime Tier（运行时分层）](#runtime-tier运行时分层)
 - [核心组件详解](#核心组件详解)
 - [数据流向](#数据流向)
 - [架构治理](#架构治理)
@@ -15,6 +16,7 @@
 - [插件系统](#插件系统)
 - [热图系统](#热图系统)
 - [错误处理](#错误处理)
+- [异步锁策略](#异步锁策略)
 - [性能优化](#性能优化)
 
 ---
@@ -48,43 +50,43 @@
 
 ---
 
-## 分层架构
+## Crate Layer 分层架构
 
-Axiom Core 采用 **9 层分层架构**，严格遵循单向依赖原则。
+Axiom Core 采用 **9 层 Crate Layer 分层架构**，严格遵循单向依赖原则。
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│  Layer 0: 顶层应用 (axiom-cli, axiom-bench)                 │
+│  Crate Layer 0: 顶层应用 (axiom-cli, axiom-bench)            │
 ├─────────────────────────────────────────────────────────────┤
-│  Layer 1: 可视化 (axiom-viz)                               │
+│  Crate Layer 1: 可视化 (axiom-viz)                          │
 ├─────────────────────────────────────────────────────────────┤
-│  Layer 2: Agent 门面 (axiom-identity, axiom-prompt)         │
+│  Crate Layer 2: Agent 门面 (axiom-identity, axiom-prompt)   │
 ├─────────────────────────────────────────────────────────────┤
-│  Layer 3: 监督与集成 (axiom-agent, axiom-oversight,        │
+│  Crate Layer 3: 监督与集成 (axiom-agent, axiom-oversight,   │
 │                       axiom-alert, axiom-mcp)               │
 ├─────────────────────────────────────────────────────────────┤
-│  Layer 4: 运行时与协调 (axiom-runtime, axiom-planner,       │
+│  Crate Layer 4: 运行时与协调 (axiom-runtime, axiom-planner, │
 │                        axiom-distributed)                   │
 ├─────────────────────────────────────────────────────────────┤
-│  Layer 5: 存储与工具 (axiom-store, axiom-tool,              │
+│  Crate Layer 5: 存储与工具 (axiom-store, axiom-tool,        │
 │                       axiom-memory, axiom-llm)              │
 ├─────────────────────────────────────────────────────────────┤
-│  Layer 7: 核心原语 (axiom-kernel) ⭐                        │
+│  Crate Layer 7: 核心原语 (axiom-kernel) ⭐                  │
 │           (axiom-core - deprecated)                         │
 ├─────────────────────────────────────────────────────────────┤
-│  Layer 8: Proc-macro (axiom-macros) - 豁免层                │
+│  Crate Layer 8: Proc-macro (axiom-macros) - 豁免层          │
 ├─────────────────────────────────────────────────────────────┤
-│  Layer 9: Plugin SDK (axiom-plugin-wasm-sdk)               │
-│           Plugin 示例                                       │
+│  Crate Layer 9: Plugin SDK (axiom-plugin-wasm-sdk)          │
+│           Plugin 示例                                        │
 └─────────────────────────────────────────────────────────────┘
 ```
 
 ### 层间依赖规则
 
-**铁律**：Layer N 的 crate **只能依赖** Layer >= N 的 crate。
+**铁律**：Crate Layer N 的 crate **只能依赖** Crate Layer >= N 的 crate。
 
-| Layer | Crate | 职责 |
-|-------|-------|------|
+| Crate Layer | Crate | 职责 |
+|-------------|-------|------|
 | 0 | axiom-cli, axiom-bench | 命令行工具、基准测试 |
 | 1 | axiom-viz | 运行时可视化 |
 | 2 | axiom-identity, axiom-prompt | Agent 身份管理、Prompt 模板 |
@@ -94,6 +96,36 @@ Axiom Core 采用 **9 层分层架构**，严格遵循单向依赖原则。
 | 7 | axiom-kernel | 核心原语（五大原语 + Plugin + Heatmap） |
 | 8 | axiom-macros | 过程宏（豁免层） |
 | 9 | axiom-plugin-wasm-sdk | WASM 插件 SDK |
+
+> **注意**：Crate Layer 是编译期 crate 依赖层级，与 Runtime Tier（运行时分层）是两套独立体系，不要混淆。
+
+---
+
+## Runtime Tier（运行时分层）
+
+Runtime Tier 是 Cell 和 Signal 在**运行时**的路由约束，定义在 `crates/axiom-kernel/src/layer.rs` 中。
+
+```
+Oversight(0) -> Agent(3) -> Validate(2) -> Exec(1)
+     ^               |               |
+     +---------------+---------------+
+           只能向下调用
+```
+
+| Runtime Tier | 编号 | 职责 |
+|--------------|------|------|
+| Oversight | 0 | 最高监督层，可向所有层发送指令 |
+| Agent | 3 | Agent 协调层，可向 Validate/Exec 发送任务 |
+| Validate | 2 | 校验层，可向 Exec 发送验证请求 |
+| Exec | 1 | 执行层，最底层，执行具体任务 |
+
+### 层间调用规则
+
+- `CanSendTo<SourceTier, TargetTier>` 编译期约束调用方向
+- 只有 `Oversight` 可以向所有层发送消息
+- `Agent` 可以向 `Validate` 和 `Exec` 发送消息
+- `Validate` 只能向 `Exec` 发送消息
+- `Exec` 不能向其他层发送消息
 
 ---
 
@@ -109,11 +141,11 @@ Axiom Core 采用 **9 层分层架构**，严格遵循单向依赖原则。
 |------|------|----------|
 | **cell.rs** | Cell 单元抽象 | `Cell`, `CellHandle`, `DynCell` |
 | **signal.rs** | 信号定义与序列化 | `Signal`, `SignalEnvelope`, `VectorClock` |
-| **axiom.rs** | 约束验证引擎 | `Axiom`, `DynAxiom`, `KernelError` |
+| **axiom.rs** | 约束验证引擎 | `Axiom`, `DynAxiom`, `DynAxiomChain`, `KernelError` |
 | **witness.rs** | 见证链系统 | `Witness`, `WitnessKernel`, `WitnessHash` |
 | **guard.rs** | 拦截器/守卫 | `Guard`, `DynGuard`, `BoxedGuard` |
 | **lens.rs** | 状态投影 | `Lens`, `DynLens` |
-| **registry.rs** | 分布式注册表 | `AXIOM_REGISTRY`, `CAPABILITY_REGISTRY` |
+| **registry.rs** | 分布式注册表 | `AXIOM_REGISTRY`, `CAPABILITY_REGISTRY`, `WITNESS_REGISTRY` |
 | **plugin/** | 插件系统 | `PluginRegistry`, `WasmPluginLoader`, `NativePluginLoader` |
 | **heatmap/** | 信号热图 | `HeatmapCollector`, `HeatmapExporter` |
 | **gate.rs** | 架构门禁 | `crate_layers`, `verify_dependencies` |
@@ -127,7 +159,7 @@ Axiom Core 采用 **9 层分层架构**，严格遵循单向依赖原则。
 ```rust
 pub trait Cell: Send + 'static {
     type Message: Signal;
-    type Layer: LayerMarker;
+    type Layer: RuntimeTierMarker;
     
     fn id(&self) -> &CellId;
     fn handle<'a>(&'a mut self, signal: Self::Message, ctx: LayeredCellContext<'a, Self::Layer>)
@@ -144,7 +176,7 @@ pub trait Signal: Send + Sync + 'static {
     fn correlation_id(&self) -> &CorrelationId;
     fn vector_clock(&self) -> &VectorClock;
     fn kind(&self) -> SignalKind;
-    fn layer(&self) -> Layer;
+    fn layer(&self) -> RuntimeTier;
 }
 ```
 
@@ -236,9 +268,9 @@ pub trait Lens: Send + Sync + 'static {
 ### 层间调用方向
 
 ```
-Oversight ──→ Agent ──→ Validate ──→ Exec
-     │           │           │
-     └───────────┴───────────┘
+Oversight(0) ──→ Agent(3) ──→ Validate(2) ──→ Exec(1)
+     │              │               |
+     └──────────────┴───────────────┘
            只能向下调用
 ```
 
@@ -290,7 +322,7 @@ axm verify
 pub static AXIOM_REGISTRY: [&'static dyn DynAxiom] = [];
 
 #[distributed_slice]
-pub static CAPABILITY_REGISTRY: [&'static dyn DynCapability] = [];
+pub static CAPABILITY_REGISTRY: [&'static CapabilityDescriptor] = [];
 ```
 
 ### 注册机制
@@ -302,9 +334,16 @@ pub static CAPABILITY_REGISTRY: [&'static dyn DynCapability] = [];
 ### 查询方式
 
 ```rust
-let chain = DynAxiomChain::from_registry_for_layer(Layer::Exec);
+let chain = DynAxiomChain::from_registry_for_layer(RuntimeTier::Exec);
 let capabilities: Vec<_> = CAPABILITY_REGISTRY.iter().copied().collect();
 ```
+
+### 测试清理接口
+
+- `WitnessRegistry::clear()` - 清空 witness 注册表
+- `RegistryGuard` - RAII guard，构造时保存快照，析构时恢复
+- `count_registered_axioms()` / `is_axiom_registry_empty()` - 查询 axiom 注册表
+- `CapabilityVersionRegistry::len()` / `is_empty()` - 查询 capability 注册表
 
 ---
 
@@ -371,7 +410,7 @@ v0.4.0 新增 WASM 插件系统，支持运行时动态加载插件。
 ```rust
 pub enum KernelError {
     InvariantViolated { message: String },
-    LayerViolation { from: Layer, to: Layer, ... },
+    LayerViolation { from: RuntimeTier, to: RuntimeTier, ... },
     SignalValidationFailed { errors: Vec<String> },
     CellNotFound { cell_id: CellId },
     PluginLoadFailed { path: String, error: String },
@@ -387,6 +426,24 @@ pub enum KernelError {
 
 ---
 
+## 异步锁策略
+
+为避免锁混用导致的死锁和性能问题，制定统一锁使用规范：
+
+| 上下文 | 推荐锁 | 禁止使用 |
+|--------|--------|----------|
+| async 函数/方法 | `tokio::sync::RwLock` | `std::sync::RwLock` |
+| sync 函数/方法 | `parking_lot::RwLock` | `std::sync::RwLock` |
+| 全局静态状态 | `parking_lot::Mutex` | `std::sync::Mutex` |
+
+### 典型场景
+
+- `AxiomRuntime` 的 async 方法中使用 `tokio::sync::RwLock`
+- `Supervisor`、`EntropyGovernorCell` 的 sync 方法中使用 `parking_lot::RwLock`
+- `DeadLetterQueue`、`WitnessRegistry` 等全局注册表使用 `parking_lot::Mutex`
+
+---
+
 ## 性能优化
 
 ### 编译时优化
@@ -397,7 +454,7 @@ pub enum KernelError {
 
 ### 运行时优化
 
-1. **tokio RwLock**：更好的异步调度
+1. **异步锁策略**：async 上下文使用 `tokio::sync::RwLock`，sync 上下文使用 `parking_lot::RwLock`，禁止 `std::sync::RwLock`
 2. **parking_lot Mutex**：更快的同步原语
 3. **批量操作**：减少锁获取次数
 4. **采样机制**：热图可配置采样率

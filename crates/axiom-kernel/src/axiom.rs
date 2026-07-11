@@ -1,4 +1,5 @@
 use crate::heatmap::HeatmapCollector;
+use crate::registry::registered_axioms;
 use crate::signal::SignalEnvelope;
 use serde::{Deserialize, Serialize};
 use std::any::Any;
@@ -120,8 +121,8 @@ pub enum KernelError {
 
     #[error("Layer violation: {from} cannot send to {to} (signal: {signal_type}, source_cell: {source_cell})")]
     LayerViolation {
-        from: crate::Layer,
-        to: crate::Layer,
+        from: crate::RuntimeTier,
+        to: crate::RuntimeTier,
         signal_type: String,
         source_cell: String,
     },
@@ -290,14 +291,14 @@ pub trait Axiom: Send + Sync {
         ViolationAction::Reject
     }
 
-    fn applies_to_layer(&self, _layer: crate::Layer) -> bool {
+    fn applies_to_layer(&self, _layer: crate::RuntimeTier) -> bool {
         true
     }
 }
 
 pub trait DynAxiom: Send + Sync + 'static {
     fn name(&self) -> &'static str;
-    fn applies_to_layer(&self, layer: crate::Layer) -> bool;
+    fn applies_to_layer(&self, layer: crate::RuntimeTier) -> bool;
     fn violation_action(&self) -> ViolationAction;
     fn check_dyn(
         &self,
@@ -313,7 +314,7 @@ impl<T: Axiom + 'static> DynAxiom for T {
         Axiom::name(self)
     }
 
-    fn applies_to_layer(&self, layer: crate::Layer) -> bool {
+    fn applies_to_layer(&self, layer: crate::RuntimeTier) -> bool {
         <T as Axiom>::applies_to_layer(self, layer)
     }
 
@@ -371,21 +372,38 @@ pub struct DynAxiomChain {
 }
 
 impl DynAxiomChain {
-    pub fn from_registry_for_layer(_layer: crate::Layer) -> Self {
-        Self { axioms: Vec::new() }
+    pub fn from_registry_all() -> Self {
+        Self {
+            axioms: registered_axioms(),
+        }
     }
 
-    pub fn from_registry_all() -> Self {
-        Self { axioms: Vec::new() }
+    pub fn from_registry_for_layer(layer: crate::RuntimeTier) -> Self {
+        let all = registered_axioms();
+        let filtered: Vec<&'static dyn DynAxiom> = all
+            .into_iter()
+            .filter(|axiom| axiom.applies_to_layer(layer))
+            .collect();
+        Self { axioms: filtered }
     }
 
     pub fn check_all(
         &self,
-        _current: &dyn std::any::Any,
-        _new: &dyn std::any::Any,
-        _msg: &dyn std::any::Any,
+        current: &dyn std::any::Any,
+        new: &dyn std::any::Any,
+        msg: &dyn std::any::Any,
     ) -> Vec<AxiomViolation> {
-        Vec::new()
+        let mut violations = Vec::new();
+        for axiom in &self.axioms {
+            if let Err(err) = axiom.check_dyn(current, new, msg) {
+                violations.push(AxiomViolation {
+                    axiom_name: axiom.name(),
+                    error: err,
+                    action: axiom.violation_action(),
+                });
+            }
+        }
+        violations
     }
 
     pub fn count(&self) -> usize {
@@ -477,6 +495,27 @@ impl AxiomKernel {
         Ok(())
     }
 
+    pub async fn check_for_layer(
+        &self,
+        current: &State,
+        new: &State,
+        msg: &Message,
+        layer: crate::RuntimeTier,
+    ) -> KernelResult<()> {
+        let axioms = self.axioms.read().await;
+        for axiom in axioms.iter() {
+            if axiom.applies_to_layer(layer) {
+                axiom.check_dyn(current, new, msg)?;
+            }
+        }
+        drop(axioms);
+        self.heatmap
+            .write()
+            .await
+            .record_axiom_check("axiom-chain");
+        Ok(())
+    }
+
     pub async fn count(&self) -> usize {
         self.axioms.read().await.len()
     }
@@ -494,4 +533,71 @@ impl Default for AxiomKernel {
 
 pub trait SignalHandler: Send + Sync {
     fn handle(&mut self, signal: &mut SignalEnvelope) -> KernelResult<()>;
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[allow(dead_code)]
+    struct TestState(i32);
+    #[allow(dead_code)]
+    struct TestMessage(&'static str);
+
+    #[allow(dead_code)]
+    struct TestAxiom {
+        name: &'static str,
+        layer: crate::RuntimeTier,
+    }
+
+    impl Axiom for TestAxiom {
+        type State = TestState;
+        type Message = TestMessage;
+
+        fn name(&self) -> &'static str {
+            self.name
+        }
+
+        fn check(
+            &self,
+            current: &Self::State,
+            new: &Self::State,
+            _msg: &Self::Message,
+        ) -> KernelResult<()> {
+            if new.0 < current.0 {
+                Err(KernelError::AxiomViolated(self.name.to_string()))
+            } else {
+                Ok(())
+            }
+        }
+
+        fn applies_to_layer(&self, layer: crate::RuntimeTier) -> bool {
+            self.layer == layer
+        }
+    }
+
+    #[test]
+    fn test_dyn_axiom_chain_from_registry_all() {
+        let chain = DynAxiomChain::from_registry_all();
+        // The registry may be empty in test environment, but the method should not panic
+        let _ = chain.count();
+    }
+
+    #[test]
+    fn test_dyn_axiom_chain_from_registry_for_layer() {
+        let chain = DynAxiomChain::from_registry_for_layer(crate::RuntimeTier::Exec);
+        // The method should not panic even if registry is empty
+        let _ = chain.count();
+    }
+
+    #[test]
+    fn test_dyn_axiom_chain_check_all() {
+        let chain = DynAxiomChain::from_registry_all();
+        let current = TestState(10);
+        let new = TestState(5);
+        let msg = TestMessage("test");
+        let violations = chain.check_all(&current, &new, &msg);
+        // Should return violations from registered axioms (if any)
+        let _ = violations;
+    }
 }

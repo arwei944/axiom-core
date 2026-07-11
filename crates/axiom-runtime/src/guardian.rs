@@ -11,6 +11,7 @@ use axiom_kernel::sealed::can_send_at_runtime;
 use axiom_kernel::signal::SignalEnvelope;
 
 use crate::bus::{BusInterceptor, InterceptDecision};
+use crate::constants::MAX_HOPS;
 
 pub struct ArchitectureGuardian {
     layer_violations: AtomicU64,
@@ -65,10 +66,10 @@ impl BusInterceptor for ArchitectureGuardian {
             };
         }
 
-        if env.hop_count > 8 {
+        if env.hop_count > MAX_HOPS {
             self.hop_violations.fetch_add(1, Ordering::Relaxed);
             return InterceptDecision::Reject {
-                reason: format!("hop count {} exceeds limit 8", env.hop_count),
+                reason: format!("hop count {} exceeds limit {}", env.hop_count, MAX_HOPS),
             };
         }
 

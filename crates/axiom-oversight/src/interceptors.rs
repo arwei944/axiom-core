@@ -155,11 +155,11 @@ pub async fn wire_oversight_default(bus: &MessageBus) -> Arc<OversightSupervisor
 mod tests {
     use super::*;
     use axiom_kernel::id::{CorrelationId, MsgId};
-    use axiom_kernel::layer::Layer;
+    use axiom_kernel::layer::RuntimeTier;
     use axiom_kernel::signal::{SignalEnvelope, SignalKind, VectorClock};
     use std::time::Duration;
 
-    fn make_env(from: Layer, to: Layer, payload: serde_json::Value) -> SignalEnvelope {
+    fn make_env(from: RuntimeTier, to: RuntimeTier, payload: serde_json::Value) -> SignalEnvelope {
         SignalEnvelope {
             msg_id: MsgId::new("t"),
             correlation_id: CorrelationId::new("c"),
@@ -184,8 +184,8 @@ mod tests {
         let guard = Arc::new(ComplianceGuardCell::new());
         let i = ComplianceInterceptor::new(guard);
         let env = make_env(
-            Layer::Exec,
-            Layer::Exec,
+            RuntimeTier::Exec,
+            RuntimeTier::Exec,
             serde_json::json!({"token":"ghp_abcdefghijklmnopqrstuvwxyz0123456789ABCD"}),
         );
         assert!(matches!(i.intercept(&env), InterceptDecision::Reject { .. }));
@@ -195,7 +195,7 @@ mod tests {
     fn compliance_allows_clean_payload() {
         let guard = Arc::new(ComplianceGuardCell::new());
         let i = ComplianceInterceptor::new(guard);
-        let env = make_env(Layer::Exec, Layer::Exec, serde_json::json!({"msg":"hello"}));
+        let env = make_env(RuntimeTier::Exec, RuntimeTier::Exec, serde_json::json!({"msg":"hello"}));
         assert!(matches!(i.intercept(&env), InterceptDecision::Allow));
     }
 
@@ -203,7 +203,7 @@ mod tests {
     async fn resource_throttles_when_exhausted() {
         let mgr = Arc::new(ResourceManagerCell::new(1, 100.0, 4));
         let i = ResourceInterceptor::new(mgr.clone());
-        let env = make_env(Layer::Exec, Layer::Exec, serde_json::Value::Null);
+        let env = make_env(RuntimeTier::Exec, RuntimeTier::Exec, serde_json::Value::Null);
         assert!(matches!(i.intercept(&env), InterceptDecision::Allow));
         assert!(matches!(i.intercept(&env), InterceptDecision::Reject { .. }));
         tokio::time::sleep(Duration::from_millis(50)).await;

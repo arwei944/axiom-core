@@ -1,52 +1,60 @@
-//! Layer labels for architectural self-constraint.
+//! Runtime tier labels for architectural self-constraint.
 //!
-//! Every Cell and Signal carries a Layer tag, enabling compile-time
+//! Every Cell and Signal carries a RuntimeTier tag, enabling compile-time
 //! and runtime enforcement of the call-direction rule:
-//! Oversight → Agent → Validate → Exec (no reverse, no skip).
+//! Oversight -> Agent -> Validate -> Exec (no reverse, no skip).
+//!
+//! Note: This is distinct from "Crate Layer" (defined in .axiom/architecture.toml),
+//! which is a compile-time crate dependency hierarchy. RuntimeTier is a runtime
+//! concept for Cell and Signal routing.
 
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, PartialOrd, Ord)]
-pub enum Layer {
-    /// Layer 0: Oversight (supervises everything, executes no business logic)
+pub enum RuntimeTier {
+    /// Tier 0: Oversight (supervises everything, executes no business logic)
     Oversight = 0,
-    /// Layer 3: Deliberative (LLM/non-deterministic reasoning)
+    /// Tier 3: Deliberative (LLM/non-deterministic reasoning)
     Agent = 3,
-    /// Layer 2: Validation (schema checks, rule engines, Axiom validation)
+    /// Tier 2: Validation (schema checks, rule engines, Axiom validation)
     Validate = 2,
-    /// Layer 1: Executive (deterministic execution, DB, API, IO)
+    /// Tier 1: Executive (deterministic execution, DB, API, IO)
     Exec = 1,
 }
 
-impl Layer {
+impl RuntimeTier {
     pub fn as_str(&self) -> &'static str {
         match self {
-            Layer::Oversight => "oversight",
-            Layer::Agent => "agent",
-            Layer::Validate => "validate",
-            Layer::Exec => "exec",
+            RuntimeTier::Oversight => "oversight",
+            RuntimeTier::Agent => "agent",
+            RuntimeTier::Validate => "validate",
+            RuntimeTier::Exec => "exec",
         }
     }
 
-    /// Check if a signal can be sent from this layer to the target layer.
+    /// Check if a signal can be sent from this tier to the target tier.
     ///
     /// Rules:
-    /// - Oversight can send to any layer (supervises everything)
-    /// - Agent can send to Agent or Validate (deliberative layer)
-    /// - Validate can send to Validate, Exec, or Agent (validation layer)
-    /// - Exec can only send to Exec (execution layer, no reverse)
-    pub fn can_send_to(&self, target: Layer) -> bool {
+    /// - Oversight can send to any tier (supervises everything)
+    /// - Agent can send to Agent or Validate (deliberative tier)
+    /// - Validate can send to Validate, Exec, or Agent (validation tier)
+    /// - Exec can only send to Exec (execution tier, no reverse)
+    pub fn can_send_to(&self, target: RuntimeTier) -> bool {
         match self {
-            Layer::Oversight => true,
-            Layer::Agent => matches!(target, Layer::Agent | Layer::Validate),
-            Layer::Validate => matches!(target, Layer::Validate | Layer::Exec | Layer::Agent),
-            Layer::Exec => matches!(target, Layer::Exec),
+            RuntimeTier::Oversight => true,
+            RuntimeTier::Agent => matches!(target, RuntimeTier::Agent | RuntimeTier::Validate),
+            RuntimeTier::Validate => matches!(target, RuntimeTier::Validate | RuntimeTier::Exec | RuntimeTier::Agent),
+            RuntimeTier::Exec => matches!(target, RuntimeTier::Exec),
         }
     }
 }
 
-impl std::fmt::Display for Layer {
+impl std::fmt::Display for RuntimeTier {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.as_str())
     }
 }
+
+// Backwards compatibility alias - deprecated, use RuntimeTier instead
+#[deprecated(since = "0.4.0", note = "Use RuntimeTier instead. Layer was renamed to avoid confusion with Crate Layer.")]
+pub type Layer = RuntimeTier;

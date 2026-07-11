@@ -2,7 +2,7 @@ use axiom_kernel::axiom::{Axiom, KernelError, KernelResult, ValidationResult};
 use axiom_kernel::cell::{Cell, CellKind};
 use axiom_kernel::context::CellContext;
 use axiom_kernel::id::{CellId, CorrelationId, MsgId};
-use axiom_kernel::layer::Layer;
+use axiom_kernel::layer::RuntimeTier;
 use axiom_kernel::registry::{count_registered_axioms, registered_migration_chains};
 use axiom_kernel::signal::{now_ns, Signal, SignalKind, VectorClock};
 use axiom_kernel::version::{Migration, SchemaVersion, Versioned};
@@ -36,8 +36,8 @@ impl Signal for GreetCmd {
     fn kind(&self) -> SignalKind {
         SignalKind::Command
     }
-    fn layer(&self) -> Layer {
-        Layer::Exec
+    fn layer(&self) -> RuntimeTier {
+        RuntimeTier::Exec
     }
     fn as_any(&self) -> &dyn std::any::Any {
         self
@@ -105,8 +105,8 @@ impl Signal for V2Signal {
     fn kind(&self) -> SignalKind {
         SignalKind::Event
     }
-    fn layer(&self) -> Layer {
-        Layer::Validate
+    fn layer(&self) -> RuntimeTier {
+        RuntimeTier::Validate
     }
     fn as_any(&self) -> &dyn std::any::Any {
         self
@@ -160,7 +160,7 @@ impl Axiom for TestAxiom {
 async fn test_cell_macro_adds_exec_marker() {
     let mut cell = GreeterCell::new();
     let id = CellId::new("greeter");
-    let mut ctx = CellContext::new(&id, Layer::Exec);
+    let mut ctx = CellContext::new(&id, RuntimeTier::Exec);
     let cmd = GreetCmd {
         msg_id: MsgId::new("m1"),
         correlation_id: CorrelationId::new("c1"),

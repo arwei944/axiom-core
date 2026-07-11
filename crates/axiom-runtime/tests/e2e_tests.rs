@@ -6,7 +6,7 @@
 use axiom_kernel::cell::SupervisionStrategy;
 use axiom_kernel::clock::global_clock;
 use axiom_kernel::id::{CellId, CorrelationId, MsgId};
-use axiom_kernel::layer::Layer;
+use axiom_kernel::layer::RuntimeTier;
 use axiom_kernel::signal::{SignalKind, VectorClock};
 use axiom_kernel::version::Version;
 use axiom_runtime::CellRegistration;
@@ -20,8 +20,8 @@ fn make_signal_envelope(target_cell: &str) -> axiom_kernel::signal::SignalEnvelo
         vector_clock: VectorClock::new(),
         timestamp_ns: global_clock().now_ns(),
         kind: SignalKind::Command,
-        source_layer: Layer::Oversight,
-        target_layer: Layer::Exec,
+        source_layer: RuntimeTier::Oversight,
+        target_layer: RuntimeTier::Exec,
         source_cell: None,
         target_cell: Some(target_cell.to_string()),
         payload: serde_json::json!({"payload": "hello-e2e"}),
@@ -37,7 +37,7 @@ async fn test_runtime_e2e_signal_dispatch_and_persistence() {
 
     let reg = CellRegistration {
         id: CellId::new("e2e-cell"),
-        layer: Layer::Exec,
+        layer: RuntimeTier::Exec,
         version: Version::new(0, 1, 0),
         supervision_strategy: SupervisionStrategy::Restart { max_retries: 3 },
         cell: None,

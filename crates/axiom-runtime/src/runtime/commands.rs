@@ -1,7 +1,7 @@
 use super::AxiomRuntime;
 use axiom_kernel::clock::global_clock;
 use axiom_kernel::id::{CorrelationId, MsgId};
-use axiom_kernel::layer::Layer;
+use axiom_kernel::layer::RuntimeTier;
 use axiom_kernel::signal::{SignalEnvelope, SignalKind, VectorClock};
 use axiom_kernel::version::SchemaVersion;
 use axiom_kernel::{KernelError, KernelResult};
@@ -13,7 +13,7 @@ impl AxiomRuntime {
         signal_type: &str,
         payload: Value,
         target_cell: Option<&str>,
-        target_layer: Layer,
+        target_layer: RuntimeTier,
     ) -> KernelResult<u64> {
         let id = next_msg_id();
         let corr_id = format!("corr-{id}");
@@ -25,7 +25,7 @@ impl AxiomRuntime {
             vector_clock: VectorClock::new(),
             timestamp_ns: global_clock().now_ns(),
             kind: SignalKind::Command,
-            source_layer: Layer::Oversight,
+            source_layer: RuntimeTier::Oversight,
             target_layer,
             source_cell: None,
             target_cell: target_cell.map(|s| s.to_string()),
@@ -41,7 +41,7 @@ impl AxiomRuntime {
         &self,
         signal: S,
         target_cell: Option<&str>,
-        target_layer: Layer,
+        target_layer: RuntimeTier,
     ) -> KernelResult<u64> {
         let validation = signal.validate();
         if validation.has_errors() {

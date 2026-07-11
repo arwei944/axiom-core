@@ -71,11 +71,18 @@ pub struct RetryConfig {
     pub initial_delay_ms: u64,
     pub max_delay_ms: u64,
     pub backoff_factor: f64,
+    pub request_timeout_ms: u64,
 }
 
 impl Default for RetryConfig {
     fn default() -> Self {
-        Self { max_retries: 3, initial_delay_ms: 100, max_delay_ms: 10000, backoff_factor: 2.0 }
+        Self {
+            max_retries: 3,
+            initial_delay_ms: 100,
+            max_delay_ms: 10000,
+            backoff_factor: 2.0,
+            request_timeout_ms: 60000,
+        }
     }
 }
 

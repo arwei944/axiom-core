@@ -1,0 +1,24 @@
+[package]
+name = "axiom-api"
+version = "0.4.0"
+edition = "2021"
+description = "Unified API gateway for Axiom Core runtime"
+license = "MIT"
+
+[dependencies]
+tokio = { version = "1", features = ["rt-multi-thread", "sync", "macros", "time", "net"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+thiserror = "1"
+tracing = "0.1"
+axum = "0.7"
+futures = "0.3"
+
+axiom-kernel = { path = "../axiom-kernel" }
+axiom-runtime = { path = "../axiom-runtime" }
+axiom-oversight = { path = "../axiom-oversight" }
+axiom-viz = { path = "../axiom-viz" }
+
+[dev-dependencies]
+tower = { version = "0.5", features = ["util"] }
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "net"] }

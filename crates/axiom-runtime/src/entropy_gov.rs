@@ -1,8 +1,10 @@
 //! EntropyGovernorCell - quantifies disorder and prescribes governance actions.
 //!
-//! Moved from axiom-oversight to axiom-runtime to avoid circular dependencies.
+//! Defined in axiom-runtime to avoid circular dependencies (oversight→runtime→oversight).
 //! axiom-oversight re-exports these types for oversight-level consumers.
+//! See [layer-leakage-exemptions] in architecture.toml for formal exemption.
 
+use crate::constants::{DEFAULT_THROTTLE_FACTOR, ENTROPY_COOLDOWN_NS};
 use axiom_kernel::clock::global_clock;
 use axiom_kernel::entropy::{
     EntropyLevel, EntropyScore, CRITICAL_THRESHOLD, GREEN_THRESHOLD, RED_THRESHOLD,
@@ -66,7 +68,7 @@ impl EntropyGovernorCell {
             per_cell: Arc::new(Mutex::new(HashMap::new())),
             last_action_ns: Arc::new(Mutex::new(0)),
             last_action: Arc::new(Mutex::new(None)),
-            cooldown_ns: 30_000_000_000,
+            cooldown_ns: ENTROPY_COOLDOWN_NS,
             witness_kernel: None,
         }
     }
@@ -86,7 +88,7 @@ impl EntropyGovernorCell {
             per_cell: Arc::new(Mutex::new(HashMap::new())),
             last_action_ns: Arc::new(Mutex::new(0)),
             last_action: Arc::new(Mutex::new(None)),
-            cooldown_ns: 30_000_000_000,
+            cooldown_ns: ENTROPY_COOLDOWN_NS,
             witness_kernel: Some(witness_kernel),
         }
     }
@@ -238,7 +240,7 @@ impl EntropyGovernorCell {
                     .iter()
                     .max_by(|a, b| a.1.partial_cmp(b.1).unwrap_or(std::cmp::Ordering::Equal))
                     .map(|(k, _)| k.clone());
-                GovernanceAction::Throttle { target_cell: hottest, factor: 0.5 }
+                GovernanceAction::Throttle { target_cell: hottest, factor: DEFAULT_THROTTLE_FACTOR }
             }
             EntropyLevel::Critical => GovernanceAction::Emergency {
                 reason: format!("entropy critical: {:.3}", snap.global.value),

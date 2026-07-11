@@ -3,7 +3,7 @@
 //! As an Oversight component, it tracks violations and produces audit records.
 
 use axiom_kernel::id::CellId;
-use axiom_kernel::layer::Layer;
+use axiom_kernel::layer::RuntimeTier;
 use axiom_kernel::signal::SignalEnvelope;
 use parking_lot::Mutex;
 use serde::{Deserialize, Serialize};
@@ -24,8 +24,8 @@ pub struct GuardianStats {
 #[derive(Debug, Clone)]
 pub struct ViolationEvent {
     pub kind: String,
-    pub from: Option<Layer>,
-    pub to: Option<Layer>,
+    pub from: Option<RuntimeTier>,
+    pub to: Option<RuntimeTier>,
     pub signal_type: String,
     pub reason: String,
     pub timestamp_ns: u64,
@@ -155,7 +155,7 @@ mod tests {
     use axiom_kernel::id::{CorrelationId, MsgId};
     use axiom_kernel::signal::{SignalKind, VectorClock};
 
-    fn env(from: Layer, to: Layer, hop_count: u32) -> SignalEnvelope {
+    fn env(from: RuntimeTier, to: RuntimeTier, hop_count: u32) -> SignalEnvelope {
         SignalEnvelope {
             msg_id: MsgId::new("m"),
             correlation_id: CorrelationId::new("c"),
@@ -178,9 +178,9 @@ mod tests {
     #[test]
     fn test_legal_direction_allowed() {
         let c = ArchitectureGuardianCell::new();
-        assert!(c.check_envelope(&env(Layer::Oversight, Layer::Agent, 0)).is_ok());
-        assert!(c.check_envelope(&env(Layer::Agent, Layer::Validate, 0)).is_ok());
-        assert!(c.check_envelope(&env(Layer::Validate, Layer::Exec, 0)).is_ok());
+        assert!(c.check_envelope(&env(RuntimeTier::Oversight, RuntimeTier::Agent, 0)).is_ok());
+        assert!(c.check_envelope(&env(RuntimeTier::Agent, RuntimeTier::Validate, 0)).is_ok());
+        assert!(c.check_envelope(&env(RuntimeTier::Validate, RuntimeTier::Exec, 0)).is_ok());
         assert_eq!(c.stats().total_allowed, 3);
         assert_eq!(c.stats().total_rejected, 0);
     }
@@ -188,8 +188,8 @@ mod tests {
     #[test]
     fn test_illegal_direction_rejected() {
         let c = ArchitectureGuardianCell::new();
-        assert!(c.check_envelope(&env(Layer::Exec, Layer::Agent, 0)).is_err());
-        assert!(c.check_envelope(&env(Layer::Exec, Layer::Oversight, 0)).is_err());
+        assert!(c.check_envelope(&env(RuntimeTier::Exec, RuntimeTier::Agent, 0)).is_err());
+        assert!(c.check_envelope(&env(RuntimeTier::Exec, RuntimeTier::Oversight, 0)).is_err());
         assert_eq!(c.stats().total_rejected, 2);
         assert_eq!(c.stats().layer_violations.len(), 2);
     }
@@ -197,14 +197,14 @@ mod tests {
     #[test]
     fn test_hop_limit_rejected() {
         let c = ArchitectureGuardianCell::new();
-        assert!(c.check_envelope(&env(Layer::Exec, Layer::Exec, 9)).is_err());
+        assert!(c.check_envelope(&env(RuntimeTier::Exec, RuntimeTier::Exec, 9)).is_err());
         assert_eq!(c.stats().hop_limit_exceeded, 1);
     }
 
     #[test]
     fn test_schema_version_zero_rejected() {
         let c = ArchitectureGuardianCell::new();
-        let mut e = env(Layer::Exec, Layer::Exec, 0);
+        let mut e = env(RuntimeTier::Exec, RuntimeTier::Exec, 0);
         e.schema_version = axiom_kernel::SchemaVersion::new(0);
         assert!(c.check_envelope(&e).is_err());
         assert_eq!(c.stats().schema_version_mismatch, 1);
@@ -214,7 +214,7 @@ mod tests {
     fn test_recent_violations_bounded() {
         let c = ArchitectureGuardianCell::new();
         for _ in 0..200 {
-            let _ = c.check_envelope(&env(Layer::Exec, Layer::Agent, 0));
+            let _ = c.check_envelope(&env(RuntimeTier::Exec, RuntimeTier::Agent, 0));
         }
         assert!(c.recent_violations(1000).len() <= 128);
     }

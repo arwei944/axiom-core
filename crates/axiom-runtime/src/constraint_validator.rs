@@ -11,7 +11,7 @@ use axiom_kernel::signal::SignalEnvelope;
 #[derive(Debug, Clone, Default)]
 pub struct ValidationContext {
     pub capability_dimensions: Vec<CapabilityDimension>,
-    pub target_layer: Option<axiom_kernel::Layer>,
+    pub target_layer: Option<axiom_kernel::RuntimeTier>,
     pub source_cell: Option<String>,
     pub signal_type: Option<String>,
     pub schema_version: Option<axiom_kernel::version::SchemaVersion>,

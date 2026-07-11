@@ -11,10 +11,11 @@ use tokio::sync::RwLock;
 
 use axiom_kernel::codec::{JsonCodec, SignalCodec};
 use axiom_kernel::id::CellId;
-use axiom_kernel::layer::Layer;
+use axiom_kernel::layer::RuntimeTier;
 use axiom_kernel::signal::SignalEnvelope;
 use axiom_kernel::{KernelError, KernelResult};
 
+use crate::constants::MAX_HOPS;
 use crate::mailbox::Mailbox;
 
 #[derive(Debug, Clone)]
@@ -31,7 +32,7 @@ pub trait BusInterceptor: Send + Sync {
 
 pub struct RoutingTable {
     cell_id_to_name: HashMap<String, String>,
-    layer_subscribers: HashMap<Layer, Vec<String>>,
+    layer_subscribers: HashMap<RuntimeTier, Vec<String>>,
 }
 
 impl RoutingTable {
@@ -39,7 +40,7 @@ impl RoutingTable {
         Self { cell_id_to_name: HashMap::new(), layer_subscribers: HashMap::new() }
     }
 
-    pub fn register_cell(&mut self, cell_id: &str, layer: Layer) {
+    pub fn register_cell(&mut self, cell_id: &str, layer: RuntimeTier) {
         self.cell_id_to_name.insert(cell_id.to_string(), cell_id.to_string());
         self.layer_subscribers.entry(layer).or_default().push(cell_id.to_string());
     }
@@ -63,7 +64,7 @@ impl Default for RoutingTable {
 
 struct CellEntry {
     mailbox: Arc<Mailbox>,
-    _layer: Layer,
+    _layer: RuntimeTier,
 }
 
 struct InterceptorSignalHandler {
@@ -130,7 +131,7 @@ impl MessageBus {
         self.signal_kernel.register_handler(boxed).await;
     }
 
-    pub async fn register_cell(&self, cell_id: &CellId, mailbox: Arc<Mailbox>, layer: Layer) {
+    pub async fn register_cell(&self, cell_id: &CellId, mailbox: Arc<Mailbox>, layer: RuntimeTier) {
         let id_str = cell_id.as_str().to_string();
         self.cells.write().await.insert(id_str.clone(), CellEntry { mailbox, _layer: layer });
         self.routing.write().await.register_cell(&id_str, layer);
@@ -143,7 +144,7 @@ impl MessageBus {
             self.rejected_count.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
         })?;
 
-        if env.hop_count > 8 {
+        if env.hop_count > MAX_HOPS {
             return Err(KernelError::HandoffLimitExceeded {
                 msg_id: env.msg_id.to_string(),
                 hops: env.hop_count,
@@ -201,7 +202,7 @@ mod tests {
     use axiom_kernel::id::{CorrelationId, MsgId};
     use axiom_kernel::signal::{SignalKind, VectorClock};
 
-    fn make_env(from: Layer, to: Layer, target: Option<&str>) -> SignalEnvelope {
+    fn make_env(from: RuntimeTier, to: RuntimeTier, target: Option<&str>) -> SignalEnvelope {
         SignalEnvelope {
             msg_id: MsgId::new("test"),
             correlation_id: CorrelationId::new("c1"),
@@ -227,7 +228,7 @@ mod tests {
             "reject-exec-agent"
         }
         fn intercept(&self, env: &SignalEnvelope) -> InterceptDecision {
-            if env.source_layer == Layer::Exec && env.target_layer == Layer::Agent {
+            if env.source_layer == RuntimeTier::Exec && env.target_layer == RuntimeTier::Agent {
                 InterceptDecision::Reject { reason: "exec cannot talk to agent".into() }
             } else {
                 InterceptDecision::Allow
@@ -240,9 +241,9 @@ mod tests {
         let bus = MessageBus::new();
         let mb = Arc::new(Mailbox::new(16));
         let cid = CellId::new("cell-a");
-        bus.register_cell(&cid, mb.clone(), Layer::Exec).await;
+        bus.register_cell(&cid, mb.clone(), RuntimeTier::Exec).await;
 
-        let env = make_env(Layer::Exec, Layer::Exec, Some("cell-a"));
+        let env = make_env(RuntimeTier::Exec, RuntimeTier::Exec, Some("cell-a"));
         let delivered = bus.publish(env).await.unwrap();
         assert_eq!(delivered, 1);
         assert_eq!(mb.len().await, 1);
@@ -251,7 +252,7 @@ mod tests {
     #[tokio::test]
     async fn test_bus_rejects_layer_violation() {
         let bus = MessageBus::new();
-        let env = make_env(Layer::Exec, Layer::Agent, None);
+        let env = make_env(RuntimeTier::Exec, RuntimeTier::Agent, None);
         let result = bus.publish(env).await;
         assert!(result.is_err());
     }
@@ -262,9 +263,9 @@ mod tests {
         bus.register_interceptor(Arc::new(RejectExecToAgent)).await;
         let mb = Arc::new(Mailbox::new(16));
         let cid = CellId::new("cell-a");
-        bus.register_cell(&cid, mb.clone(), Layer::Exec).await;
+        bus.register_cell(&cid, mb.clone(), RuntimeTier::Exec).await;
 
-        let env = make_env(Layer::Exec, Layer::Exec, Some("cell-a"));
+        let env = make_env(RuntimeTier::Exec, RuntimeTier::Exec, Some("cell-a"));
         assert!(bus.publish(env).await.is_ok());
         assert_eq!(bus.rejected_count(), 0);
     }
@@ -272,7 +273,7 @@ mod tests {
     #[tokio::test]
     async fn test_bus_hop_limit() {
         let bus = MessageBus::new();
-        let mut env = make_env(Layer::Exec, Layer::Exec, None);
+        let mut env = make_env(RuntimeTier::Exec, RuntimeTier::Exec, None);
         env.hop_count = 9;
         assert!(bus.publish(env).await.is_err());
     }
@@ -280,7 +281,7 @@ mod tests {
     #[test]
     fn test_bus_codec_json_round_trip() {
         let bus = MessageBus::new();
-        let env = make_env(Layer::Exec, Layer::Exec, None);
+        let env = make_env(RuntimeTier::Exec, RuntimeTier::Exec, None);
         let data = bus.encode_envelope(&env).unwrap();
         let decoded = bus.decode_envelope(&data).unwrap();
         assert_eq!(env.msg_id, decoded.msg_id);
@@ -292,7 +293,7 @@ mod tests {
     fn test_bus_codec_bincode_round_trip() {
         let codec = Arc::new(axiom_kernel::codec::BincodeCodec::default());
         let bus = MessageBus::with_codec(codec);
-        let env = make_env(Layer::Exec, Layer::Exec, None);
+        let env = make_env(RuntimeTier::Exec, RuntimeTier::Exec, None);
         let data = bus.encode_envelope(&env).unwrap();
         let decoded = bus.decode_envelope(&data).unwrap();
         assert_eq!(env.msg_id, decoded.msg_id);

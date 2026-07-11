@@ -1,0 +1,11 @@
+error: invalid layer: bad_layer
+ --> tests/compile-fail/cf-capability-invalid-layer.rs:4:1
+  |
+4 | struct BadLayerCapability;
+  | ^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+error[E0601]: `main` function not found in crate `$CRATE`
+ --> tests/compile-fail/cf-capability-invalid-layer.rs:4:27
+  |
+4 | struct BadLayerCapability;
+  |                           ^ consider adding a `main` function to `$DIR/tests/compile-fail/cf-capability-invalid-layer.rs`

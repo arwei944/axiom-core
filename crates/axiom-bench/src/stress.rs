@@ -9,7 +9,7 @@ use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 use axiom_kernel::id::{CorrelationId, MsgId};
-use axiom_kernel::layer::Layer;
+use axiom_kernel::layer::RuntimeTier;
 use axiom_kernel::signal::{SignalEnvelope, SignalKind, VectorClock};
 use axiom_kernel::version::SchemaVersion;
 use axiom_runtime::mailbox::Mailbox;
@@ -70,8 +70,8 @@ fn make_signal(src: &str, dst: &str) -> SignalEnvelope {
         vector_clock: VectorClock::new(),
         timestamp_ns: 0,
         kind: SignalKind::Command,
-        source_layer: Layer::Exec,
-        target_layer: Layer::Exec,
+        source_layer: RuntimeTier::Exec,
+        target_layer: RuntimeTier::Exec,
         source_cell: Some(src.to_string()),
         target_cell: Some(dst.to_string()),
         payload: serde_json::json!({}),

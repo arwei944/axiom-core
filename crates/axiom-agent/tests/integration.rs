@@ -359,7 +359,7 @@ async fn test_agent_tool_not_found() {
 
 #[tokio::test]
 async fn test_agent_re_export_crates() {
-    let _ = axiom_agent::axiom_kernel::Layer::Agent;
+    let _ = axiom_agent::axiom_kernel::RuntimeTier::Agent;
     let _ = axiom_agent::axiom_llm::LlmClient::mock();
     let _ = axiom_agent::axiom_tool::ToolRegistry::new();
     let _ = axiom_agent::axiom_memory::WorkingMemory::new(1000);

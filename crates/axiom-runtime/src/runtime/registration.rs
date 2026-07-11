@@ -2,12 +2,12 @@ use super::CellRegistration;
 use axiom_kernel::cell::RuntimeCellHandle;
 use axiom_kernel::cell::SupervisionStrategy;
 use axiom_kernel::id::CellId;
-use axiom_kernel::layer::Layer;
+use axiom_kernel::layer::RuntimeTier;
 use axiom_kernel::version::Version;
 use std::sync::Arc;
 
 impl CellRegistration {
-    pub fn new(id: CellId, layer: Layer) -> Self {
+    pub fn new(id: CellId, layer: RuntimeTier) -> Self {
         Self {
             id,
             layer,

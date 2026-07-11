@@ -63,11 +63,11 @@ fn snake_case(name: &str) -> String {
 
 fn get_layer_marker(layer: &str) -> &'static str {
     match layer {
-        "oversight" => "OversightLayer",
-        "agent" => "AgentLayer",
-        "validate" => "ValidateLayer",
-        "exec" => "ExecLayer",
-        _ => "ExecLayer",
+        "oversight" => "OversightTier",
+        "agent" => "AgentTier",
+        "validate" => "ValidateTier",
+        "exec" => "ExecTier",
+        _ => "ExecTier",
     }
 }
 

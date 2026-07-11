@@ -9,7 +9,7 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 use axiom_kernel::id::{CorrelationId, MsgId};
-use axiom_kernel::layer::Layer;
+use axiom_kernel::layer::RuntimeTier;
 use axiom_kernel::signal::{SignalKind, VectorClock};
 use parking_lot::RwLock;
 
@@ -17,7 +17,7 @@ use axiom_runtime::bus::{BusInterceptor, InterceptDecision};
 use axiom_runtime::entropy_gov::{EntropyEvent, EntropyGovernorCell, GovernanceAction};
 use axiom_runtime::entropy_interceptors::{EmergencyInterceptor, ThrottleInterceptor};
 
-fn make_env(target_cell: &str, source_layer: Layer) -> axiom_kernel::signal::SignalEnvelope {
+fn make_env(target_cell: &str, source_layer: RuntimeTier) -> axiom_kernel::signal::SignalEnvelope {
     axiom_kernel::signal::SignalEnvelope {
         msg_id: MsgId::new("test"),
         correlation_id: CorrelationId::new("corr"),
@@ -27,7 +27,7 @@ fn make_env(target_cell: &str, source_layer: Layer) -> axiom_kernel::signal::Sig
         timestamp_ns: 0,
         kind: SignalKind::Command,
         source_layer,
-        target_layer: Layer::Exec,
+        target_layer: RuntimeTier::Exec,
         source_cell: None,
         target_cell: Some(target_cell.to_string()),
         payload: serde_json::Value::Null,
@@ -51,7 +51,7 @@ async fn test_governance_throttle_flow() {
     if let GovernanceAction::Throttle { target_cell, factor } = action {
         throttle_state.write().insert(target_cell.unwrap(), factor);
 
-        let env = make_env("hot-cell", Layer::Exec);
+        let env = make_env("hot-cell", RuntimeTier::Exec);
 
         assert!(matches!(interceptor.intercept(&env), InterceptDecision::Allow));
         assert!(matches!(interceptor.intercept(&env), InterceptDecision::Reject { .. }));
@@ -73,13 +73,13 @@ async fn test_governance_emergency_flow() {
     if let GovernanceAction::Emergency { .. } = action {
         *emergency_mode.write() = true;
 
-        let env_non_oversight = make_env("target-cell", Layer::Exec);
+        let env_non_oversight = make_env("target-cell", RuntimeTier::Exec);
         assert!(matches!(
             interceptor.intercept(&env_non_oversight),
             InterceptDecision::Reject { .. }
         ));
 
-        let env_oversight = make_env("target-cell", Layer::Oversight);
+        let env_oversight = make_env("target-cell", RuntimeTier::Oversight);
         assert!(matches!(interceptor.intercept(&env_oversight), InterceptDecision::Allow));
     }
 }
@@ -91,7 +91,7 @@ async fn test_governance_clear_throttle() {
 
     throttle_state.write().insert("target-cell".to_string(), 0.5);
 
-    let env = make_env("target-cell", Layer::Exec);
+    let env = make_env("target-cell", RuntimeTier::Exec);
     assert!(matches!(interceptor.intercept(&env), InterceptDecision::Allow));
     assert!(matches!(interceptor.intercept(&env), InterceptDecision::Reject { .. }));
 
@@ -106,7 +106,7 @@ async fn test_governance_emergency_toggle_off() {
     let emergency_mode = Arc::new(RwLock::new(true));
     let interceptor = EmergencyInterceptor::new(emergency_mode.clone());
 
-    let env = make_env("target-cell", Layer::Exec);
+    let env = make_env("target-cell", RuntimeTier::Exec);
     assert!(matches!(interceptor.intercept(&env), InterceptDecision::Reject { .. }));
 
     *emergency_mode.write() = false;
@@ -127,7 +127,7 @@ async fn test_governance_no_action_allows_all() {
 
     assert!(matches!(action, GovernanceAction::None));
 
-    let env = make_env("target-cell", Layer::Exec);
+    let env = make_env("target-cell", RuntimeTier::Exec);
     assert!(matches!(
         throttle_interceptor.intercept(&env),
         axiom_runtime::bus::InterceptDecision::Allow

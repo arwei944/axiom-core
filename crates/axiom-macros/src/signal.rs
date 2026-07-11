@@ -11,7 +11,7 @@ pub fn impl_derive_signal_payload(input: TokenStream) -> TokenStream {
     let (impl_generics, ty_generics, where_clause) = input.generics.split_for_impl();
 
     let mut kind = quote! { ::axiom_kernel::signal::SignalKind::Command };
-    let mut layer = quote! { ::axiom_kernel::Layer::Exec };
+    let mut layer = quote! { ::axiom_kernel::RuntimeTier::Exec };
 
     for attr in &input.attrs {
         if attr.path().is_ident("signal") {
@@ -91,7 +91,7 @@ pub fn impl_derive_signal_payload(input: TokenStream) -> TokenStream {
             fn kind(&self) -> ::axiom_kernel::signal::SignalKind {
                 #kind
             }
-            fn layer(&self) -> ::axiom_kernel::Layer {
+            fn layer(&self) -> ::axiom_kernel::RuntimeTier {
                 #layer
             }
             #sender_impl
@@ -121,7 +121,7 @@ pub fn impl_signal(attr: TokenStream, item: TokenStream) -> TokenStream {
     let (impl_generics, ty_generics, where_clause) = input.generics.split_for_impl();
 
     let mut kind = quote! { ::axiom_kernel::signal::SignalKind::Command };
-    let mut layer = quote! { ::axiom_kernel::Layer::Exec };
+    let mut layer = quote! { ::axiom_kernel::RuntimeTier::Exec };
     let mut has_trace = false;
     let mut has_sender = false;
 
@@ -356,7 +356,7 @@ pub fn impl_signal(attr: TokenStream, item: TokenStream) -> TokenStream {
             fn kind(&self) -> ::axiom_kernel::signal::SignalKind {
                 #kind
             }
-            fn layer(&self) -> ::axiom_kernel::Layer {
+            fn layer(&self) -> ::axiom_kernel::RuntimeTier {
                 #layer
             }
             #sender_impl

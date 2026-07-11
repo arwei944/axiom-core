@@ -5,13 +5,11 @@
 
 use crate::axiom::KernelResult;
 use crate::id::{CorrelationId, MsgId, TraceId, WitnessId};
-use crate::layer::Layer;
+use crate::layer::RuntimeTier;
 use crate::signal::VectorClock;
 use crate::version::{SchemaVersion, VersionInfo};
 use crate::HeatmapCollector;
 use serde::{Deserialize, Serialize};
-use std::collections::hash_map::DefaultHasher;
-use std::hash::Hasher;
 use tokio::sync::RwLock;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -37,7 +35,7 @@ pub enum WitnessEvent {
     GuardChecked {
         guard_name: String,
         signal_type: String,
-        signal_layer: Layer,
+        signal_layer: RuntimeTier,
         passed: bool,
         timestamp: u64,
     },
@@ -222,14 +220,32 @@ impl WitnessBuilder {
         let signal_fingerprint =
             match (&ctx.current_signal_type, ctx.current_schema_version, &ctx.current_payload) {
                 (Some(st), Some(sv), Some(pl)) => {
-                    let mut hasher = DefaultHasher::new();
-                    hasher.write(st.as_bytes());
-                    hasher.write(sv.to_string().as_bytes());
-                    hasher.write(serde_json::to_string(pl).unwrap_or_default().as_bytes());
-                    let hash = hasher.finish();
-                    let mut fingerprint = [0u8; 32];
-                    fingerprint[0..8].copy_from_slice(&hash.to_be_bytes());
-                    fingerprint
+                    #[cfg(feature = "sha2-id")]
+                    {
+                        use sha2::{Digest, Sha256};
+                        let mut hasher = Sha256::new();
+                        hasher.update(st.as_bytes());
+                        hasher.update(sv.to_string().as_bytes());
+                        hasher.update(serde_json::to_string(pl)?);
+                        let result = hasher.finalize();
+                        let mut fingerprint = [0u8; 32];
+                        fingerprint.copy_from_slice(&result);
+                        fingerprint
+                    }
+
+                    #[cfg(not(feature = "sha2-id"))]
+                    {
+                        use std::collections::hash_map::DefaultHasher;
+                        use std::hash::Hasher;
+                        let mut hasher = DefaultHasher::new();
+                        hasher.write(st.as_bytes());
+                        hasher.write(sv.to_string().as_bytes());
+                        hasher.write(serde_json::to_string(pl).unwrap_or_default().as_bytes());
+                        let hash = hasher.finish();
+                        let mut fingerprint = [0u8; 32];
+                        fingerprint[0..8].copy_from_slice(&hash.to_be_bytes());
+                        fingerprint
+                    }
                 }
                 _ => [0u8; 32],
             };
@@ -243,7 +259,7 @@ impl WitnessBuilder {
             })?
             .len();
 
-        let witness = Witness {
+        let mut witness = Witness {
             witness_id,
             schema_version: crate::version::SchemaVersion::new(1),
             cell_id,
@@ -268,7 +284,7 @@ impl WitnessBuilder {
             payload_size_bytes: payload_size,
             kind: WitnessKind::StateTransition,
         };
-
+        witness.hash = witness.compute_hash()?;
         ctx.last_witness_hash = Some(witness.hash);
 
         ctx.witnesses.push(crate::context::OutgoingWitness(witness));
@@ -283,6 +299,87 @@ impl Default for WitnessBuilder {
 }
 
 impl Witness {
+    pub fn compute_hash(&self) -> KernelResult<WitnessHash> {
+        #[cfg(feature = "sha2-id")]
+        {
+            use sha2::{Digest, Sha256};
+            let mut hasher = Sha256::new();
+            hasher.update(self.witness_id.as_str().as_bytes());
+            hasher.update(self.cell_id.as_bytes());
+            hasher.update(self.correlation_id.as_str().as_bytes());
+            if let Some(ref t) = self.trace_id {
+                hasher.update(t.as_str().as_bytes());
+            }
+            if let Some(ref t) = self.triggering_msg_id {
+                hasher.update(t.as_str().as_bytes());
+            }
+            hasher.update(serde_json::to_string(&self.vector_clock)?.as_bytes());
+            hasher.update(self.timestamp_ns.to_be_bytes());
+            hasher.update(self.schema_version.to_string().as_bytes());
+            hasher.update(self.summary.as_bytes());
+            let outcome_bytes = serde_json::to_string(&self.outcome)?;
+            hasher.update(outcome_bytes.as_bytes());
+            let metrics_bytes = serde_json::to_string(&self.metrics)?;
+            hasher.update(metrics_bytes.as_bytes());
+            if let Some(ref h) = self.prev_hash {
+                hasher.update(&h.0);
+            }
+            if let Some(ref h) = self.state_before_hash {
+                hasher.update(&h.0);
+            }
+            if let Some(ref h) = self.state_after_hash {
+                hasher.update(&h.0);
+            }
+            hasher.update(&self.signal_fingerprint);
+            hasher.update(self.payload_size_bytes.to_be_bytes());
+            hasher.update(serde_json::to_string(&self.kind)?.as_bytes());
+            let result = hasher.finalize();
+            let mut hash = [0u8; 32];
+            hash.copy_from_slice(&result);
+            Ok(WitnessHash(hash))
+        }
+
+        #[cfg(not(feature = "sha2-id"))]
+        {
+            use std::collections::hash_map::DefaultHasher;
+            use std::hash::Hasher;
+            let mut hasher = DefaultHasher::new();
+            hasher.write(self.witness_id.as_str().as_bytes());
+            hasher.write(self.cell_id.as_bytes());
+            hasher.write(self.correlation_id.as_str().as_bytes());
+            if let Some(ref t) = self.trace_id {
+                hasher.write(t.as_str().as_bytes());
+            }
+            if let Some(ref t) = self.triggering_msg_id {
+                hasher.write(t.as_str().as_bytes());
+            }
+            hasher.write(serde_json::to_string(&self.vector_clock)?.as_bytes());
+            hasher.write(self.timestamp_ns.to_be_bytes());
+            hasher.write(self.schema_version.to_string().as_bytes());
+            hasher.write(self.summary.as_bytes());
+            let outcome_bytes = serde_json::to_string(&self.outcome)?;
+            hasher.write(outcome_bytes.as_bytes());
+            let metrics_bytes = serde_json::to_string(&self.metrics)?;
+            hasher.write(metrics_bytes.as_bytes());
+            if let Some(ref h) = self.prev_hash {
+                hasher.write(&h.0);
+            }
+            if let Some(ref h) = self.state_before_hash {
+                hasher.write(&h.0);
+            }
+            if let Some(ref h) = self.state_after_hash {
+                hasher.write(&h.0);
+            }
+            hasher.write(&self.signal_fingerprint);
+            hasher.write(self.payload_size_bytes.to_be_bytes());
+            hasher.write(serde_json::to_string(&self.kind)?.as_bytes());
+            let hash = hasher.finish();
+            let mut result = [0u8; 32];
+            result[0..8].copy_from_slice(&hash.to_be_bytes());
+            Ok(WitnessHash(result))
+        }
+    }
+
     pub fn verify_chain_integrity(witnesses: &[Self]) -> bool {
         for window in witnesses.windows(2) {
             let prev = &window[0];
@@ -352,5 +449,80 @@ impl WitnessKernel {
     pub async fn is_empty(&self) -> bool {
         let store = self.witnesses.read().await;
         store.is_empty()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_compute_hash_differs_on_outcome() {
+        let w1 = Witness {
+            witness_id: WitnessId::new("w1"),
+            schema_version: SchemaVersion::new(1),
+            cell_id: "c1".into(),
+            correlation_id: CorrelationId::new("corr"),
+            trace_id: None,
+            triggering_msg_id: None,
+            vector_clock: VectorClock::new(),
+            timestamp_ns: 1,
+            prev_hash: None,
+            state_before_hash: None,
+            state_after_hash: None,
+            hash: WitnessHash::zero(),
+            summary: "same summary".into(),
+            outcome: TransitionOutcome::Success,
+            metrics: WitnessMetrics {
+                processing_time_us: 10,
+                signals_sent: 1,
+                witnesses_produced: 1,
+            },
+            version_info: crate::version::VersionInfo::current(),
+            signal_fingerprint: [0u8; 32],
+            payload_size_bytes: 0,
+            kind: WitnessKind::StateTransition,
+        };
+
+        let mut w2 = w1.clone();
+        w2.outcome = TransitionOutcome::Failed {
+            reason: "boom".into(),
+        };
+
+        let h1 = w1.compute_hash().unwrap();
+        let h2 = w2.compute_hash().unwrap();
+        assert_ne!(h1, h2);
+    }
+
+    #[test]
+    fn test_compute_hash_is_deterministic() {
+        let w = Witness {
+            witness_id: WitnessId::new("w-det"),
+            schema_version: SchemaVersion::new(1),
+            cell_id: "c1".into(),
+            correlation_id: CorrelationId::new("corr"),
+            trace_id: None,
+            triggering_msg_id: None,
+            vector_clock: VectorClock::new(),
+            timestamp_ns: 1,
+            prev_hash: None,
+            state_before_hash: None,
+            state_after_hash: None,
+            hash: WitnessHash::zero(),
+            summary: "deterministic".into(),
+            outcome: TransitionOutcome::Success,
+            metrics: WitnessMetrics {
+                processing_time_us: 10,
+                signals_sent: 1,
+                witnesses_produced: 1,
+            },
+            version_info: crate::version::VersionInfo::current(),
+            signal_fingerprint: [0u8; 32],
+            payload_size_bytes: 0,
+            kind: WitnessKind::StateTransition,
+        };
+
+        let h = w.compute_hash().unwrap();
+        assert_eq!(h, w.compute_hash().unwrap());
     }
 }

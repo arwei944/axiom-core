@@ -1,0 +1,20 @@
+[audit]
+# Maximum severity level to accept (ignore higher severity advisories).
+# Possible values: none, low, medium, high, critical
+max-severity = "high"
+
+# Allowed licenses for third-party dependencies.
+allowed-licenses = [
+    "MIT",
+    "Apache-2.0",
+    "BSD-3-Clause",
+    "BSD-2-Clause",
+    "ISC",
+]
+
+# Whitelisted dependencies that bypass audit checks.
+whitelist = [
+    "serde",
+    "tokio",
+    "axum",
+]

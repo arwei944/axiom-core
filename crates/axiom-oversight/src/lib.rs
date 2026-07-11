@@ -1,3 +1,4 @@
+pub mod api;
 pub mod architecture_guardian;
 pub mod compliance_guard;
 pub mod entropy_governor;
@@ -13,6 +14,7 @@ pub mod resource_manager;
 pub mod startup;
 pub mod supervisor;
 
+pub use api::{ComplianceReportData, OversightDataSource, OversightDataSourceError};
 pub use architecture_guardian::ArchitectureGuardianCell;
 pub use compliance_guard::{
     ComplianceAction, ComplianceGuardCell, ComplianceResult, ComplianceViolation, Severity,

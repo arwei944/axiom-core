@@ -2,7 +2,7 @@
 
 use axiom_kernel::clock::global_clock;
 use axiom_kernel::id::{CorrelationId, MsgId};
-use axiom_kernel::layer::Layer;
+use axiom_kernel::layer::RuntimeTier;
 use axiom_kernel::signal::VectorClock;
 use axiom_kernel::version::{EventSchema, SchemaVersion, Versioned};
 use serde::{Deserialize, Serialize};
@@ -31,7 +31,7 @@ pub struct WitnessHashData {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct EventMetadata {
-    pub layer: Layer,
+    pub layer: RuntimeTier,
     pub processing_time_ms: u64,
     pub was_replayed: bool,
     pub outcome: EventOutcome,
@@ -43,7 +43,7 @@ pub struct EventMetadata {
 impl Default for EventMetadata {
     fn default() -> Self {
         Self {
-            layer: Layer::Exec,
+            layer: RuntimeTier::Exec,
             processing_time_ms: 0,
             was_replayed: false,
             outcome: EventOutcome::Success,
@@ -118,7 +118,7 @@ impl EventBuilder {
         self
     }
 
-    pub fn layer(mut self, layer: Layer) -> Self {
+    pub fn layer(mut self, layer: RuntimeTier) -> Self {
         self.event.metadata.layer = layer;
         self
     }
@@ -186,7 +186,7 @@ mod tests {
             .cell_id("cell-1")
             .correlation_id(cid.clone())
             .vector_clock(vc.clone())
-            .layer(Layer::Exec)
+            .layer(RuntimeTier::Exec)
             .processing_time_ms(42)
             .build();
 
@@ -194,7 +194,7 @@ mod tests {
         assert_eq!(event.event_type, "greeting");
         assert_eq!(event.cell_id, "cell-1");
         assert_eq!(event.correlation_id.as_str(), "test-correlation");
-        assert_eq!(event.metadata.layer, Layer::Exec);
+        assert_eq!(event.metadata.layer, RuntimeTier::Exec);
         assert_eq!(event.metadata.processing_time_ms, 42);
         assert!(!event.metadata.was_replayed);
         assert_eq!(event.payload["msg"], "hello");
@@ -204,7 +204,7 @@ mod tests {
     fn test_event_serialization_roundtrip() {
         let event = EventBuilder::new("agg-1", "test-event", serde_json::json!({"x": 1}))
             .cell_id("c1")
-            .layer(Layer::Validate)
+            .layer(RuntimeTier::Validate)
             .build();
 
         let json = serde_json::to_string(&event).unwrap();
@@ -213,7 +213,7 @@ mod tests {
         assert_eq!(de.aggregate_id, "agg-1");
         assert_eq!(de.event_type, "test-event");
         assert_eq!(de.schema_version, event.schema_version);
-        assert_eq!(de.metadata.layer, Layer::Validate);
+        assert_eq!(de.metadata.layer, RuntimeTier::Validate);
         assert_eq!(de.sequence_number, 0);
     }
 

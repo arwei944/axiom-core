@@ -1,7 +1,7 @@
 use axiom_kernel::axiom::{AxiomKernel, Message, State};
 use axiom_kernel::cell::{CellKernel, CellKind};
 use axiom_kernel::id::{CorrelationId, WitnessId};
-use axiom_kernel::layer::Layer;
+use axiom_kernel::layer::RuntimeTier;
 use axiom_kernel::lens::LensKernel;
 use axiom_kernel::signal::{SignalEnvelope, SignalKernel};
 use axiom_kernel::version::{SchemaVersion, VersionInfo};
@@ -21,7 +21,7 @@ async fn test_cell_kernel_send_receive() {
 #[tokio::test]
 async fn test_signal_kernel_send() {
     let kernel = SignalKernel::new();
-    let envelope = SignalEnvelope::new(Layer::Exec, Layer::Validate, "test");
+    let envelope = SignalEnvelope::new(RuntimeTier::Exec, RuntimeTier::Validate, "test");
     let result = kernel.send(envelope).await;
     assert!(result.is_ok());
 }

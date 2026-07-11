@@ -1,6 +1,6 @@
 use axiom_kernel::axiom::Axiom;
 use axiom_kernel::id::{CellId, CorrelationId, MsgId};
-use axiom_kernel::layer::Layer;
+use axiom_kernel::layer::RuntimeTier;
 use axiom_kernel::signal::{Signal, SignalKind, VectorClock};
 use axiom_kernel::version::{Migration, SchemaVersion, Versioned};
 use axiom_kernel::{KernelError, KernelResult};
@@ -21,7 +21,7 @@ impl Signal for PassCmd {
     fn vector_clock(&self) -> &VectorClock { &self.vector_clock }
     fn timestamp_ns(&self) -> u64 { 0 }
     fn kind(&self) -> SignalKind { SignalKind::Command }
-    fn layer(&self) -> Layer { Layer::Exec }
+    fn layer(&self) -> RuntimeTier { RuntimeTier::Exec }
     fn as_any(&self) -> &dyn std::any::Any { self }
     fn clone_signal(&self) -> Box<dyn Signal> { Box::new(self.clone()) }
     fn validate(&self) -> axiom_kernel::axiom::ValidationResult { axiom_kernel::axiom::ValidationResult::ok() }
@@ -48,7 +48,7 @@ impl Signal for V3Signal {
     fn vector_clock(&self) -> &VectorClock { &self.vector_clock }
     fn timestamp_ns(&self) -> u64 { 0 }
     fn kind(&self) -> SignalKind { SignalKind::Event }
-    fn layer(&self) -> Layer { Layer::Exec }
+    fn layer(&self) -> RuntimeTier { RuntimeTier::Exec }
     fn as_any(&self) -> &dyn std::any::Any { self }
     fn clone_signal(&self) -> Box<dyn Signal> { Box::new(self.clone()) }
     fn validate(&self) -> axiom_kernel::axiom::ValidationResult { axiom_kernel::axiom::ValidationResult::ok() }

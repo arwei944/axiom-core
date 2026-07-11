@@ -9,7 +9,7 @@
 
 use axiom_kernel::cell::SupervisionStrategy;
 use axiom_kernel::id::{CorrelationId, MsgId, WitnessId};
-use axiom_kernel::layer::Layer;
+use axiom_kernel::layer::RuntimeTier;
 use axiom_kernel::signal::{SignalEnvelope, SignalKind, VectorClock};
 use axiom_kernel::version::VersionInfo;
 use axiom_kernel::witness::{TransitionOutcome, Witness, WitnessHash, WitnessKind, WitnessMetrics};
@@ -23,7 +23,7 @@ use std::sync::Arc;
 async fn test_layer_violation_exec_to_agent_rejected() {
     let guardian = ArchitectureGuardian::new();
 
-    let env = make_env("exec-cell", "agent-cell", Layer::Exec, Layer::Agent);
+    let env = make_env("exec-cell", "agent-cell", RuntimeTier::Exec, RuntimeTier::Agent);
     let decision = guardian.intercept(&env);
 
     assert!(
@@ -36,8 +36,8 @@ async fn test_layer_violation_exec_to_agent_rejected() {
 async fn test_layer_violation_oversight_can_send_to_all() {
     let guardian = ArchitectureGuardian::new();
 
-    for target_layer in [Layer::Oversight, Layer::Agent, Layer::Validate, Layer::Exec] {
-        let env = make_env("oversight-cell", "target", Layer::Oversight, target_layer);
+    for target_layer in [RuntimeTier::Oversight, RuntimeTier::Agent, RuntimeTier::Validate, RuntimeTier::Exec] {
+        let env = make_env("oversight-cell", "target", RuntimeTier::Oversight, target_layer);
         let decision = guardian.intercept(&env);
         assert!(
             matches!(decision, axiom_runtime::bus::InterceptDecision::Allow),
@@ -51,7 +51,7 @@ async fn test_layer_violation_oversight_can_send_to_all() {
 async fn test_layer_violation_exec_to_exec_allowed() {
     let guardian = ArchitectureGuardian::new();
 
-    let env = make_env("exec-1", "exec-2", Layer::Exec, Layer::Exec);
+    let env = make_env("exec-1", "exec-2", RuntimeTier::Exec, RuntimeTier::Exec);
     let decision = guardian.intercept(&env);
 
     assert!(
@@ -64,7 +64,7 @@ async fn test_layer_violation_exec_to_exec_allowed() {
 async fn test_layer_violation_validate_to_exec_allowed() {
     let guardian = ArchitectureGuardian::new();
 
-    let env = make_env("val-cell", "exec-cell", Layer::Validate, Layer::Exec);
+    let env = make_env("val-cell", "exec-cell", RuntimeTier::Validate, RuntimeTier::Exec);
     let decision = guardian.intercept(&env);
 
     assert!(
@@ -77,7 +77,7 @@ async fn test_layer_violation_validate_to_exec_allowed() {
 async fn test_layer_violation_exec_to_validate_rejected() {
     let guardian = ArchitectureGuardian::new();
 
-    let env = make_env("exec-cell", "val-cell", Layer::Exec, Layer::Validate);
+    let env = make_env("exec-cell", "val-cell", RuntimeTier::Exec, RuntimeTier::Validate);
     let decision = guardian.intercept(&env);
 
     assert!(
@@ -129,8 +129,8 @@ fn test_dlq_basic_enqueue_and_drain() {
 
     let dlq = DeadLetterQueue::new(100);
 
-    let env = make_env("src", "dst", Layer::Exec, Layer::Exec);
-    dlq.enqueue(env, "test failure reason");
+    let env = make_env("src", "dst", RuntimeTier::Exec, RuntimeTier::Exec);
+    dlq.enqueue(env, "test failure reason").unwrap();
 
     assert_eq!(dlq.len(), 1);
 
@@ -140,21 +140,25 @@ fn test_dlq_basic_enqueue_and_drain() {
 }
 
 #[test]
-fn test_dlq_capacity_limit_drops_oldest() {
+fn test_dlq_capacity_limit_returns_error_when_full() {
     use axiom_runtime::dlq::DeadLetterQueue;
 
     let dlq = DeadLetterQueue::new(3);
 
-    for i in 0..5 {
-        let env = make_env(&format!("src-{}", i), "dst", Layer::Exec, Layer::Exec);
-        dlq.enqueue(env, &format!("failure-{}", i));
+    for i in 0..3 {
+        let env = make_env(&format!("src-{}", i), "dst", RuntimeTier::Exec, RuntimeTier::Exec);
+        dlq.enqueue(env, &format!("failure-{}", i)).unwrap();
     }
 
     assert_eq!(dlq.len(), 3);
+    let env = make_env("src-overflow", "dst", RuntimeTier::Exec, RuntimeTier::Exec);
+    let result = dlq.enqueue(env, "overflow");
+    assert!(result.is_err());
+    assert_eq!(dlq.len(), 3);
     let drained = dlq.drain();
-    assert_eq!(drained[0].reason, "failure-2");
-    assert_eq!(drained[1].reason, "failure-3");
-    assert_eq!(drained[2].reason, "failure-4");
+    assert_eq!(drained[0].reason, "failure-0");
+    assert_eq!(drained[1].reason, "failure-1");
+    assert_eq!(drained[2].reason, "failure-2");
 }
 
 // ========== Test 4: Cell crash recovery via Supervisor ==========
@@ -233,12 +237,12 @@ async fn test_mailbox_bounded_capacity_overflow() {
     let mailbox = Arc::new(Mailbox::new(4));
 
     for i in 0..4 {
-        let env = make_env(&format!("src-{}", i), "dst", Layer::Exec, Layer::Exec);
+        let env = make_env(&format!("src-{}", i), "dst", RuntimeTier::Exec, RuntimeTier::Exec);
         let result = mailbox.push(env).await;
         assert!(result.is_ok(), "msg {} should fit in capacity 4", i);
     }
 
-    let overflow = make_env("overflow", "dst", Layer::Exec, Layer::Exec);
+    let overflow = make_env("overflow", "dst", RuntimeTier::Exec, RuntimeTier::Exec);
     let result = mailbox.push(overflow).await;
     assert!(result.is_err(), "5th message should overflow capacity 4");
 }
@@ -250,7 +254,7 @@ async fn test_mailbox_fifo_ordering() {
     let mailbox = Arc::new(Mailbox::new(16));
 
     for i in 0..5 {
-        let mut env = make_env("src", "dst", Layer::Exec, Layer::Exec);
+        let mut env = make_env("src", "dst", RuntimeTier::Exec, RuntimeTier::Exec);
         env.signal_type = format!("msg-{}", i);
         mailbox.push(env).await.unwrap();
     }
@@ -268,7 +272,7 @@ async fn test_mailbox_drain_clears_all() {
     let mailbox = Arc::new(Mailbox::new(16));
 
     for i in 0..5 {
-        let mut env = make_env("src", "dst", Layer::Exec, Layer::Exec);
+        let mut env = make_env("src", "dst", RuntimeTier::Exec, RuntimeTier::Exec);
         env.signal_type = format!("msg-{}", i);
         mailbox.push(env).await.unwrap();
     }
@@ -289,8 +293,8 @@ async fn test_mailbox_drain_clears_all() {
 fn make_env(
     source: &str,
     target: &str,
-    source_layer: Layer,
-    target_layer: Layer,
+    source_layer: RuntimeTier,
+    target_layer: RuntimeTier,
 ) -> SignalEnvelope {
     SignalEnvelope {
         msg_id: MsgId::generate(),

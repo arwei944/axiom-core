@@ -1,8 +1,8 @@
 # API Boundary - v1 Stable API
 
-> **Version**: v0.3.0  
+> **Version**: v0.4.0  
 > **Status**: Stable  
-> **Last Updated**: 2026-07-05
+> **Last Updated**: 2026-07-11
 
 This document defines the stable v1 API boundary for the Axiom framework. All public APIs listed here are guaranteed to maintain backward compatibility within the same major version.
 
@@ -92,14 +92,16 @@ This document defines the stable v1 API boundary for the Axiom framework. All pu
 - `CAPABILITY_REGISTRY` - Global registry
 - `CAPABILITY_VERSION_REGISTRY` - Global version registry
 
-#### Layer
-- `Layer` - Layer enumeration
-- `CanSendTo` - Layer communication trait
-- `LayerMarker` - Layer marker trait
-- `OversightLayer` - Oversight layer
-- `AgentLayer` - Agent layer
-- `ValidateLayer` - Validate layer
-- `ExecLayer` - Exec layer
+#### Runtime Tier
+- `RuntimeTier` - Runtime tier enumeration
+- `CanSendTo` - Runtime tier communication trait
+- `RuntimeTierMarker` - Runtime tier marker trait
+- `OversightTier` - Oversight tier
+- `AgentTier` - Agent tier
+- `ValidateTier` - Validate tier
+- `ExecTier` - Exec tier
+
+> **Note**: `Layer` is deprecated in favor of `RuntimeTier`. The old alias remains for backward compatibility but will be removed in a future release.
 
 #### Entropy
 - `CellEntropy` - Cell entropy
@@ -109,7 +111,7 @@ This document defines the stable v1 API boundary for the Axiom framework. All pu
 - `EntropyWeights` - Entropy weights
 
 #### Error
-- `AxiomError` - Error enumeration
+- `KernelError` - Error enumeration
 - `Result` - Result type alias
 
 #### Schema
@@ -117,7 +119,7 @@ This document defines the stable v1 API boundary for the Axiom framework. All pu
 - `ValidationResult` - Validation result
 
 #### Sealed
-- `can_send_at_runtime` - Runtime layer check
+- `can_send_at_runtime` - Runtime tier check
 
 ### 2.3 Macros (axiom-macros)
 
@@ -169,6 +171,7 @@ pub use cell::{
 - `RuntimeConfig` - Runtime configuration
 - `RuntimeHealth` - Runtime health status
 - `CellRegistration` - Cell registration
+- `DispatchContext` - Dispatch loop context
 
 ### 4.2 Bus
 
@@ -202,7 +205,7 @@ pub use cell::{
 ### 4.6 Other
 
 - `Mailbox` - Cell mailbox
-- `DeadLetterQueue` - Dead letter queue
+- `DeadLetterQueue` - Dead letter queue with capacity limit
 - `DeadLetter` - Dead letter record
 - `LoopDetector` - Loop detector
 - `ArchitectureGuardian` - Architecture guardian
@@ -298,7 +301,7 @@ Breaking changes require:
 |---------|---------|-------------|
 | `unstable` | No | Enable unstable APIs |
 | `sqlite` | Yes | Enable SQLite store backend |
-| `sha2-id` | No | Enable SHA-2 witness hashing |
+| `sha2-id` | No | Enable SHA-2 witness hashing (recommended for production) |
 
 ---
 

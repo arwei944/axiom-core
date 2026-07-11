@@ -11,7 +11,7 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 
-use axiom_kernel::layer::Layer;
+use axiom_kernel::layer::RuntimeTier;
 use axiom_kernel::signal::SignalEnvelope;
 use parking_lot::{Mutex, RwLock};
 
@@ -118,7 +118,7 @@ impl BusInterceptor for EmergencyInterceptor {
             return InterceptDecision::Allow;
         }
 
-        if env.source_layer == Layer::Oversight {
+        if env.source_layer == RuntimeTier::Oversight {
             return InterceptDecision::Allow;
         }
 
@@ -132,10 +132,10 @@ impl BusInterceptor for EmergencyInterceptor {
 mod tests {
     use super::*;
     use axiom_kernel::id::{CorrelationId, MsgId};
-    use axiom_kernel::layer::Layer;
+    use axiom_kernel::layer::RuntimeTier;
     use axiom_kernel::signal::{SignalKind, VectorClock};
 
-    fn make_env(target_cell: Option<&str>, source_layer: Layer) -> SignalEnvelope {
+    fn make_env(target_cell: Option<&str>, source_layer: RuntimeTier) -> SignalEnvelope {
         SignalEnvelope {
             msg_id: MsgId::new("test"),
             correlation_id: CorrelationId::new("corr"),
@@ -145,7 +145,7 @@ mod tests {
             timestamp_ns: 0,
             kind: SignalKind::Command,
             source_layer,
-            target_layer: Layer::Exec,
+            target_layer: RuntimeTier::Exec,
             source_cell: None,
             target_cell: target_cell.map(|s| s.to_string()),
             payload: serde_json::Value::Null,
@@ -160,7 +160,7 @@ mod tests {
         let factors = Arc::new(RwLock::new(HashMap::new()));
         let interceptor = ThrottleInterceptor::new(factors);
 
-        let env = make_env(Some("target-cell"), Layer::Exec);
+        let env = make_env(Some("target-cell"), RuntimeTier::Exec);
         assert!(matches!(interceptor.intercept(&env), InterceptDecision::Allow));
     }
 
@@ -170,7 +170,7 @@ mod tests {
         factors.write().insert("target-cell".to_string(), 1.0);
         let interceptor = ThrottleInterceptor::new(factors);
 
-        let env = make_env(Some("target-cell"), Layer::Exec);
+        let env = make_env(Some("target-cell"), RuntimeTier::Exec);
         assert!(matches!(interceptor.intercept(&env), InterceptDecision::Allow));
     }
 
@@ -180,7 +180,7 @@ mod tests {
         factors.write().insert("target-cell".to_string(), 0.5);
         let interceptor = ThrottleInterceptor::new(factors);
 
-        let env = make_env(Some("target-cell"), Layer::Exec);
+        let env = make_env(Some("target-cell"), RuntimeTier::Exec);
 
         assert!(matches!(interceptor.intercept(&env), InterceptDecision::Allow));
         assert!(matches!(interceptor.intercept(&env), InterceptDecision::Reject { .. }));
@@ -193,7 +193,7 @@ mod tests {
         factors.write().insert("hot-cell".to_string(), 0.1);
         let interceptor = ThrottleInterceptor::new(factors);
 
-        let env = make_env(Some("other-cell"), Layer::Exec);
+        let env = make_env(Some("other-cell"), RuntimeTier::Exec);
         assert!(matches!(interceptor.intercept(&env), InterceptDecision::Allow));
     }
 
@@ -203,7 +203,7 @@ mod tests {
         factors.write().insert("target-cell".to_string(), 0.1);
         let interceptor = ThrottleInterceptor::new(factors);
 
-        let env = make_env(None, Layer::Exec);
+        let env = make_env(None, RuntimeTier::Exec);
         assert!(matches!(interceptor.intercept(&env), InterceptDecision::Allow));
     }
 
@@ -213,14 +213,14 @@ mod tests {
         factors.write().insert("target-cell".to_string(), 1.5);
         let interceptor = ThrottleInterceptor::new(factors);
 
-        let env = make_env(Some("target-cell"), Layer::Exec);
+        let env = make_env(Some("target-cell"), RuntimeTier::Exec);
         assert!(matches!(interceptor.intercept(&env), InterceptDecision::Allow));
 
         let factors2 = Arc::new(RwLock::new(HashMap::new()));
         factors2.write().insert("target-cell".to_string(), -0.5);
         let interceptor2 = ThrottleInterceptor::new(factors2);
 
-        let env2 = make_env(Some("target-cell"), Layer::Exec);
+        let env2 = make_env(Some("target-cell"), RuntimeTier::Exec);
         let mut count = 0;
         while count < 99 && matches!(interceptor2.intercept(&env2), InterceptDecision::Allow) {
             count += 1;
@@ -261,7 +261,7 @@ mod tests {
         let enabled = Arc::new(RwLock::new(false));
         let interceptor = EmergencyInterceptor::new(enabled);
 
-        let env = make_env(Some("target-cell"), Layer::Exec);
+        let env = make_env(Some("target-cell"), RuntimeTier::Exec);
         assert!(matches!(interceptor.intercept(&env), InterceptDecision::Allow));
     }
 
@@ -270,7 +270,7 @@ mod tests {
         let enabled = Arc::new(RwLock::new(true));
         let interceptor = EmergencyInterceptor::new(enabled);
 
-        let env = make_env(Some("target-cell"), Layer::Exec);
+        let env = make_env(Some("target-cell"), RuntimeTier::Exec);
         assert!(matches!(interceptor.intercept(&env), InterceptDecision::Reject { .. }));
     }
 
@@ -279,7 +279,7 @@ mod tests {
         let enabled = Arc::new(RwLock::new(true));
         let interceptor = EmergencyInterceptor::new(enabled);
 
-        let env = make_env(Some("target-cell"), Layer::Oversight);
+        let env = make_env(Some("target-cell"), RuntimeTier::Oversight);
         assert!(matches!(interceptor.intercept(&env), InterceptDecision::Allow));
     }
 

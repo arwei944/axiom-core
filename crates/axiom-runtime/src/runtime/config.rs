@@ -9,6 +9,8 @@ impl Default for RuntimeConfig {
             dispatch_poll_interval_ms: 10,
             metrics_endpoint: None,
             telemetry_enabled: false,
+            dlq_capacity: 1000,
+            api_endpoint: None,
         }
     }
 }

@@ -132,7 +132,12 @@ impl SecurityManager {
         let permissions = self.permissions.read();
         let permission = match permissions.get(tool_name) {
             Some(p) => p.clone(),
-            None => return Ok(true),
+            None => {
+                return Err(McpError::PermissionDenied(format!(
+                    "tool '{}' not registered in permission registry",
+                    tool_name
+                )));
+            }
         };
 
         if context.permission_level < permission.required_level {
@@ -154,7 +159,12 @@ impl SecurityManager {
         let permissions = self.permissions.read();
         let permission = match permissions.get(tool_name) {
             Some(p) => p.clone(),
-            None => return Ok(true),
+            None => {
+                return Err(McpError::PermissionDenied(format!(
+                    "tool '{}' not registered in permission registry",
+                    tool_name
+                )));
+            }
         };
 
         if !permission.requires_approval {

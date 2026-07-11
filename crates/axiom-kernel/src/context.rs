@@ -1,6 +1,6 @@
 use crate::axiom::KernelResult;
 use crate::id::CellId;
-use crate::layer::Layer;
+use crate::RuntimeTier;
 use crate::signal::SignalEnvelope;
 use crate::version::SchemaVersion;
 use crate::witness::{TransitionOutcome, Witness, WitnessBuilder, WitnessHash};
@@ -14,7 +14,7 @@ pub struct OutgoingWitness(pub Witness);
 pub struct CellContext<'a> {
     pub(crate) cell_id: &'a CellId,
     #[allow(dead_code)]
-    pub(crate) layer: Layer,
+    pub(crate) layer: RuntimeTier,
     pub(crate) current_msg_id: Option<crate::id::MsgId>,
     pub(crate) current_correlation: Option<crate::id::CorrelationId>,
     pub(crate) current_trace: Option<crate::id::TraceId>,
@@ -31,7 +31,7 @@ pub struct CellContext<'a> {
 }
 
 impl<'a> CellContext<'a> {
-    pub fn new(cell_id: &'a CellId, layer: Layer) -> Self {
+    pub fn new(cell_id: &'a CellId, layer: RuntimeTier) -> Self {
         Self {
             cell_id,
             layer,
