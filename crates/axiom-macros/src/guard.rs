@@ -24,7 +24,16 @@ pub fn impl_guard(attr: TokenStream, item: TokenStream) -> TokenStream {
         }
     }
 
-    let layer_str = layer.clone().unwrap_or_else(|| "all".to_string());
+    if layer.is_none() {
+        return syn::Error::new_spanned(
+            &input,
+            "Guard requires a `layer = \"...\"` attribute (e.g. exec, validate, agent, oversight)",
+        )
+        .to_compile_error()
+        .into();
+    }
+
+    let layer_str = layer.clone().unwrap();
 
     let expanded = quote! {
         #[derive(Debug, Default)]

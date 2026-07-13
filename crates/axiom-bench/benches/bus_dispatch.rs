@@ -56,8 +56,12 @@ fn bench_bus_register_publish(c: &mut Criterion) {
             let bus = MessageBus::new();
             let mailbox = Arc::new(Mailbox::new(1024));
             rt.block_on(async {
-                bus.register_cell(&axiom_kernel::id::CellId::new("dst"), mailbox, RuntimeTier::Exec)
-                    .await;
+                bus.register_cell(
+                    &axiom_kernel::id::CellId::new("dst"),
+                    mailbox,
+                    RuntimeTier::Exec,
+                )
+                .await;
                 let env = make_signal("Bench", "src", "dst");
                 let _ = bus.publish(env).await;
             });

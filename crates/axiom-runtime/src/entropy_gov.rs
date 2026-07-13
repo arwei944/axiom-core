@@ -100,7 +100,7 @@ impl EntropyGovernorCell {
     pub async fn record_witness(&self, ev: &EntropyEvent) {
         if let Some(kernel) = &self.witness_kernel {
             let now = global_clock().now_ns();
-            let _cell_id = match ev {
+            let cell_id = match ev {
                 EntropyEvent::AxiomViolation { cell_id } => cell_id.clone(),
                 EntropyEvent::DroppedMessage { cell_id } => cell_id.clone(),
                 EntropyEvent::RejectedByGuardian { cell_id } => cell_id.clone(),
@@ -111,7 +111,38 @@ impl EntropyGovernorCell {
                 EntropyEvent::StaleStateViolation { cell_id } => cell_id.clone(),
                 EntropyEvent::Custom { cell_id, .. } => cell_id.clone(),
             };
-            let witness = KernelWitness {
+
+            let recent = kernel.get_recent(1).await;
+            let prev_hash = recent.first().map(|w| w.hash);
+
+            let event_type = match ev {
+                EntropyEvent::AxiomViolation { .. } => "axiom_violation",
+                EntropyEvent::DroppedMessage { .. } => "dropped_message",
+                EntropyEvent::RejectedByGuardian { .. } => "rejected_by_guardian",
+                EntropyEvent::CellRestart { .. } => "cell_restart",
+                EntropyEvent::CircuitBreak { .. } => "circuit_break",
+                EntropyEvent::Timeout { .. } => "timeout",
+                EntropyEvent::DuplicateMessage { .. } => "duplicate_message",
+                EntropyEvent::StaleStateViolation { .. } => "stale_state_violation",
+                EntropyEvent::Custom { .. } => "custom",
+            };
+
+            let signal_fingerprint = {
+                use sha2::{Digest, Sha256};
+                let mut hasher = Sha256::new();
+                hasher.update(event_type.as_bytes());
+                hasher.update(cell_id.as_bytes());
+                hasher.update(now.to_be_bytes());
+                let result = hasher.finalize();
+                let mut fingerprint = [0u8; 32];
+                fingerprint.copy_from_slice(&result);
+                fingerprint
+            };
+
+            let summary = format!("entropy event: {} for cell {}", event_type, cell_id);
+            let payload_size = serde_json::to_vec(&summary).map(|v| v.len()).unwrap_or(0);
+
+            let mut witness = KernelWitness {
                 witness_id: WitnessId::new(format!("entropy-{}", now)),
                 schema_version: axiom_kernel::version::SchemaVersion::new(1),
                 cell_id: self.id.as_str().to_string(),
@@ -120,18 +151,23 @@ impl EntropyGovernorCell {
                 triggering_msg_id: None,
                 vector_clock: axiom_kernel::signal::VectorClock::new(),
                 timestamp_ns: now,
-                prev_hash: Some(WitnessHash::zero()),
-                state_before_hash: Some(WitnessHash::zero()),
-                state_after_hash: Some(WitnessHash::zero()),
+                prev_hash,
+                state_before_hash: None,
+                state_after_hash: None,
                 hash: WitnessHash::zero(),
-                summary: format!("entropy event for cell {}", self.id.as_str()),
+                summary,
                 outcome: axiom_kernel::witness::TransitionOutcome::Success,
                 metrics: WitnessMetrics::default(),
                 version_info: axiom_kernel::version::VersionInfo::current(),
-                signal_fingerprint: [0u8; 32],
-                payload_size_bytes: 0,
+                signal_fingerprint,
+                payload_size_bytes: payload_size,
                 kind: axiom_kernel::witness::WitnessKind::StateTransition,
             };
+
+            if let Ok(hash) = witness.compute_hash() {
+                witness.hash = hash;
+            }
+
             kernel.record(witness).await;
         }
     }

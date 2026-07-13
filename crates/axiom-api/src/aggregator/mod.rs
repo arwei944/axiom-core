@@ -1,7 +1,7 @@
 use crate::types::{ApiCell, ApiEntropy, ApiHealth, ApiHeatmap};
-use axiom_runtime::RuntimeDataSource;
-use axiom_oversight::OversightDataSource;
 use axiom_kernel::layer::RuntimeTier;
+use axiom_oversight::OversightDataSource;
+use axiom_runtime::RuntimeDataSource;
 use std::sync::Arc;
 
 pub struct HealthAggregator {
@@ -15,21 +15,14 @@ impl HealthAggregator {
         runtime_data: Arc<dyn RuntimeDataSource>,
         oversight_data: Arc<dyn OversightDataSource>,
     ) -> Self {
-        Self {
-            runtime_data,
-            oversight_data,
-        }
+        Self { runtime_data, oversight_data }
     }
 
     pub async fn aggregate(&self) -> Result<ApiHealth, crate::types::ApiError> {
         let runtime_health = self.runtime_data.get_health().await?;
         let entropy_snapshot = self.runtime_data.get_entropy_snapshot().await?;
 
-        let status = if runtime_health.started {
-            "ok".to_string()
-        } else {
-            "stopped".to_string()
-        };
+        let status = if runtime_health.started { "ok".to_string() } else { "stopped".to_string() };
 
         Ok(ApiHealth {
             status,

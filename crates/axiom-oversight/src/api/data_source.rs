@@ -1,6 +1,6 @@
-use crate::health::SystemHealth;
+use crate::compliance_guard::{ComplianceResult, ComplianceViolation};
 use crate::entropy_governor::EntropySnapshot;
-use crate::compliance_guard::{ComplianceViolation, ComplianceResult};
+use crate::health::SystemHealth;
 use thiserror::Error;
 
 #[derive(Error, Debug)]
@@ -16,9 +16,33 @@ pub enum OversightDataSourceError {
 }
 
 pub trait OversightDataSource: Send + Sync {
-    fn get_system_health(&self) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<SystemHealth, OversightDataSourceError>> + Send + '_>>;
-    fn get_entropy_status(&self) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<EntropySnapshot, OversightDataSourceError>> + Send + '_>>;
-    fn get_compliance_report(&self) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<ComplianceReportData, OversightDataSourceError>> + Send + '_>>;
+    fn get_system_health(
+        &self,
+    ) -> std::pin::Pin<
+        Box<
+            dyn std::future::Future<Output = Result<SystemHealth, OversightDataSourceError>>
+                + Send
+                + '_,
+        >,
+    >;
+    fn get_entropy_status(
+        &self,
+    ) -> std::pin::Pin<
+        Box<
+            dyn std::future::Future<Output = Result<EntropySnapshot, OversightDataSourceError>>
+                + Send
+                + '_,
+        >,
+    >;
+    fn get_compliance_report(
+        &self,
+    ) -> std::pin::Pin<
+        Box<
+            dyn std::future::Future<Output = Result<ComplianceReportData, OversightDataSourceError>>
+                + Send
+                + '_,
+        >,
+    >;
 }
 
 #[derive(Debug, Clone)]

@@ -113,7 +113,7 @@ pub use axiom_kernel::registry::{
     note = "Use `axiom-kernel::sealed` instead. See MIGRATION.md for migration instructions."
 )]
 pub use axiom_kernel::sealed::{
-    AgentTier, CanSendTo, ExecTier, RuntimeTierMarker, OversightTier, ValidateTier,
+    AgentTier, CanSendTo, ExecTier, OversightTier, RuntimeTierMarker, ValidateTier,
 };
 #[deprecated(
     since = "0.4.0",

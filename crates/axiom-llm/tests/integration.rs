@@ -162,7 +162,11 @@ async fn test_request_timeout() {
                 tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
                 Ok(CompletionResponse {
                     text: "delayed".to_string(),
-                    usage: TokenUsage { prompt_tokens: 10, completion_tokens: 10, total_tokens: 20 },
+                    usage: TokenUsage {
+                        prompt_tokens: 10,
+                        completion_tokens: 10,
+                        total_tokens: 20,
+                    },
                     model: "delayed-model".to_string(),
                 })
             })
@@ -181,7 +185,11 @@ async fn test_request_timeout() {
                         name: None,
                         tool_call_id: None,
                     },
-                    usage: TokenUsage { prompt_tokens: 10, completion_tokens: 10, total_tokens: 20 },
+                    usage: TokenUsage {
+                        prompt_tokens: 10,
+                        completion_tokens: 10,
+                        total_tokens: 20,
+                    },
                     model: "delayed-model".to_string(),
                 })
             })

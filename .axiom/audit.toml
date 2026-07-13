@@ -17,4 +17,11 @@ whitelist = [
     "serde",
     "tokio",
     "axum",
+    "tracing-appender",
+    "opentelemetry",
+    "opentelemetry_sdk",
+    "opentelemetry-otlp",
+    "tracing-opentelemetry",
+    "jsonwebtoken",
+    "base64",
 ]

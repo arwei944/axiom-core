@@ -43,7 +43,9 @@ impl RuntimeTier {
         match self {
             RuntimeTier::Oversight => true,
             RuntimeTier::Agent => matches!(target, RuntimeTier::Agent | RuntimeTier::Validate),
-            RuntimeTier::Validate => matches!(target, RuntimeTier::Validate | RuntimeTier::Exec | RuntimeTier::Agent),
+            RuntimeTier::Validate => {
+                matches!(target, RuntimeTier::Validate | RuntimeTier::Exec | RuntimeTier::Agent)
+            }
             RuntimeTier::Exec => matches!(target, RuntimeTier::Exec),
         }
     }
@@ -56,5 +58,8 @@ impl std::fmt::Display for RuntimeTier {
 }
 
 // Backwards compatibility alias - deprecated, use RuntimeTier instead
-#[deprecated(since = "0.4.0", note = "Use RuntimeTier instead. Layer was renamed to avoid confusion with Crate Layer.")]
+#[deprecated(
+    since = "0.4.0",
+    note = "Use RuntimeTier instead. Layer was renamed to avoid confusion with Crate Layer."
+)]
 pub type Layer = RuntimeTier;

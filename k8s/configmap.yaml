@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: axiom-config
+data:
+  RUST_LOG: "info"
+  AXIOM_API_PORT: "9092"

@@ -1,6 +1,8 @@
 use axiom_api::ApiServerBuilder;
+use axiom_oversight::{
+    ComplianceGuardCell, EntropyGovernorCell, HealthCollectorCell, OversightKernelAdapter,
+};
 use axiom_runtime::{AxiomRuntime, RuntimeConfig};
-use axiom_oversight::{OversightKernelAdapter, EntropyGovernorCell, HealthCollectorCell, ComplianceGuardCell};
 use std::sync::Arc;
 
 fn create_test_runtime() -> Arc<AxiomRuntime> {
@@ -20,9 +22,7 @@ async fn api_server_builder_creates_server() {
     let runtime = create_test_runtime();
     let oversight = create_test_oversight();
 
-    let server = ApiServerBuilder::new()
-        .addr(([127, 0, 0, 1], 0).into())
-        .build(runtime, oversight);
+    let server = ApiServerBuilder::new().addr(([127, 0, 0, 1], 0).into()).build(runtime, oversight);
 
     let router = server.router();
     let _ = router;
@@ -51,9 +51,7 @@ async fn api_health_endpoint_returns_ok() {
     let runtime = create_test_runtime();
     let oversight = create_test_oversight();
 
-    let server = ApiServerBuilder::new()
-        .addr(([127, 0, 0, 1], 0).into())
-        .build(runtime, oversight);
+    let server = ApiServerBuilder::new().addr(([127, 0, 0, 1], 0).into()).build(runtime, oversight);
 
     let app = server.router();
 
@@ -79,9 +77,7 @@ async fn api_cells_endpoint_returns_ok() {
     let runtime = create_test_runtime();
     let oversight = create_test_oversight();
 
-    let server = ApiServerBuilder::new()
-        .addr(([127, 0, 0, 1], 0).into())
-        .build(runtime, oversight);
+    let server = ApiServerBuilder::new().addr(([127, 0, 0, 1], 0).into()).build(runtime, oversight);
 
     let app = server.router();
 
@@ -106,9 +102,7 @@ async fn api_entropy_endpoint_returns_ok() {
     let runtime = create_test_runtime();
     let oversight = create_test_oversight();
 
-    let server = ApiServerBuilder::new()
-        .addr(([127, 0, 0, 1], 0).into())
-        .build(runtime, oversight);
+    let server = ApiServerBuilder::new().addr(([127, 0, 0, 1], 0).into()).build(runtime, oversight);
 
     let app = server.router();
 
@@ -134,9 +128,7 @@ async fn api_heatmap_endpoint_returns_ok() {
     let runtime = create_test_runtime();
     let oversight = create_test_oversight();
 
-    let server = ApiServerBuilder::new()
-        .addr(([127, 0, 0, 1], 0).into())
-        .build(runtime, oversight);
+    let server = ApiServerBuilder::new().addr(([127, 0, 0, 1], 0).into()).build(runtime, oversight);
 
     let app = server.router();
 
@@ -161,9 +153,7 @@ async fn api_cors_headers_present() {
     let runtime = create_test_runtime();
     let oversight = create_test_oversight();
 
-    let server = ApiServerBuilder::new()
-        .addr(([127, 0, 0, 1], 0).into())
-        .build(runtime, oversight);
+    let server = ApiServerBuilder::new().addr(([127, 0, 0, 1], 0).into()).build(runtime, oversight);
 
     let app = server.router();
 
@@ -181,9 +171,7 @@ async fn runtime_config_has_api_endpoint() {
     let config = RuntimeConfig::default();
     assert!(config.api_endpoint.is_none());
 
-    let config = RuntimeConfig {
-        api_endpoint: Some(([0, 0, 0, 0], 9092).into()),
-        ..Default::default()
-    };
+    let config =
+        RuntimeConfig { api_endpoint: Some(([0, 0, 0, 0], 9092).into()), ..Default::default() };
     assert!(config.api_endpoint.is_some());
 }

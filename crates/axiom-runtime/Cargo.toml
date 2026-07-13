@@ -16,11 +16,25 @@ thiserror = { workspace = true }
 tracing = { workspace = true }
 parking_lot = { workspace = true }
 futures = { workspace = true }
+sha2 = { version = "0.10" }
 
 [features]
 default = []
-telemetry = []
+telemetry = ["opentelemetry", "opentelemetry_sdk", "opentelemetry-otlp"]
 bincode-codec = ["axiom-kernel/bincode-codec"]
+
+[dependencies.opentelemetry]
+version = "0.32"
+optional = true
+
+[dependencies.opentelemetry_sdk]
+version = "0.32"
+optional = true
+
+[dependencies.opentelemetry-otlp]
+version = "0.32"
+features = ["http-proto"]
+optional = true
 
 [build-dependencies]
 archcheck = { path = "../../tools/archcheck" }

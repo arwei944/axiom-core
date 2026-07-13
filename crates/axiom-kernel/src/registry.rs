@@ -304,6 +304,12 @@ impl RegistryGuard {
     }
 }
 
+impl Default for RegistryGuard {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl Drop for RegistryGuard {
     fn drop(&mut self) {
         WITNESS_REGISTRY.clear();
@@ -318,7 +324,10 @@ pub static WITNESS_REGISTRY: WitnessRegistry = WitnessRegistry::new();
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{CorrelationId, SchemaVersion, TransitionOutcome, VectorClock, WitnessHash, WitnessId, WitnessKind, WitnessMetrics};
+    use crate::{
+        CorrelationId, SchemaVersion, TransitionOutcome, VectorClock, WitnessHash, WitnessId,
+        WitnessKind, WitnessMetrics,
+    };
 
     #[test]
     fn test_witness_registry_clear() {

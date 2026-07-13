@@ -1,5 +1,5 @@
 error: Guard requires a `layer = "..."` attribute (e.g. exec, validate, agent, oversight)
- --> tests/compile-fail/cf-guard-missing-layer.rs:2:8
+ --> tests/compile-fail/cf-guard-missing-layer.rs:2:1
   |
 2 | struct MissingLayerGuard;
-  |        ^^^^^^^^^^^^^^^^^
+  | ^^^^^^^^^^^^^^^^^^^^^^^^^

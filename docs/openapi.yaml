@@ -1,0 +1,266 @@
+openapi: "3.0.3"
+info:
+  title: Axiom Core API
+  description: Unified API gateway for Axiom Core runtime - Deterministic-first runtime architecture for reliable agentic systems
+  version: "1.0.0"
+  contact:
+    name: Axiom Core Contributors
+    url: https://github.com/arwei944/axiom-kernel
+
+servers:
+  - url: http://localhost:9092
+    description: Local development server
+
+paths:
+  /api/v1/health:
+    get:
+      summary: Get system health status
+      description: Returns overall health status of the Axiom Core system including cell counts, message statistics, and entropy score
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiHealth'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+
+  /api/v1/cells:
+    get:
+      summary: Get all cells
+      description: Returns a list of all cells with their current state and metadata
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ApiCell'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+
+  /api/v1/heatmap:
+    get:
+      summary: Get activity heatmap
+      description: Returns real-time activity heatmap showing hot cells, signals, and tools
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiHeatmap'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+
+  /api/v1/entropy:
+    get:
+      summary: Get entropy status
+      description: Returns current entropy score, level, per-cell entropy values, and last governance action
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiEntropy'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+
+  /api/v1/metrics:
+    get:
+      summary: Get Prometheus metrics
+      description: Returns Prometheus-format metrics for monitoring and observability
+      responses:
+        '200':
+          description: Successful response
+          content:
+            text/plain:
+              schema:
+                type: string
+                description: Prometheus text format metrics
+        '404':
+          description: Metrics not configured
+
+components:
+  schemas:
+    ApiHealth:
+      type: object
+      description: System health status
+      properties:
+        status:
+          type: string
+          description: Overall system status (ok/degraded/critical)
+        cells_running:
+          type: integer
+          description: Number of currently running cells
+        cells_stopped:
+          type: integer
+          description: Number of stopped cells
+        total_restarts:
+          type: integer
+          description: Total number of cell restarts
+        messages_delivered:
+          type: integer
+          description: Total number of successfully delivered messages
+        messages_rejected:
+          type: integer
+          description: Total number of rejected messages
+        entropy_score:
+          type: number
+          format: double
+          description: Current entropy score (0-1)
+        entropy_level:
+          type: string
+          description: Entropy level (green/yellow/orange/red)
+        preflight_passed:
+          type: boolean
+          description: Whether preflight checks passed
+        uptime_ms:
+          type: integer
+          description: System uptime in milliseconds
+        version:
+          type: string
+          description: Axiom Core version
+      required:
+        - status
+        - cells_running
+        - cells_stopped
+        - total_restarts
+        - messages_delivered
+        - messages_rejected
+        - entropy_score
+        - entropy_level
+        - preflight_passed
+        - uptime_ms
+        - version
+
+    ApiCell:
+      type: object
+      description: Cell information
+      properties:
+        id:
+          type: string
+          description: Unique cell identifier
+        layer:
+          type: string
+          description: Cell layer (exec/validate/agent/oversight)
+        state:
+          type: string
+          description: Cell state (Running/Stopped/Error)
+        version:
+          type: string
+          description: Cell version
+      required:
+        - id
+        - layer
+        - state
+        - version
+
+    ApiHeatmap:
+      type: object
+      description: Activity heatmap
+      properties:
+        timestamp:
+          type: integer
+          description: Timestamp in nanoseconds
+        hot_cells:
+          type: array
+          items:
+            type: array
+            items:
+              - type: string
+                description: Cell ID
+              - type: integer
+                description: Activity count
+        hot_signals:
+          type: array
+          items:
+            type: array
+            items:
+              - type: string
+                description: Signal type
+              - type: integer
+                description: Signal count
+        hot_tools:
+          type: array
+          items:
+            type: array
+            items:
+              - type: string
+                description: Tool name
+              - type: integer
+                description: Tool invocation count
+      required:
+        - timestamp
+        - hot_cells
+        - hot_signals
+        - hot_tools
+
+    ApiEntropy:
+      type: object
+      description: Entropy status
+      properties:
+        value:
+          type: number
+          format: double
+          description: Current entropy value (0-1)
+        level:
+          type: string
+          description: Entropy level (green/yellow/orange/red)
+        per_cell:
+          type: array
+          items:
+            type: array
+            items:
+              - type: string
+                description: Cell ID
+              - type: number
+                format: double
+                description: Entropy value for this cell
+        last_action:
+          type: string
+          nullable: true
+          description: Last governance action taken
+      required:
+        - value
+        - level
+        - per_cell
+
+    ApiError:
+      type: object
+      description: API error response
+      properties:
+        error:
+          type: string
+          description: Error type
+      required:
+        - error
+
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+security:
+  - BearerAuth: []

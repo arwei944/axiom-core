@@ -1,4 +1,6 @@
-use axiom_kernel::plugin::abi::{AxiomPlugin, PluginContext, PluginMessage, PluginReply, PluginError};
+use axiom_kernel::plugin::abi::{
+    AxiomPlugin, CapabilityDescriptor, PluginContext, PluginError, PluginMessage, PluginReply,
+};
 use axiom_kernel::plugin::registry::PluginRegistry;
 
 struct HelloWorldPlugin;
@@ -16,7 +18,7 @@ impl AxiomPlugin for HelloWorldPlugin {
         &[]
     }
 
-    fn capabilities(&self) -> &[axiom_kernel::plugin::abi::PluginCapabilityDescriptor] {
+    fn capabilities(&self) -> &[CapabilityDescriptor] {
         &[]
     }
 
@@ -46,10 +48,9 @@ fn main() {
         registry.register(Box::new(HelloWorldPlugin)).await;
     });
 
-    let key = axiom_kernel::plugin::registry::PluginKey::new("hello-world", "0.1.0");
-    let instance = rt.block_on(registry.get(key));
+    let instance = rt.block_on(registry.get("hello-world"));
 
-    if let Some(plugin) = instance {
+    if let Some(mut plugin) = instance {
         let reply = plugin.handle_message(PluginMessage::SendSignal {
             signal: "greeting".to_string(),
             payload: b"hello world".to_vec(),

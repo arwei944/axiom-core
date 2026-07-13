@@ -322,15 +322,15 @@ impl Witness {
             let metrics_bytes = serde_json::to_string(&self.metrics)?;
             hasher.update(metrics_bytes.as_bytes());
             if let Some(ref h) = self.prev_hash {
-                hasher.update(&h.0);
+                hasher.update(h.0);
             }
             if let Some(ref h) = self.state_before_hash {
-                hasher.update(&h.0);
+                hasher.update(h.0);
             }
             if let Some(ref h) = self.state_after_hash {
-                hasher.update(&h.0);
+                hasher.update(h.0);
             }
-            hasher.update(&self.signal_fingerprint);
+            hasher.update(self.signal_fingerprint);
             hasher.update(self.payload_size_bytes.to_be_bytes());
             hasher.update(serde_json::to_string(&self.kind)?.as_bytes());
             let result = hasher.finalize();
@@ -485,9 +485,7 @@ mod tests {
         };
 
         let mut w2 = w1.clone();
-        w2.outcome = TransitionOutcome::Failed {
-            reason: "boom".into(),
-        };
+        w2.outcome = TransitionOutcome::Failed { reason: "boom".into() };
 
         let h1 = w1.compute_hash().unwrap();
         let h2 = w2.compute_hash().unwrap();

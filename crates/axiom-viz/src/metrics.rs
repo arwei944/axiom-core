@@ -5,6 +5,8 @@
 
 #[cfg(feature = "metrics")]
 use prometheus::{Encoder, HistogramOpts, Opts, Registry, TextEncoder};
+#[cfg(feature = "metrics")]
+use std::collections::HashMap;
 
 /// Metric type.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -213,8 +215,8 @@ impl MetricsRegistry for PrometheusRegistry {
             .gather()
             .into_iter()
             .filter_map(|family| {
-                let name = family.get_name().to_string();
-                let help = family.get_help().to_string();
+                let name = family.name().to_string();
+                let help = family.help().to_string();
                 let metric_type = match family.get_field_type() {
                     prometheus::proto::MetricType::COUNTER => MetricType::Counter,
                     prometheus::proto::MetricType::GAUGE => MetricType::Gauge,
@@ -224,7 +226,7 @@ impl MetricsRegistry for PrometheusRegistry {
                 let labels = family.get_metric()[0]
                     .get_label()
                     .iter()
-                    .map(|l| l.get_name().to_string())
+                    .map(|l| l.name().to_string())
                     .collect::<Vec<_>>();
                 Some(MetricDesc { name, help, metric_type, labels })
             })

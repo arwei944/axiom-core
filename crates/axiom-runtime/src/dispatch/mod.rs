@@ -16,16 +16,15 @@ pub struct DispatchContext {
     pub bus: std::sync::Arc<crate::bus::MessageBus>,
     pub supervisor: std::sync::Arc<crate::supervisor::Supervisor>,
     pub governor: std::sync::Arc<crate::entropy_gov::EntropyGovernorCell>,
-    pub witness_store: std::sync::Arc<
-        tokio::sync::RwLock<Option<std::sync::Arc<dyn axiom_store::EventStore>>>,
-    >,
-    pub snapshot_store: std::sync::Arc<
-        tokio::sync::RwLock<Option<std::sync::Arc<dyn axiom_store::SnapshotStore>>>,
-    >,
+    pub witness_store:
+        std::sync::Arc<tokio::sync::RwLock<Option<std::sync::Arc<dyn axiom_store::EventStore>>>>,
+    pub snapshot_store:
+        std::sync::Arc<tokio::sync::RwLock<Option<std::sync::Arc<dyn axiom_store::SnapshotStore>>>>,
     pub throttle_state: std::sync::Arc<parking_lot::RwLock<std::collections::HashMap<String, f64>>>,
     pub emergency_mode: std::sync::Arc<parking_lot::RwLock<bool>>,
     pub dlq: std::sync::Arc<crate::dlq::DeadLetterQueue>,
-    pub events_since_snapshot: std::sync::Arc<parking_lot::RwLock<std::collections::HashMap<String, u64>>>,
+    pub events_since_snapshot:
+        std::sync::Arc<parking_lot::RwLock<std::collections::HashMap<String, u64>>>,
     pub cell_kernel: Option<std::sync::Arc<axiom_kernel::CellKernel>>,
 }
 
@@ -44,7 +43,9 @@ impl DispatchContext {
         throttle_state: std::sync::Arc<parking_lot::RwLock<std::collections::HashMap<String, f64>>>,
         emergency_mode: std::sync::Arc<parking_lot::RwLock<bool>>,
         dlq: std::sync::Arc<crate::dlq::DeadLetterQueue>,
-        events_since_snapshot: std::sync::Arc<parking_lot::RwLock<std::collections::HashMap<String, u64>>>,
+        events_since_snapshot: std::sync::Arc<
+            parking_lot::RwLock<std::collections::HashMap<String, u64>>,
+        >,
         cell_kernel: Option<std::sync::Arc<axiom_kernel::CellKernel>>,
     ) -> Self {
         Self {

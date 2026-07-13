@@ -1,9 +1,9 @@
 use crate::axiom::KernelResult;
 use crate::id::CellId;
-use crate::RuntimeTier;
 use crate::signal::SignalEnvelope;
 use crate::version::SchemaVersion;
 use crate::witness::{TransitionOutcome, Witness, WitnessBuilder, WitnessHash};
+use crate::RuntimeTier;
 
 #[derive(Debug, Clone)]
 pub struct OutgoingEnvelope(pub SignalEnvelope);

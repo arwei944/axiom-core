@@ -19,11 +19,21 @@ pub enum ApiError {
 impl From<axiom_runtime::DataSourceError> for ApiError {
     fn from(e: axiom_runtime::DataSourceError) -> Self {
         match e {
-            axiom_runtime::DataSourceError::NotInitialized => Self::InternalError("data source not initialized".to_string()),
-            axiom_runtime::DataSourceError::CellReadFailed => Self::InternalError("failed to read cells".to_string()),
-            axiom_runtime::DataSourceError::HealthReadFailed => Self::InternalError("failed to read health".to_string()),
-            axiom_runtime::DataSourceError::HeatmapFailed => Self::InternalError("failed to get heatmap".to_string()),
-            axiom_runtime::DataSourceError::SignalSubscribeFailed => Self::InternalError("failed to subscribe to signals".to_string()),
+            axiom_runtime::DataSourceError::NotInitialized => {
+                Self::InternalError("data source not initialized".to_string())
+            }
+            axiom_runtime::DataSourceError::CellReadFailed => {
+                Self::InternalError("failed to read cells".to_string())
+            }
+            axiom_runtime::DataSourceError::HealthReadFailed => {
+                Self::InternalError("failed to read health".to_string())
+            }
+            axiom_runtime::DataSourceError::HeatmapFailed => {
+                Self::InternalError("failed to get heatmap".to_string())
+            }
+            axiom_runtime::DataSourceError::SignalSubscribeFailed => {
+                Self::InternalError("failed to subscribe to signals".to_string())
+            }
         }
     }
 }
@@ -31,10 +41,18 @@ impl From<axiom_runtime::DataSourceError> for ApiError {
 impl From<axiom_oversight::OversightDataSourceError> for ApiError {
     fn from(e: axiom_oversight::OversightDataSourceError) -> Self {
         match e {
-            axiom_oversight::OversightDataSourceError::NotInitialized => Self::InternalError("oversight data source not initialized".to_string()),
-            axiom_oversight::OversightDataSourceError::HealthFailed => Self::InternalError("failed to get system health".to_string()),
-            axiom_oversight::OversightDataSourceError::EntropyFailed => Self::InternalError("failed to get entropy status".to_string()),
-            axiom_oversight::OversightDataSourceError::ComplianceFailed => Self::InternalError("failed to get compliance report".to_string()),
+            axiom_oversight::OversightDataSourceError::NotInitialized => {
+                Self::InternalError("oversight data source not initialized".to_string())
+            }
+            axiom_oversight::OversightDataSourceError::HealthFailed => {
+                Self::InternalError("failed to get system health".to_string())
+            }
+            axiom_oversight::OversightDataSourceError::EntropyFailed => {
+                Self::InternalError("failed to get entropy status".to_string())
+            }
+            axiom_oversight::OversightDataSourceError::ComplianceFailed => {
+                Self::InternalError("failed to get compliance report".to_string())
+            }
         }
     }
 }

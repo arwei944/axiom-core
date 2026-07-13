@@ -7,8 +7,8 @@ use crate::supervisor::Supervisor;
 use crate::AxiomRuntime;
 use crate::RuntimeConfig;
 use crate::RuntimeHealth;
-use axiom_kernel::heatmap::collector::UsageSnapshot;
 use axiom_kernel::entropy::EntropyLevel;
+use axiom_kernel::heatmap::collector::UsageSnapshot;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 
@@ -74,19 +74,36 @@ impl Default for AxiomRuntime {
 }
 
 impl RuntimeDataSource for AxiomRuntime {
-    fn get_health(&self) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<RuntimeHealth, DataSourceError>> + Send + '_>> {
-        Box::pin(async {
-            Ok(self.health.read().await.clone())
-        })
+    fn get_health(
+        &self,
+    ) -> std::pin::Pin<
+        Box<dyn std::future::Future<Output = Result<RuntimeHealth, DataSourceError>> + Send + '_>,
+    > {
+        Box::pin(async { Ok(self.health.read().await.clone()) })
     }
 
-    fn get_cells(&self) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<Vec<crate::runtime::RegisteredCell>, DataSourceError>> + Send + '_>> {
-        Box::pin(async {
-            Ok(self.cells.read().await.clone())
-        })
+    fn get_cells(
+        &self,
+    ) -> std::pin::Pin<
+        Box<
+            dyn std::future::Future<
+                    Output = Result<Vec<crate::runtime::RegisteredCell>, DataSourceError>,
+                > + Send
+                + '_,
+        >,
+    > {
+        Box::pin(async { Ok(self.cells.read().await.clone()) })
     }
 
-    fn get_entropy_snapshot(&self) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<EntropySnapshotData, DataSourceError>> + Send + '_>> {
+    fn get_entropy_snapshot(
+        &self,
+    ) -> std::pin::Pin<
+        Box<
+            dyn std::future::Future<Output = Result<EntropySnapshotData, DataSourceError>>
+                + Send
+                + '_,
+        >,
+    > {
         Box::pin(async {
             let snapshot = self.governor.snapshot();
             let level_str = match snapshot.level {
@@ -99,7 +116,11 @@ impl RuntimeDataSource for AxiomRuntime {
                 GovernanceAction::None => "none".to_string(),
                 GovernanceAction::Warn { message } => format!("warn: {}", message),
                 GovernanceAction::Throttle { target_cell, factor } => {
-                    format!("throttle: {} at factor {}", target_cell.as_deref().unwrap_or("all"), factor)
+                    format!(
+                        "throttle: {} at factor {}",
+                        target_cell.as_deref().unwrap_or("all"),
+                        factor
+                    )
                 }
                 GovernanceAction::Emergency { reason } => format!("emergency: {}", reason),
             });
@@ -113,13 +134,17 @@ impl RuntimeDataSource for AxiomRuntime {
         })
     }
 
-    fn get_heatmap(&self) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<UsageSnapshot, DataSourceError>> + Send + '_>> {
-        Box::pin(async {
-            Ok(self.kernel_bridge.heatmap.read().await.snapshot())
-        })
+    fn get_heatmap(
+        &self,
+    ) -> std::pin::Pin<
+        Box<dyn std::future::Future<Output = Result<UsageSnapshot, DataSourceError>> + Send + '_>,
+    > {
+        Box::pin(async { Ok(self.kernel_bridge.heatmap.read().await.snapshot()) })
     }
 
-    fn subscribe_signals(&self) -> Result<tokio::sync::broadcast::Receiver<SignalEventData>, DataSourceError> {
+    fn subscribe_signals(
+        &self,
+    ) -> Result<tokio::sync::broadcast::Receiver<SignalEventData>, DataSourceError> {
         Err(DataSourceError::SignalSubscribeFailed)
     }
 }

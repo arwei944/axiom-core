@@ -6,7 +6,9 @@ use parking_lot::RwLock;
 use serde::de::DeserializeOwned;
 use serde_json::Value;
 
+use crate::claude_provider::ClaudeProvider;
 use crate::mock::MockProvider;
+use crate::openai_provider::OpenAIProvider;
 use crate::types::{
     ChatMessage, ChatResponse, CompletionResponse, LlmError, RetryConfig, TokenBudget, TokenUsage,
 };
@@ -20,6 +22,39 @@ pub trait LlmProvider: Send + Sync + 'static {
         &'a self,
         messages: &'a [ChatMessage],
     ) -> crate::BoxLlmFuture<'a, Result<ChatResponse, LlmError>>;
+
+    fn structured_complete<'a>(
+        &'a self,
+        prompt: &'a str,
+        schema: &'a Value,
+    ) -> crate::BoxLlmFuture<'a, Result<CompletionResponse, LlmError>> {
+        Box::pin(async move {
+            let enriched_prompt = format!(
+                "{}\n\nPlease output valid JSON matching this schema:\n{}",
+                prompt,
+                serde_json::to_string_pretty(schema).unwrap_or_default()
+            );
+            self.complete(&enriched_prompt).await
+        })
+    }
+
+    fn structured_chat_impl<'a>(
+        &'a self,
+        messages: &'a [ChatMessage],
+        schema: &'a Value,
+    ) -> crate::BoxLlmFuture<'a, Result<ChatResponse, LlmError>> {
+        Box::pin(async move {
+            let schema_str = serde_json::to_string_pretty(schema).unwrap_or_default();
+            let mut enriched_messages = messages.to_vec();
+            enriched_messages.push(ChatMessage {
+                role: crate::types::MessageRole::User,
+                content: format!("Please output valid JSON matching this schema:\n{}", schema_str),
+                name: None,
+                tool_call_id: None,
+            });
+            self.chat(&enriched_messages).await
+        })
+    }
 }
 
 pub struct LlmClient {
@@ -49,6 +84,19 @@ impl LlmClient {
 
     pub fn mock() -> Self {
         Self::new(Arc::new(MockProvider::default()))
+    }
+
+    pub fn openai(api_key: &str) -> Self {
+        Self::new(Arc::new(OpenAIProvider::new(api_key)))
+    }
+
+    pub fn claude(api_key: &str) -> Self {
+        Self::new(Arc::new(ClaudeProvider::new(api_key)))
+    }
+
+    pub fn with_provider(mut self, provider: Arc<dyn LlmProvider>) -> Self {
+        self.provider = provider;
+        self
     }
 
     fn is_retryable(error: &LlmError) -> bool {
@@ -124,11 +172,24 @@ impl LlmClient {
         Ok(result)
     }
 
-    pub async fn structured_output<T>(&self, prompt: &str, _schema: &Value) -> Result<T, LlmError>
+    pub async fn structured_output<T>(&self, prompt: &str, schema: &Value) -> Result<T, LlmError>
     where
         T: DeserializeOwned,
     {
-        let response = self.complete(prompt).await?;
+        let provider = self.provider.clone();
+        let prompt_owned = prompt.to_string();
+        let schema_clone = schema.clone();
+
+        let response = self
+            .with_retry(move || {
+                let p = provider.clone();
+                let prompt = prompt_owned.clone();
+                let schema = schema_clone.clone();
+                async move { p.structured_complete(&prompt, &schema).await }
+            })
+            .await?;
+
+        self.token_budget.write().record_usage(response.usage.total_tokens)?;
 
         serde_json::from_str(&response.text).map_err(|e| LlmError::Validation(e.to_string()))
     }
@@ -136,12 +197,25 @@ impl LlmClient {
     pub async fn structured_chat<T>(
         &self,
         messages: &[ChatMessage],
-        _schema: &Value,
+        schema: &Value,
     ) -> Result<T, LlmError>
     where
         T: DeserializeOwned,
     {
-        let response = self.chat(messages).await?;
+        let provider = self.provider.clone();
+        let messages_owned = messages.to_vec();
+        let schema_clone = schema.clone();
+
+        let response = self
+            .with_retry(move || {
+                let p = provider.clone();
+                let msgs = messages_owned.clone();
+                let schema = schema_clone.clone();
+                async move { p.structured_chat_impl(&msgs, &schema).await }
+            })
+            .await?;
+
+        self.token_budget.write().record_usage(response.usage.total_tokens)?;
 
         serde_json::from_str(&response.message.content)
             .map_err(|e| LlmError::Validation(e.to_string()))

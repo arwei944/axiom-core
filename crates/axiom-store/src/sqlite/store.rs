@@ -140,7 +140,8 @@ impl SqliteStore {
                 row.get::<i32, _>("schema_version") as u16,
             ),
             metadata: crate::EventMetadata {
-                layer: serde_json::from_str(row.get::<&str, _>("layer")).unwrap_or(RuntimeTier::Exec),
+                layer: serde_json::from_str(row.get::<&str, _>("layer"))
+                    .unwrap_or(RuntimeTier::Exec),
                 processing_time_ms: row.get::<i64, _>("processing_time_ms") as u64,
                 was_replayed: row.get::<i32, _>("was_replayed") != 0,
                 outcome: serde_json::from_str(row.get::<&str, _>("outcome")).unwrap_or_default(),

@@ -2,7 +2,7 @@ use axiom_kernel::axiom::ValidationResult;
 use axiom_kernel::id::{CorrelationId, MsgId};
 use axiom_kernel::layer::RuntimeTier;
 use axiom_kernel::sealed::{
-    AgentTier, CanSendTo, ExecTier, RuntimeTierMarker, OversightTier, ValidateTier,
+    AgentTier, CanSendTo, ExecTier, OversightTier, RuntimeTierMarker, ValidateTier,
 };
 use axiom_kernel::signal::{now_ns, Signal, SignalKind, VectorClock};
 use serde::{Deserialize, Serialize};

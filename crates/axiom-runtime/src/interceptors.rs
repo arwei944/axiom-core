@@ -1,8 +1,8 @@
 //! Built-in BusInterceptors for runtime enforcement (hop limit, idempotency, schema, loop detection, capability version, guard).
 
 use crate::bus::{BusInterceptor, InterceptDecision};
-use crate::constraint_validator::{ConstraintValidator, ValidationContext};
 use crate::constants::{IDEMPOTENCY_CLEANUP_THRESHOLD, IDEMPOTENCY_SET_CAPACITY, MAX_HOPS};
+use crate::constraint_validator::{ConstraintValidator, ValidationContext};
 use crate::loop_detector::LoopDetector;
 use axiom_kernel::signal::SignalEnvelope;
 use parking_lot::RwLock;

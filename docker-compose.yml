@@ -1,0 +1,24 @@
+version: '3.8'
+
+services:
+  axiom-api:
+    build: .
+    ports:
+      - "9092:9092"
+    environment:
+      - RUST_LOG=info
+      - AXIOM_DB_PATH=/data/axiom.sqlite
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+    volumes:
+      - axiom-data:/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9092/api/v1/health"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 10s
+    restart: unless-stopped
+
+volumes:
+  axiom-data:

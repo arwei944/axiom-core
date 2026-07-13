@@ -17,11 +17,37 @@ pub enum DataSourceError {
 }
 
 pub trait RuntimeDataSource: Send + Sync {
-    fn get_health(&self) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<RuntimeHealth, DataSourceError>> + Send + '_>>;
-    fn get_cells(&self) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<Vec<RegisteredCell>, DataSourceError>> + Send + '_>>;
-    fn get_entropy_snapshot(&self) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<EntropySnapshotData, DataSourceError>> + Send + '_>>;
-    fn get_heatmap(&self) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<UsageSnapshot, DataSourceError>> + Send + '_>>;
-    fn subscribe_signals(&self) -> Result<tokio::sync::broadcast::Receiver<SignalEventData>, DataSourceError>;
+    fn get_health(
+        &self,
+    ) -> std::pin::Pin<
+        Box<dyn std::future::Future<Output = Result<RuntimeHealth, DataSourceError>> + Send + '_>,
+    >;
+    fn get_cells(
+        &self,
+    ) -> std::pin::Pin<
+        Box<
+            dyn std::future::Future<Output = Result<Vec<RegisteredCell>, DataSourceError>>
+                + Send
+                + '_,
+        >,
+    >;
+    fn get_entropy_snapshot(
+        &self,
+    ) -> std::pin::Pin<
+        Box<
+            dyn std::future::Future<Output = Result<EntropySnapshotData, DataSourceError>>
+                + Send
+                + '_,
+        >,
+    >;
+    fn get_heatmap(
+        &self,
+    ) -> std::pin::Pin<
+        Box<dyn std::future::Future<Output = Result<UsageSnapshot, DataSourceError>> + Send + '_>,
+    >;
+    fn subscribe_signals(
+        &self,
+    ) -> Result<tokio::sync::broadcast::Receiver<SignalEventData>, DataSourceError>;
 }
 
 #[derive(Debug, Clone)]

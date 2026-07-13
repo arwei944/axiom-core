@@ -20,6 +20,8 @@ pub enum PluginError {
     DependencyCycle(String),
     #[error("unsupported plugin kind: {0}")]
     UnsupportedKind(String),
+    #[error("permission denied: {0}")]
+    PermissionDenied(String),
 }
 
 #[derive(

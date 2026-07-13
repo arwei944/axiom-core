@@ -56,7 +56,7 @@ pub async fn run_dispatch_loop(
                 let mut oversight_ctx = CellContext::new(&oversight_cell_id, RuntimeTier::Oversight);
 
                 if let Some(kernel) = &cell_kernel {
-                    if let Err(_) = process_kernel_messages(kernel, &bus, &supervisor, &governor, &mut oversight_ctx).await {
+                    if process_kernel_messages(kernel, &bus, &supervisor, &governor, &mut oversight_ctx).await.is_err() {
                         continue;
                     }
                 }
@@ -69,6 +69,7 @@ pub async fn run_dispatch_loop(
 
                     while let Some(env) = mb.pop().await {
                         if let Some(cell_lock) = cell {
+                            #[allow(clippy::needless_borrow)]
                             process_cell_message(
                                 env,
                                 cid.clone(),
@@ -139,9 +140,7 @@ async fn process_kernel_messages(
                         cell_id = "kernel",
                         "failed to publish kernel message"
                     );
-                    governor.record(EntropyEvent::DroppedMessage {
-                        cell_id: "kernel".to_string(),
-                    });
+                    governor.record(EntropyEvent::DroppedMessage { cell_id: "kernel".to_string() });
                 }
             }
         }
@@ -156,25 +155,21 @@ fn handle_circuit_break(
     governor: &Arc<crate::entropy_gov::EntropyGovernorCell>,
     oversight_ctx: &mut CellContext<'_>,
 ) {
-    governor.record(EntropyEvent::CircuitBreak {
-        cell_id: cell_id.to_string(),
-    });
+    governor.record(EntropyEvent::CircuitBreak { cell_id: cell_id.to_string() });
 
-    if let Err(e) = oversight_ctx.emit_failure(
-        &format!("circuit_break: {}", cell_id),
-        "supervisor circuit breaker open",
-    ) {
+    if let Err(e) = oversight_ctx
+        .emit_failure(&format!("circuit_break: {}", cell_id), "supervisor circuit breaker open")
+    {
         tracing::error!(
             error = %e,
             cell_id = cell_id,
             "failed to emit oversight failure for circuit break"
         );
-        governor.record(EntropyEvent::DroppedMessage {
-            cell_id: cell_id.to_string(),
-        });
+        governor.record(EntropyEvent::DroppedMessage { cell_id: cell_id.to_string() });
     }
 }
 
+#[allow(clippy::too_many_arguments, clippy::needless_borrow)]
 async fn process_cell_message(
     env: SignalEnvelope,
     cid: CellId,
@@ -194,9 +189,7 @@ async fn process_cell_message(
     let mut ctx = CellContext::new(&cid, layer);
     ctx.begin_processing(&env);
 
-    let unwind_result = AssertUnwindSafe(cell_guard.handle_dyn(env, &mut ctx))
-        .catch_unwind()
-        .await;
+    let unwind_result = AssertUnwindSafe(cell_guard.handle_dyn(env, &mut ctx)).catch_unwind().await;
 
     let (handle_result, outgoing, witnesses) = match unwind_result {
         Ok(v) => v,
@@ -206,11 +199,7 @@ async fn process_cell_message(
                 .map(|s| s.as_str())
                 .or_else(|| panic_payload.downcast_ref::<&str>().copied())
                 .unwrap_or("unknown panic");
-            tracing::error!(
-                cell_id = cid.as_str(),
-                panic = msg,
-                "cell handle panicked"
-            );
+            tracing::error!(cell_id = cid.as_str(), panic = msg, "cell handle panicked");
             (
                 Err(KernelError::CellCrashed {
                     cell_id: cid.as_str().to_string(),
@@ -231,12 +220,14 @@ async fn process_cell_message(
             dlq,
             governor,
             events_since_snapshot,
-        ).await;
+        )
+        .await;
     }
 
     match handle_result {
         Ok(()) => {
-            handle_cell_success(cid.as_str(), outgoing, bus, supervisor, governor, oversight_ctx).await;
+            handle_cell_success(cid.as_str(), outgoing, bus, supervisor, governor, oversight_ctx)
+                .await;
         }
         Err(e) => {
             tracing::warn!(
@@ -245,22 +236,17 @@ async fn process_cell_message(
                 "cell handle failed"
             );
             let decision = supervisor.record_panic(cid.as_str()).await;
-            governor.record(EntropyEvent::AxiomViolation {
-                cell_id: cid.as_str().to_string(),
-            });
+            governor.record(EntropyEvent::AxiomViolation { cell_id: cid.as_str().to_string() });
 
-            if let Err(emit_err) = oversight_ctx.emit_axiom_violation(
-                "cell_handle_failed",
-                &format!("{}: {}", cid.as_str(), e),
-            ) {
+            if let Err(emit_err) = oversight_ctx
+                .emit_axiom_violation("cell_handle_failed", &format!("{}: {}", cid.as_str(), e))
+            {
                 tracing::error!(
                     error = %emit_err,
                     cell_id = cid.as_str(),
                     "failed to emit oversight axiom violation"
                 );
-                governor.record(EntropyEvent::DroppedMessage {
-                    cell_id: cid.as_str().to_string(),
-                });
+                governor.record(EntropyEvent::DroppedMessage { cell_id: cid.as_str().to_string() });
             }
 
             handle_supervision_decision(
@@ -270,7 +256,8 @@ async fn process_cell_message(
                 oversight_ctx,
                 factory.clone(),
                 Some(cell_lock.clone()),
-            ).await;
+            )
+            .await;
         }
     }
 }
@@ -337,7 +324,12 @@ async fn persist_witnesses_and_snapshots(
             if *count >= SNAPSHOT_INTERVAL {
                 pending_snapshots.push(axiom_store::Snapshot {
                     aggregate_id: cell_id_str.clone(),
-                    sequence_number: ow.0.hash.0.iter().fold(0u64, |acc, &b| acc.wrapping_shl(8) | b as u64),
+                    sequence_number: ow
+                        .0
+                        .hash
+                        .0
+                        .iter()
+                        .fold(0u64, |acc, &b| acc.wrapping_shl(8) | b as u64),
                     state: serde_json::json!({
                         "cell_id": ow.0.cell_id,
                         "witness_id": ow.0.witness_id.to_string(),
@@ -361,10 +353,7 @@ async fn persist_witnesses_and_snapshots(
                     "failed to save snapshot"
                 );
             } else {
-                tracing::info!(
-                    cell_id = snapshot.cell_id,
-                    "snapshot saved"
-                );
+                tracing::info!(cell_id = snapshot.cell_id, "snapshot saved");
             }
         }
     }
@@ -405,9 +394,7 @@ fn enqueue_failed_witness(
             cell_id = witness.0.cell_id,
             "failed to enqueue failed witness to dlq"
         );
-        governor.record(EntropyEvent::DroppedMessage {
-            cell_id: witness.0.cell_id.clone(),
-        });
+        governor.record(EntropyEvent::DroppedMessage { cell_id: witness.0.cell_id.clone() });
     }
 }
 
@@ -425,9 +412,7 @@ async fn handle_cell_success(
                 error = %e,
                 "failed to publish outgoing signal"
             );
-            governor.record(EntropyEvent::DroppedMessage {
-                cell_id: cell_id.to_string(),
-            });
+            governor.record(EntropyEvent::DroppedMessage { cell_id: cell_id.to_string() });
             emit_oversight_failure(
                 oversight_ctx,
                 &format!("dropped_message: {}", cell_id),
@@ -450,9 +435,7 @@ async fn handle_supervision_decision(
 ) {
     match decision {
         SupervisionDecision::Restart { backoff_ms } => {
-            governor.record(EntropyEvent::CellRestart {
-                cell_id: cell_id.to_string(),
-            });
+            governor.record(EntropyEvent::CellRestart { cell_id: cell_id.to_string() });
             emit_oversight_success(
                 oversight_ctx,
                 &format!("cell_restart: {} (backoff_ms={})", cell_id, backoff_ms),
@@ -472,17 +455,11 @@ async fn handle_supervision_decision(
                 let new_handle = f();
                 let mut guard = cell_lock.lock().await;
                 *guard = new_handle;
-                tracing::info!(
-                    cell_id = cell_id,
-                    backoff_ms = backoff_ms,
-                    "cell restarted"
-                );
+                tracing::info!(cell_id = cell_id, backoff_ms = backoff_ms, "cell restarted");
             }
         }
         SupervisionDecision::CircuitBreak { .. } => {
-            governor.record(EntropyEvent::CircuitBreak {
-                cell_id: cell_id.to_string(),
-            });
+            governor.record(EntropyEvent::CircuitBreak { cell_id: cell_id.to_string() });
             emit_oversight_failure(
                 oversight_ctx,
                 &format!("circuit_break: {}", cell_id),
@@ -515,9 +492,7 @@ fn emit_oversight_success(
             cell_id = cell_id,
             "failed to emit oversight success"
         );
-        governor.record(EntropyEvent::DroppedMessage {
-            cell_id: cell_id.to_string(),
-        });
+        governor.record(EntropyEvent::DroppedMessage { cell_id: cell_id.to_string() });
     }
 }
 
@@ -534,9 +509,7 @@ fn emit_oversight_failure(
             cell_id = cell_id,
             "failed to emit oversight failure"
         );
-        governor.record(EntropyEvent::DroppedMessage {
-            cell_id: cell_id.to_string(),
-        });
+        governor.record(EntropyEvent::DroppedMessage { cell_id: cell_id.to_string() });
     }
 }
 
@@ -568,9 +541,7 @@ async fn process_entropy_governance(
                 "entropy governance: throttling hottest cell"
             );
             if let Some(ref tc) = target_cell {
-                throttle_state
-                    .write()
-                    .insert(tc.clone(), factor);
+                throttle_state.write().insert(tc.clone(), factor);
             }
         }
         GovernanceAction::Emergency { reason } => {

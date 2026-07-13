@@ -14,16 +14,47 @@ impl PluginRegistry {
 
     pub async fn register(&self, plugin: Box<dyn crate::plugin::abi::AxiomPlugin>) {
         let id = plugin.id().to_string();
-        let kind = PluginKind::Llm; // ponytail: default kind; real impl should detect from capabilities
+        let kind = Self::detect_plugin_kind(plugin.capabilities());
         let mut kinds = self.kinds.write().await;
         kinds.entry(kind).or_default().push(id.clone());
         let mut plugins = self.plugins.write().await;
         plugins.insert(id, plugin);
     }
 
+    fn detect_plugin_kind(capabilities: &[crate::plugin::abi::CapabilityDescriptor]) -> PluginKind {
+        let cap_names: Vec<&str> = capabilities.iter().map(|c| c.name.as_str()).collect();
+        if cap_names.iter().any(|n| {
+            n.contains("llm") || n.contains("chat") || n.contains("gpt") || n.contains("claude")
+        }) {
+            PluginKind::Llm
+        } else if cap_names.iter().any(|n| n.contains("memory") || n.contains("storage")) {
+            PluginKind::Memory
+        } else if cap_names.iter().any(|n| n.contains("tool") || n.contains("function")) {
+            PluginKind::Tool
+        } else if cap_names.iter().any(|n| n.contains("mcp") || n.contains("model")) {
+            PluginKind::Mcp
+        } else if cap_names.iter().any(|n| n.contains("plan") || n.contains("task")) {
+            PluginKind::Planner
+        } else if cap_names.iter().any(|n| n.contains("alert") || n.contains("notify")) {
+            PluginKind::Alert
+        } else if cap_names
+            .iter()
+            .any(|n| n.contains("viz") || n.contains("visual") || n.contains("graph"))
+        {
+            PluginKind::Viz
+        } else if cap_names
+            .iter()
+            .any(|n| n.contains("govern") || n.contains("entropy") || n.contains("policy"))
+        {
+            PluginKind::Governance
+        } else {
+            PluginKind::Llm
+        }
+    }
+
     pub async fn get(&self, id: &str) -> Option<Box<dyn crate::plugin::abi::AxiomPlugin>> {
-        let mut plugins = self.plugins.write().await;
-        plugins.remove(id)
+        let plugins = self.plugins.read().await;
+        plugins.get(id).map(|p| p.clone_box())
     }
 
     pub async fn remove(&self, id: &str) -> Option<Box<dyn crate::plugin::abi::AxiomPlugin>> {

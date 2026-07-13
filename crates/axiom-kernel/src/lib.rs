@@ -43,7 +43,7 @@ pub use heatmap::collector::UsageSnapshot;
 pub use heatmap::{HeatmapCollector, HeatmapExporter};
 pub use id::{AxiomId, CellId, CorrelationId, LensId, MsgId, TraceId, WitnessId};
 #[allow(deprecated)]
-pub use layer::{RuntimeTier, Layer};
+pub use layer::{Layer, RuntimeTier};
 pub use lens::LensKernel;
 pub use plugin::{
     abi::{AxiomPlugin, PluginContext, PluginError, PluginKind, PluginMessage, PluginReply},
@@ -52,10 +52,10 @@ pub use plugin::{
     registry::PluginRegistry,
 };
 pub use registry::{
-    CapabilityDescriptor, CapabilityDimension, CapabilityVersionRegistry, LensRegistry,
-    RegistryGuard, WitnessRegistry, AXIOM_REGISTRY, CAPABILITY_REGISTRY, LENS_REGISTRY,
-    MIGRATION_REGISTRY, WITNESS_REGISTRY, count_registered_axioms, is_axiom_registry_empty,
-    registered_axioms, registered_migration_chains,
+    count_registered_axioms, is_axiom_registry_empty, registered_axioms,
+    registered_migration_chains, CapabilityDescriptor, CapabilityDimension,
+    CapabilityVersionRegistry, LensRegistry, RegistryGuard, WitnessRegistry, AXIOM_REGISTRY,
+    CAPABILITY_REGISTRY, LENS_REGISTRY, MIGRATION_REGISTRY, WITNESS_REGISTRY,
 };
 pub use sealed::{AgentTier, CanSendTo, ExecTier, OversightTier, RuntimeTierMarker, ValidateTier};
 pub use signal::{Signal, SignalEnvelope, SignalKernel, SignalKind, VectorClock};

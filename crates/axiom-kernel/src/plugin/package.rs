@@ -22,15 +22,19 @@ pub struct PluginPackage {
 const AXIOM_PLUGIN_MAGIC: &[u8] = b"AXMP";
 const AXIOM_PLUGIN_VERSION: u32 = 1;
 
-pub fn pack(manifest: PluginManifest, wasm_bytes: Vec<u8>, signature: Option<Vec<u8>>) -> Vec<u8> {
+pub fn pack(
+    manifest: PluginManifest,
+    wasm_bytes: Vec<u8>,
+    signature: Option<Vec<u8>>,
+) -> Result<Vec<u8>, PluginError> {
     let package = PluginPackage { manifest, wasm_bytes, signature };
-    let json = serde_json::to_vec(&package).unwrap();
+    let json = serde_json::to_vec(&package).map_err(|e| PluginError::LoadFailed(e.to_string()))?;
     let mut out = Vec::new();
     out.extend_from_slice(AXIOM_PLUGIN_MAGIC);
     out.extend_from_slice(&AXIOM_PLUGIN_VERSION.to_le_bytes());
     out.extend_from_slice(&(json.len() as u32).to_le_bytes());
     out.extend_from_slice(&json);
-    out
+    Ok(out)
 }
 
 pub fn unpack(data: &[u8]) -> Result<PluginPackage, PluginError> {
@@ -60,7 +64,7 @@ pub fn pack_to_file(
     signature: Option<Vec<u8>>,
     path: &Path,
 ) -> Result<(), PluginError> {
-    let bytes = pack(manifest, wasm_bytes, signature);
+    let bytes = pack(manifest, wasm_bytes, signature)?;
     std::fs::write(path, bytes).map_err(|e| PluginError::LoadFailed(e.to_string()))?;
     Ok(())
 }

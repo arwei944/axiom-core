@@ -1,10 +1,8 @@
-//! OpenTelemetry tracing integration for Axiom Runtime.
-//!
-//! Provides span creation for SignalEnvelope and Cell::handle.
-
 use std::sync::Arc;
 
-/// Telemetry configuration.
+#[cfg(feature = "telemetry")]
+use opentelemetry::trace::TracerProvider;
+
 #[derive(Debug, Clone, Default)]
 pub struct TelemetryConfig {
     pub otlp_endpoint: String,
@@ -22,7 +20,6 @@ impl TelemetryConfig {
     }
 }
 
-/// Initialize OpenTelemetry tracing.
 pub fn init_telemetry(_config: TelemetryConfig) -> Result<(), Box<dyn std::error::Error>> {
     #[cfg(feature = "telemetry")]
     {
@@ -31,27 +28,25 @@ pub fn init_telemetry(_config: TelemetryConfig) -> Result<(), Box<dyn std::error
     Ok(())
 }
 
-/// Tracer handle.
 #[derive(Debug, Clone, Default)]
 pub struct TracerHandle {
     #[cfg(feature = "telemetry")]
-    inner: Option<Arc<dyn opentelemetry::trace::TracerProvider>>,
+    inner: Option<Arc<opentelemetry_sdk::trace::SdkTracerProvider>>,
 }
 
 #[cfg(feature = "telemetry")]
 impl TracerHandle {
-    pub fn new(provider: Arc<dyn opentelemetry::trace::TracerProvider>) -> Self {
+    pub fn new(provider: Arc<opentelemetry_sdk::trace::SdkTracerProvider>) -> Self {
         Self { inner: Some(provider) }
     }
 
     pub fn tracer(
         &self,
-        name: &str,
-    ) -> Result<impl opentelemetry::trace::Tracer, axiom_kernel::error::AxiomError> {
-        let provider =
-            self.inner.as_ref().ok_or_else(|| axiom_kernel::error::AxiomError::Internal {
-                message: "tracer provider not initialized".into(),
-            })?;
+        name: &'static str,
+    ) -> Result<opentelemetry_sdk::trace::Tracer, axiom_kernel::error::AxiomError> {
+        let provider = self.inner.as_ref().ok_or_else(|| {
+            axiom_kernel::error::AxiomError::InternalError("tracer provider not initialized".into())
+        })?;
         Ok(provider.tracer(name))
     }
 }
@@ -88,11 +83,23 @@ impl NoopSpan {
 mod tests {
     use super::*;
 
+    #[cfg(feature = "telemetry")]
+    use opentelemetry::trace::{Span, Tracer};
+
     #[test]
     fn noop_telemetry_does_not_panic() {
         let config = TelemetryConfig::default();
         init_telemetry(config).unwrap();
         let handle = TracerHandle::default();
-        let _span = handle.tracer("test").unwrap().start("test_span");
+        let _ = handle.tracer("test");
+    }
+
+    #[cfg(feature = "telemetry")]
+    #[test]
+    fn telemetry_with_provider() {
+        let provider = opentelemetry_sdk::trace::SdkTracerProvider::builder().build();
+        let handle = TracerHandle::new(Arc::new(provider));
+        let mut span = handle.tracer("test").unwrap().start("test_span");
+        span.end();
     }
 }

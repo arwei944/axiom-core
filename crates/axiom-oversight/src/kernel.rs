@@ -22,11 +22,7 @@ impl OversightKernelAdapter {
         health_collector: Arc<HealthCollectorCell>,
         compliance_guard: Arc<ComplianceGuardCell>,
     ) -> Self {
-        Self {
-            governor,
-            health_collector,
-            compliance_guard,
-        }
+        Self { governor, health_collector, compliance_guard }
     }
 
     pub fn governor(&self) -> &EntropyGovernorCell {
@@ -40,19 +36,39 @@ impl OversightKernelAdapter {
 }
 
 impl OversightDataSource for OversightKernelAdapter {
-    fn get_system_health(&self) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<SystemHealth, OversightDataSourceError>> + Send + '_>> {
-        Box::pin(async {
-            Ok(self.health_collector.collect())
-        })
+    fn get_system_health(
+        &self,
+    ) -> std::pin::Pin<
+        Box<
+            dyn std::future::Future<Output = Result<SystemHealth, OversightDataSourceError>>
+                + Send
+                + '_,
+        >,
+    > {
+        Box::pin(async { Ok(self.health_collector.collect()) })
     }
 
-    fn get_entropy_status(&self) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<EntropySnapshot, OversightDataSourceError>> + Send + '_>> {
-        Box::pin(async {
-            Ok(self.governor.snapshot())
-        })
+    fn get_entropy_status(
+        &self,
+    ) -> std::pin::Pin<
+        Box<
+            dyn std::future::Future<Output = Result<EntropySnapshot, OversightDataSourceError>>
+                + Send
+                + '_,
+        >,
+    > {
+        Box::pin(async { Ok(self.governor.snapshot()) })
     }
 
-    fn get_compliance_report(&self) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<ComplianceReportData, OversightDataSourceError>> + Send + '_>> {
+    fn get_compliance_report(
+        &self,
+    ) -> std::pin::Pin<
+        Box<
+            dyn std::future::Future<Output = Result<ComplianceReportData, OversightDataSourceError>>
+                + Send
+                + '_,
+        >,
+    > {
         Box::pin(async {
             Ok(ComplianceReportData {
                 violations: Vec::new(),

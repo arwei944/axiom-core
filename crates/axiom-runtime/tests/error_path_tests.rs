@@ -36,7 +36,9 @@ async fn test_layer_violation_exec_to_agent_rejected() {
 async fn test_layer_violation_oversight_can_send_to_all() {
     let guardian = ArchitectureGuardian::new();
 
-    for target_layer in [RuntimeTier::Oversight, RuntimeTier::Agent, RuntimeTier::Validate, RuntimeTier::Exec] {
+    for target_layer in
+        [RuntimeTier::Oversight, RuntimeTier::Agent, RuntimeTier::Validate, RuntimeTier::Exec]
+    {
         let env = make_env("oversight-cell", "target", RuntimeTier::Oversight, target_layer);
         let decision = guardian.intercept(&env);
         assert!(

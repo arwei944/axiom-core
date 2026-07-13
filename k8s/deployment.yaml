@@ -1,0 +1,63 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: axiom-api
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: axiom-api
+  template:
+    metadata:
+      labels:
+        app: axiom-api
+    spec:
+      containers:
+        - name: axiom-api
+          image: axiom-api:latest
+          ports:
+            - containerPort: 9092
+          envFrom:
+            - configMapRef:
+                name: axiom-config
+          env:
+            - name: AXIOM_DB_PATH
+              value: /data/axiom.sqlite
+            - name: OPENAI_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: axiom-secrets
+                  key: openai-api-key
+                  optional: true
+            - name: ANTHROPIC_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: axiom-secrets
+                  key: anthropic-api-key
+                  optional: true
+          volumeMounts:
+            - name: data
+              mountPath: /data
+          livenessProbe:
+            httpGet:
+              path: /api/v1/health
+              port: 9092
+            initialDelaySeconds: 10
+            periodSeconds: 30
+          readinessProbe:
+            httpGet:
+              path: /api/v1/health
+              port: 9092
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "256Mi"
+            limits:
+              cpu: "500m"
+              memory: "512Mi"
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: axiom-data

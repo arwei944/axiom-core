@@ -373,17 +373,13 @@ pub struct DynAxiomChain {
 
 impl DynAxiomChain {
     pub fn from_registry_all() -> Self {
-        Self {
-            axioms: registered_axioms(),
-        }
+        Self { axioms: registered_axioms() }
     }
 
     pub fn from_registry_for_layer(layer: crate::RuntimeTier) -> Self {
         let all = registered_axioms();
-        let filtered: Vec<&'static dyn DynAxiom> = all
-            .into_iter()
-            .filter(|axiom| axiom.applies_to_layer(layer))
-            .collect();
+        let filtered: Vec<&'static dyn DynAxiom> =
+            all.into_iter().filter(|axiom| axiom.applies_to_layer(layer)).collect();
         Self { axioms: filtered }
     }
 
@@ -509,10 +505,7 @@ impl AxiomKernel {
             }
         }
         drop(axioms);
-        self.heatmap
-            .write()
-            .await
-            .record_axiom_check("axiom-chain");
+        self.heatmap.write().await.record_axiom_check("axiom-chain");
         Ok(())
     }
 

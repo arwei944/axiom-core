@@ -195,7 +195,8 @@ mod tests {
     fn compliance_allows_clean_payload() {
         let guard = Arc::new(ComplianceGuardCell::new());
         let i = ComplianceInterceptor::new(guard);
-        let env = make_env(RuntimeTier::Exec, RuntimeTier::Exec, serde_json::json!({"msg":"hello"}));
+        let env =
+            make_env(RuntimeTier::Exec, RuntimeTier::Exec, serde_json::json!({"msg":"hello"}));
         assert!(matches!(i.intercept(&env), InterceptDecision::Allow));
     }
 

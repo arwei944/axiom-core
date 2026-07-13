@@ -1,0 +1,2 @@
+    Checking axiom-agent v0.4.0 (D:\work\trae\axiom-core-project\crates\axiom-agent)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 4.47s

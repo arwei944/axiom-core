@@ -17,9 +17,8 @@ glob = "0.3"
 parking_lot = { workspace = true }
 linkme = { workspace = true }
 libloading = { version = "0.8", optional = true }
-wasmtime = { version = "21", optional = true }
-wasmtime-wasi = { version = "21", optional = true }
-wasmtime-component-util = { version = "21", optional = true }
+wasmtime = { version = "36", optional = true }
+wasmtime-wasi = { version = "36", optional = true }
 postcard = { version = "1", optional = true }
 semver = { version = "1", features = ["serde"] }
 tokio = { workspace = true }
@@ -30,7 +29,7 @@ sha2 = { version = "0.10", optional = true }
 [features]
 default = ["native-loader", "sha2-id"]
 native-loader = ["libloading"]
-wasm-loader = ["wasmtime", "wasmtime-wasi", "wasmtime-component-util", "postcard"]
+wasm-loader = ["wasmtime", "wasmtime-wasi", "postcard"]
 bincode-codec = ["bincode"]
 sha2-id = ["sha2"]
 

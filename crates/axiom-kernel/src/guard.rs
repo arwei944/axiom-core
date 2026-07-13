@@ -1,6 +1,6 @@
 use crate::axiom::KernelResult;
-use crate::RuntimeTier;
 use crate::signal::Signal;
+use crate::RuntimeTier;
 
 pub trait Guard: Send + Sync {
     fn id(&self) -> &'static str;

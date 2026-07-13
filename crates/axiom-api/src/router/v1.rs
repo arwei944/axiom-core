@@ -1,5 +1,7 @@
-use axum::{Router, routing::get};
-use crate::router::{ApiState, health_handler, cells_handler, heatmap_handler, entropy_handler, metrics_handler};
+use crate::router::{
+    cells_handler, entropy_handler, health_handler, heatmap_handler, metrics_handler, ApiState,
+};
+use axum::{routing::get, Router};
 
 pub fn routes(state: ApiState) -> Router {
     Router::new()

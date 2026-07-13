@@ -94,6 +94,14 @@ libloading = "动态库加载（native plugin loader）"
 glob = "文件路径匹配（plugin loader）"
 postcard = "二进制序列化（plugin IPC）"
 semver = "语义化版本（plugin versioning）"
+# API 网关依赖
+tracing-appender = "非阻塞日志输出器（API logging）"
+opentelemetry = "分布式追踪 API（API tracing）"
+opentelemetry_sdk = "OpenTelemetry SDK（API tracing）"
+opentelemetry-otlp = "OTLP 协议支持（API tracing）"
+tracing-opentelemetry = "tracing 与 OpenTelemetry 集成（API tracing）"
+jsonwebtoken = "JWT 认证（API auth）"
+base64 = "Base64 编码（API auth）"
 
 [dev-dependencies-audit]
 enabled = true
