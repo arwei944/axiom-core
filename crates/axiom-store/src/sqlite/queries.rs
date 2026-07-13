@@ -129,14 +129,15 @@ impl EventStore for SqliteStore {
                 let seq = sqlx::query(
                     r#"
                     INSERT INTO events (
-                        aggregate_id, cell_id, correlation_id, triggering_msg_id, vector_clock,
+                        event_id, aggregate_id, cell_id, correlation_id, triggering_msg_id, vector_clock,
                         timestamp_ns, payload, event_type, schema_version, layer,
                         processing_time_ms, was_replayed, outcome, summary,
                         witness_hash_prev, witness_hash_before, witness_hash_after, witness_hash,
                         signal_fingerprint, payload_size_bytes
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     "#,
                 )
+                .bind(&event.event_id)
                 .bind(&event.aggregate_id)
                 .bind(&event.cell_id)
                 .bind(event.correlation_id.as_str())

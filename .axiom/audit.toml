@@ -24,4 +24,5 @@ whitelist = [
     "tracing-opentelemetry",
     "jsonwebtoken",
     "base64",
+    "dotenvy",
 ]

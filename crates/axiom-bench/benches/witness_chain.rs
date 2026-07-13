@@ -84,11 +84,45 @@ fn bench_witness_chain_verify_1000(c: &mut Criterion) {
     });
 }
 
+/// Measure the SHA-256 hash computation for a single witness.
+/// This is the hot path exercised on every state transition.
+fn bench_witness_hash_compute(c: &mut Criterion) {
+    let w = make_witness(1, None);
+
+    c.bench_function("witness_hash_compute", |b| {
+        b.iter(|| {
+            let hash = black_box(&w).compute_hash().unwrap();
+            black_box(hash);
+        });
+    });
+}
+
+/// Measure building a 100-element hash-linked chain, computing each
+/// witness hash incrementally (prev_hash wired from the prior hash).
+fn bench_witness_hash_chain_build_100(c: &mut Criterion) {
+    c.bench_function("witness_hash_chain_build_100", |b| {
+        b.iter(|| {
+            let mut prev: Option<WitnessHash> = None;
+            let mut chain = Vec::with_capacity(100);
+            for i in 1..=100u64 {
+                let mut w = make_witness(i, prev);
+                let hash = w.compute_hash().unwrap();
+                w.hash = hash;
+                prev = Some(hash);
+                chain.push(w);
+            }
+            black_box(chain);
+        });
+    });
+}
+
 criterion_group!(
     benches,
     bench_witness_creation,
     bench_witness_serialization,
     bench_witness_chain_verify_100,
-    bench_witness_chain_verify_1000
+    bench_witness_chain_verify_1000,
+    bench_witness_hash_compute,
+    bench_witness_hash_chain_build_100
 );
 criterion_main!(benches);

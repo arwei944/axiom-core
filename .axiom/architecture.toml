@@ -102,6 +102,7 @@ opentelemetry-otlp = "OTLP 协议支持（API tracing）"
 tracing-opentelemetry = "tracing 与 OpenTelemetry 集成（API tracing）"
 jsonwebtoken = "JWT 认证（API auth）"
 base64 = "Base64 编码（API auth）"
+dotenvy = "环境变量文件加载（配置管理）"
 
 [dev-dependencies-audit]
 enabled = true

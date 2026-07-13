@@ -23,6 +23,10 @@ futures = "0.3"
 jsonwebtoken = { version = "9", features = ["default"] }
 base64 = "0.22"
 
+# P2-K1/K2: 配置管理（环境变量 + TOML 配置文件）
+dotenvy = "0.15"
+toml = "0.8"
+
 axiom-kernel = { path = "../axiom-kernel" }
 axiom-runtime = { path = "../axiom-runtime" }
 axiom-oversight = { path = "../axiom-oversight" }

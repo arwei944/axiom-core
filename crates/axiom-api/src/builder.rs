@@ -1,5 +1,6 @@
 use crate::auth::AuthConfig;
 use crate::logging::{init_logging, LoggingConfig};
+use crate::middleware::{CorsConfig, RateLimitConfig, SecurityMiddlewareConfig};
 use crate::router::{ApiServer, ApiServerConfig, ApiState};
 use axiom_oversight::{OversightDataSource, OversightKernelAdapter};
 use axiom_runtime::{AxiomRuntime, RuntimeDataSource};
@@ -15,6 +16,8 @@ pub struct ApiServerBuilder {
     auth_config: AuthConfig,
     metrics_registry: Option<Arc<dyn axiom_viz::MetricsRegistry>>,
     logging_config: LoggingConfig,
+    security_config: SecurityMiddlewareConfig,
+    body_limit: usize,
 }
 
 impl Default for ApiServerBuilder {
@@ -24,6 +27,8 @@ impl Default for ApiServerBuilder {
             auth_config: AuthConfig::disabled(),
             metrics_registry: None,
             logging_config: LoggingConfig::default(),
+            security_config: SecurityMiddlewareConfig::default(),
+            body_limit: 10 * 1024 * 1024,
         }
     }
 }
@@ -58,6 +63,46 @@ impl ApiServerBuilder {
         self
     }
 
+    /// 设置速率限制配置
+    pub fn rate_limit(mut self, config: RateLimitConfig) -> Self {
+        self.security_config.rate_limit = Some(config);
+        self
+    }
+
+    /// 设置 CORS 配置
+    pub fn cors(mut self, config: CorsConfig) -> Self {
+        self.security_config.cors = Some(config);
+        self
+    }
+
+    /// 设置请求体大小限制（字节）
+    pub fn body_limit(mut self, limit: usize) -> Self {
+        self.body_limit = limit;
+        self
+    }
+
+    /// 使用开发环境默认配置
+    pub fn development(mut self) -> Self {
+        self.security_config = SecurityMiddlewareConfig {
+            rate_limit: Some(RateLimitConfig { max_requests: 1000, window_secs: 60 }),
+            cors: Some(CorsConfig::default()),
+        };
+        self
+    }
+
+    /// 使用生产环境默认配置
+    pub fn production(mut self, allowed_origins: Vec<String>) -> Self {
+        self.security_config = SecurityMiddlewareConfig {
+            rate_limit: Some(RateLimitConfig { max_requests: 100, window_secs: 60 }),
+            cors: Some(CorsConfig {
+                allowed_origins,
+                allow_credentials: true,
+                ..Default::default()
+            }),
+        };
+        self
+    }
+
     pub fn build(
         self,
         runtime: Arc<AxiomRuntime>,
@@ -86,7 +131,14 @@ impl ApiServerBuilder {
         });
         state = state.with_metrics_registry(registry);
 
-        ApiServer::new(ApiServerConfig { addr: self.addr }, state)
+        ApiServer::new(
+            ApiServerConfig {
+                addr: self.addr,
+                body_limit: self.body_limit,
+                security: self.security_config,
+            },
+            state,
+        )
     }
 }
 

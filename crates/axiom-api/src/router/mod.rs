@@ -1,15 +1,23 @@
 pub mod v1;
 
 use crate::aggregator::{CellAggregator, EntropyAggregator, HealthAggregator, HeatmapAggregator};
+use crate::middleware::{
+    configurable_cors_middleware, enhanced_request_logging_middleware, inject_security_extensions,
+    rate_limit_middleware, CorsConfig, RateLimitConfig, SecurityMiddlewareConfig,
+};
 use axiom_oversight::OversightDataSource;
 use axiom_runtime::RuntimeDataSource;
 use axum::body::Body;
+use axum::extract::DefaultBodyLimit;
 use axum::extract::State;
-use axum::http::{Request, Response, StatusCode};
+use axum::http::{Response, StatusCode};
 use axum::response::{IntoResponse, Json};
 use axum::{middleware, routing::get, serve, Router};
 use std::net::SocketAddr;
 use std::sync::Arc;
+
+/// 默认请求体大小限制：10 MB
+const DEFAULT_BODY_LIMIT: usize = 10 * 1024 * 1024;
 
 #[derive(Clone)]
 pub struct ApiState {
@@ -46,11 +54,49 @@ impl ApiState {
 #[derive(Clone)]
 pub struct ApiServerConfig {
     pub addr: SocketAddr,
+    /// 请求体大小限制（字节），默认 10MB
+    pub body_limit: usize,
+    /// 安全中间件配置
+    pub security: SecurityMiddlewareConfig,
 }
 
 impl Default for ApiServerConfig {
     fn default() -> Self {
-        Self { addr: ([0, 0, 0, 0], 9092).into() }
+        Self {
+            addr: ([0, 0, 0, 0], 9092).into(),
+            body_limit: DEFAULT_BODY_LIMIT,
+            security: SecurityMiddlewareConfig::default(),
+        }
+    }
+}
+
+impl ApiServerConfig {
+    /// 设置为开发环境配置（宽松限流、允许所有源）
+    pub fn development() -> Self {
+        Self {
+            addr: ([0, 0, 0, 0], 9092).into(),
+            body_limit: DEFAULT_BODY_LIMIT,
+            security: SecurityMiddlewareConfig {
+                rate_limit: Some(RateLimitConfig { max_requests: 1000, window_secs: 60 }),
+                cors: Some(CorsConfig::default()),
+            },
+        }
+    }
+
+    /// 设置为生产环境配置（严格限流、指定源）
+    pub fn production(allowed_origins: Vec<String>) -> Self {
+        Self {
+            addr: ([0, 0, 0, 0], 9092).into(),
+            body_limit: DEFAULT_BODY_LIMIT,
+            security: SecurityMiddlewareConfig {
+                rate_limit: Some(RateLimitConfig { max_requests: 100, window_secs: 60 }),
+                cors: Some(CorsConfig {
+                    allowed_origins,
+                    allow_credentials: true,
+                    ..Default::default()
+                }),
+            },
+        }
     }
 }
 
@@ -73,8 +119,17 @@ impl ApiServer {
     pub fn router(&self) -> Router {
         let mut router = Router::new()
             .nest("/api/v1", v1::routes(self.state.clone()))
-            .layer(middleware::from_fn(cors_middleware))
-            .layer(middleware::from_fn(request_logging_middleware));
+            // P2-J2: 请求体大小限制
+            .layer(DefaultBodyLimit::max(self.config.body_limit))
+            // P2-J1: 速率限制中间件
+            .layer(middleware::from_fn(rate_limit_middleware))
+            // P2-J3: 可配置 CORS 中间件
+            .layer(middleware::from_fn(configurable_cors_middleware))
+            // P2-J4: 增强请求日志中间件
+            .layer(middleware::from_fn(enhanced_request_logging_middleware));
+
+        // 注入安全扩展配置
+        router = inject_security_extensions(router, &self.config.security);
 
         if self.swagger_enabled {
             router = router
@@ -91,36 +146,6 @@ impl ApiServer {
         let listener = tokio::net::TcpListener::bind(&self.config.addr).await?;
         serve(listener, router).await
     }
-}
-
-async fn cors_middleware(req: Request<Body>, next: middleware::Next) -> Response<Body> {
-    let mut response = next.run(req).await;
-    response.headers_mut().insert(
-        axum::http::header::ACCESS_CONTROL_ALLOW_ORIGIN,
-        axum::http::HeaderValue::from_static("*"),
-    );
-    response.headers_mut().insert(
-        axum::http::header::ACCESS_CONTROL_ALLOW_METHODS,
-        axum::http::HeaderValue::from_static("GET, POST, OPTIONS"),
-    );
-    response.headers_mut().insert(
-        axum::http::header::ACCESS_CONTROL_ALLOW_HEADERS,
-        axum::http::HeaderValue::from_static("*"),
-    );
-    response
-}
-
-async fn request_logging_middleware(req: Request<Body>, next: middleware::Next) -> Response<Body> {
-    let start = std::time::Instant::now();
-    let method = req.method().clone();
-    let uri = req.uri().clone();
-
-    let response = next.run(req).await;
-
-    let duration = start.elapsed().as_millis();
-    tracing::info!("{} {} {}ms", method, uri, duration);
-
-    response
 }
 
 pub async fn health_handler(State(state): State<ApiState>) -> impl IntoResponse {

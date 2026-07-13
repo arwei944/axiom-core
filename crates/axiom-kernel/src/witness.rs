@@ -303,6 +303,24 @@ impl Witness {
         #[cfg(feature = "sha2-id")]
         {
             use sha2::{Digest, Sha256};
+
+            // Adapter that streams serialized bytes straight into the hasher,
+            // avoiding the intermediate String allocations that the previous
+            // `serde_json::to_string(..)?.as_bytes()` calls produced. The
+            // hashed bytes are identical, so existing witness chains stay valid.
+            struct HashWriter<'a> {
+                inner: &'a mut Sha256,
+            }
+            impl<'a> std::io::Write for HashWriter<'a> {
+                fn write(&mut self, bytes: &[u8]) -> std::io::Result<usize> {
+                    self.inner.update(bytes);
+                    Ok(bytes.len())
+                }
+                fn flush(&mut self) -> std::io::Result<()> {
+                    Ok(())
+                }
+            }
+
             let mut hasher = Sha256::new();
             hasher.update(self.witness_id.as_str().as_bytes());
             hasher.update(self.cell_id.as_bytes());
@@ -313,14 +331,18 @@ impl Witness {
             if let Some(ref t) = self.triggering_msg_id {
                 hasher.update(t.as_str().as_bytes());
             }
-            hasher.update(serde_json::to_string(&self.vector_clock)?.as_bytes());
+            {
+                let mut writer = HashWriter { inner: &mut hasher };
+                serde_json::to_writer(&mut writer, &self.vector_clock)?;
+            }
             hasher.update(self.timestamp_ns.to_be_bytes());
             hasher.update(self.schema_version.to_string().as_bytes());
             hasher.update(self.summary.as_bytes());
-            let outcome_bytes = serde_json::to_string(&self.outcome)?;
-            hasher.update(outcome_bytes.as_bytes());
-            let metrics_bytes = serde_json::to_string(&self.metrics)?;
-            hasher.update(metrics_bytes.as_bytes());
+            {
+                let mut writer = HashWriter { inner: &mut hasher };
+                serde_json::to_writer(&mut writer, &self.outcome)?;
+                serde_json::to_writer(&mut writer, &self.metrics)?;
+            }
             if let Some(ref h) = self.prev_hash {
                 hasher.update(h.0);
             }
@@ -332,7 +354,10 @@ impl Witness {
             }
             hasher.update(self.signal_fingerprint);
             hasher.update(self.payload_size_bytes.to_be_bytes());
-            hasher.update(serde_json::to_string(&self.kind)?.as_bytes());
+            {
+                let mut writer = HashWriter { inner: &mut hasher };
+                serde_json::to_writer(&mut writer, &self.kind)?;
+            }
             let result = hasher.finalize();
             let mut hash = [0u8; 32];
             hash.copy_from_slice(&result);

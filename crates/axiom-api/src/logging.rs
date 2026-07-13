@@ -19,7 +19,7 @@ pub struct LoggingConfig {
     pub max_log_files: Option<usize>,
 }
 
-#[derive(Clone, Copy)]
+#[derive(Debug, Clone, Copy)]
 pub enum LogFormat {
     Json,
     Text,

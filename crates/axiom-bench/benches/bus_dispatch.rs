@@ -89,12 +89,43 @@ fn bench_bus_publish_only(c: &mut Criterion) {
     });
 }
 
+/// Measure sustained MessageBus throughput: publish 100 messages to a
+/// registered cell and drain its mailbox, capturing end-to-end dispatch cost.
+fn bench_bus_throughput_100(c: &mut Criterion) {
+    let rt = Runtime::new().unwrap();
+    let bus = MessageBus::new();
+    let mailbox = Arc::new(Mailbox::new(2048));
+    rt.block_on(async {
+        bus.register_cell(
+            &axiom_kernel::id::CellId::new("dst"),
+            mailbox.clone(),
+            RuntimeTier::Exec,
+        )
+        .await;
+    });
+
+    c.bench_function("bus_throughput_100", |b| {
+        b.iter(|| {
+            rt.block_on(async {
+                for _ in 0..100 {
+                    let env = make_signal("Bench", "src", "dst");
+                    let _ = bus.publish(env).await;
+                }
+                // drain so the mailbox does not fill up across iterations
+                let _ = mailbox.drain().await;
+            });
+            black_box(());
+        });
+    });
+}
+
 criterion_group!(
     benches,
     bench_guardian_intercept,
     bench_guardian_intercept_reject,
     bench_hop_limit_intercept,
     bench_bus_register_publish,
-    bench_bus_publish_only
+    bench_bus_publish_only,
+    bench_bus_throughput_100
 );
 criterion_main!(benches);

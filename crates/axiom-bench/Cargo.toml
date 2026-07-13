@@ -35,6 +35,14 @@ harness = false
 name = "bus_dispatch"
 harness = false
 
+[[bench]]
+name = "entropy_governor"
+harness = false
+
+[[bench]]
+name = "sqlite_store"
+harness = false
+
 [[bin]]
 name = "stress"
 path = "src/stress.rs"

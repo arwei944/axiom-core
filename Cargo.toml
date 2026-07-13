@@ -25,6 +25,7 @@ members = [
     "crates/axiom-alert",
     "tools/archcheck",
     "xtask",
+    "examples/quick-start",
 ]
 resolver = "2"
 
