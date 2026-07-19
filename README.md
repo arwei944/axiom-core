@@ -22,11 +22,13 @@ Do **not** run a long-lived dual runtime or federation bridge as steady state.
 
 | 文档 | 说明 |
 |------|------|
+| [`docs/guide/agent-work-guide.md`](docs/guide/agent-work-guide.md) | **智能体工作指导与约束（强制）** |
 | [`docs/COMMERCIAL_OPS.md`](docs/COMMERCIAL_OPS.md) | 运维 / 健康 / 鉴权 / 部署 |
 | [`docs/ENGINEERING_HARDENING_v050.md`](docs/ENGINEERING_HARDENING_v050.md) | v0.5.0 工程清单与生产接线 |
 | [`docs/TASK_CHECKLIST.md`](docs/TASK_CHECKLIST.md) | 升级任务清单（open = 0） |
-| [`../unified/COMMERCIAL_DELIVERY.md`](../unified/COMMERCIAL_DELIVERY.md) | 商用交付说明 |
-| [`../unified/FEATURE_THEME_MATRIX.md`](../unified/FEATURE_THEME_MATRIX.md) | 主题 T1–T15 **完全满足** |
+| [`docs/unified/COMMERCIAL_DELIVERY.md`](docs/unified/COMMERCIAL_DELIVERY.md) | 商用交付说明 |
+| [`docs/unified/FEATURE_THEME_MATRIX.md`](docs/unified/FEATURE_THEME_MATRIX.md) | 主题 T1–T15 **完全满足** |
+| [`docs/unified/UNIFIED_MODEL.md`](docs/unified/UNIFIED_MODEL.md) | ULE 宪法 |
 
 ```powershell
 # 核心包测试（工程硬化 + ULE）

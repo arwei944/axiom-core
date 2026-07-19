@@ -2,9 +2,10 @@
 
 > **2026-07-19 更新**：ULE 商用交付 0.5.0 + `TASK_CHECKLIST` 全关。  
 > 请优先阅读：
+> - [guide/agent-work-guide.md](./guide/agent-work-guide.md) — **智能体工作指导与约束（强制）**  
 > - [ENGINEERING_HARDENING_v050.md](./ENGINEERING_HARDENING_v050.md) — 工程硬化与生产接线  
 > - [COMMERCIAL_OPS.md](./COMMERCIAL_OPS.md) — 运维  
-> - [../../unified/COMMERCIAL_DELIVERY.md](../../unified/COMMERCIAL_DELIVERY.md) — 产品交付说明  
+> - [unified/COMMERCIAL_DELIVERY.md](./unified/COMMERCIAL_DELIVERY.md) — 产品交付说明  
 > 主语言：**Rust**；`low-entropy-core` 为只读归档。
 
 ## 1. 当前真实完成度

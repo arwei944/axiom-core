@@ -8,10 +8,11 @@
 | [COMMERCIAL_DELIVERY.md](./COMMERCIAL_DELIVERY.md) | **商用交付 v0.5.0（U3–U5 + 工程清单）** |
 | [FEATURE_THEME_MATRIX.md](./FEATURE_THEME_MATRIX.md) | **主题 T1–T15 完全满足矩阵** |
 | [VERIFICATION_RECEIPT.md](./VERIFICATION_RECEIPT.md) | 验收收据 |
-| `../low-entropy-core/ARCHIVED.md` | **LE 只读归档声明** |
-| `../axiom-core/docs/COMMERCIAL_OPS.md` | 运维 / 健康 / 部署 |
-| `../axiom-core/docs/ENGINEERING_HARDENING_v050.md` | **工程硬化与生产接线** |
-| `../axiom-core/docs/TASK_CHECKLIST.md` | 升级清单（已全勾） |
+| [`../guide/agent-work-guide.md`](../guide/agent-work-guide.md) | **智能体工作指导与约束（强制）** |
+| `../../low-entropy-core/ARCHIVED.md`（若并列检出） | **LE 只读归档声明** |
+| [`../COMMERCIAL_OPS.md`](../COMMERCIAL_OPS.md) | 运维 / 健康 / 部署 |
+| [`../ENGINEERING_HARDENING_v050.md`](../ENGINEERING_HARDENING_v050.md) | **工程硬化与生产接线** |
+| [`../TASK_CHECKLIST.md`](../TASK_CHECKLIST.md) | 升级清单（已全勾） |
 
 ## 冻结结论
 

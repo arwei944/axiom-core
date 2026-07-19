@@ -1,5 +1,9 @@
 # Axiom Agent 完整使用指南
 
+> **在本 monorepo 上编码/编排的智能体**：请先读  
+> **[agent-work-guide.md](./agent-work-guide.md)**（工作指导与硬约束）。  
+> 本文偏运行时 Agent API；架构合规以 work-guide + 宪法为准。
+
 ## 目录
 
 - [快速开始](#快速开始)
