@@ -1,14 +1,35 @@
+# Architecture Observer — report artifact + strict fail (same rules as archcheck)
 name: Architecture Observer
-on: [push, pull_request]
+
+on:
+  push:
+    branches: [master, main]
+  pull_request:
+    branches: [master, main]
+  workflow_dispatch:
+
+env:
+  CARGO_TERM_COLOR: always
 
 jobs:
   observe:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
-      - run: cargo run -p xtask -- gatecheck --format json --output arch-report.json
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo
+        uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: arch-gates
+
+      - name: gatecheck (strict — fail on blockers)
+        run: cargo run -q -p xtask -- gatecheck --format json --output arch-report.json --strict
+
       - uses: actions/upload-artifact@v4
+        if: always()
         with:
           name: architecture-report
           path: arch-report.json

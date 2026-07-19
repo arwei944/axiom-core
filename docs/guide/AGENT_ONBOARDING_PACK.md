@@ -147,7 +147,7 @@ Out-of-scope 不得当作失败理由，也不得偷偷做完冒充主题：
 
 新智能体入职时，**人类/编排器必须打开或声明**下列门禁；智能体 DoD 绑定它们。
 
-### 4.1 已有（仓库内）
+### 4.1 已有（仓库内 + CI）
 
 | 门禁 | 作用 | 智能体如何面对 |
 |------|------|----------------|
@@ -156,20 +156,33 @@ Out-of-scope 不得当作失败理由，也不得偷偷做完冒充主题：
 | `*_path.rs` 测试（demo） | 生产路径非死代码 | 新 Cell 必须有 path 测试 |
 | `cargo test -p axiom-isa -p …` | 回归 | DoD 必跑 |
 | Guard / layer / Witness 链测试 | 内核不变量 | 不削弱断言 |
+| **CI `Architecture Gates`** | 阻断合入 | 见 `.github/workflows/architecture-gates.yml` |
 
-### 4.2 建议补齐（要「强保证」请立项做）
+#### CI 工作流（2026-07-19 起强制）
+
+| Job | 失败即 | 本地复现 |
+|-----|--------|----------|
+| `archcheck` | 层/注册 BLOCKER | `cargo run -p archcheck -- -a .axiom/architecture.toml -w .` |
+| `isa-discipline` | ISA 纪律红 | `cargo test -p axiom-isa discipline` + `cargo test -p axiom-demo-taskflow --test isa_discipline` |
+| `ule-product-path` | 产品路径红 | `cargo test -p axiom-isa -p axiom-resilience -p axiom-demo-taskflow` |
+| `forbidden-patterns` | 双历史/双核标记 | 见 workflow 内 grep 规则 |
+| **`architecture-gates-ok`** | 汇总 required check | 全部 needs 绿 |
+
+分支保护建议勾选 required status：**`architecture-gates-ok`**  
+（Settings → Branches → require status checks）
+
+`Architecture Observer` 现以 **`--strict`** 跑 gatecheck，BLOCKER 同样失败。
+
+### 4.2 仍可加强（非阻塞本包）
 
 | 门禁 | 作用 |
 |------|------|
-| CI job：`archcheck` 失败阻断 PR | 人不在也拦 |
-| CI job：`isa_discipline` 扩到所有 `crates/*/src/composers*.rs` | 防新 crate 漏网 |
-| CI：禁止新增 `ExecutionStep` 权威写（ripgrep 规则） | 灭双自动化 |
-| CI：禁止 `product` 路径外的 `Governor` 旁路关键字（启发式） | 降双决策 |
-| `#[deny]` / API 可见性：Port trait 放 isa，业务 crate 不 pub 乱 IO 工具 | 缩小作恶面 |
-| Review Agent 强制跑 §7 checklist 输出 | 流程保证 |
-| 分支保护：required checks | 真「合不进」 |
+| discipline 自动扩到所有新 `composers*.rs`（不仅 demo 列表） | 防新 crate 漏网 |
+| `#[deny]` / 更小 pub API 面 | 缩小作恶面 |
+| Review Agent 强制输出 §7 checklist | 流程保证 |
+| GitHub branch protection UI 由管理员打开 required | 真「合不进」 |
 
-**没有 4.2，只能保证「示范路径」合规，不能保证「智能体新开的 crate」合规。**
+**CI 文件已就位；仓库管理员须在 GitHub 打开 required check 后，远端强制才完整。**
 
 ---
 
@@ -274,15 +287,16 @@ axiom-core/
 | 主题矩阵 / 交付说明 / 灭双 | ✅ |
 | 工程硬化说明 | ✅ |
 
-### 8.2 缺口（要更高保证请补）
+### 8.2 缺口（部分已关闭）
 
-| 缺口 | 影响 |
-|------|------|
-| CI 强制 archcheck + discipline 全仓 | 本地可偷懒推送 |
-| 前端集成专文 + OpenAPI 冻结 | API 形状靠口述 |
-| 「禁止模式」编译期/测试期总表（ripgrep CI） | 语义钻空 |
-| TRADING 等垂直设计若立项未入库 | 领域自由发挥 |
-| Review 子 Agent 自动化脚本 | 依赖人工 |
+| 项 | 状态 |
+|----|------|
+| CI 强制 archcheck + discipline + product path | **已上** `architecture-gates.yml` |
+| 禁止双历史/双核标记启发式 | **已上** `forbidden-patterns` job |
+| GitHub required status 勾选 | **需管理员在 UI 打开** `architecture-gates-ok` |
+| 前端集成专文 + OpenAPI 冻结 | 可选 |
+| discipline 自动发现全部 Composer 文件 | 可选加强 |
+| Review 子 Agent 自动化脚本 | 可选 |
 
 ---
 

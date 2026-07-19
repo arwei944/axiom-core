@@ -1,0 +1,149 @@
+# Architecture Gates — required compliance for ULE monorepo
+#
+# These jobs MUST fail the pipeline on architecture violations.
+# Coding agents: DoD binds to this workflow (see AGENTS.md / AGENT_ONBOARDING_PACK.md).
+
+name: Architecture Gates
+
+on:
+  push:
+    branches: [master, main]
+  pull_request:
+    branches: [master, main]
+  workflow_dispatch:
+
+env:
+  CARGO_TERM_COLOR: always
+  RUST_BACKTRACE: 1
+
+jobs:
+  # ---------------------------------------------------------------------------
+  # Layer dependency / crate registration (archcheck blockers = exit 1)
+  # ---------------------------------------------------------------------------
+  archcheck:
+    name: archcheck (layer gates)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo
+        uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: arch-gates
+
+      - name: Validate architecture.toml
+        run: cargo run -q -p archcheck -- --architecture .axiom/architecture.toml --validate-architecture
+
+      - name: Run archcheck (fail on BLOCKER)
+        run: |
+          cargo run -q -p archcheck -- \
+            --architecture .axiom/architecture.toml \
+            --workspace . \
+            --format text
+          # archcheck exits 1 when any Severity::Blocker is present
+
+  # ---------------------------------------------------------------------------
+  # ISA Atom/Port discipline + unit tests
+  # ---------------------------------------------------------------------------
+  isa-discipline:
+    name: ISA discipline
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo
+        uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: arch-gates
+
+      - name: axiom-isa discipline unit tests
+        run: cargo test -p axiom-isa discipline -- --test-threads=1
+
+      - name: Commercial path source scan (isa_discipline)
+        run: cargo test -p axiom-demo-taskflow --test isa_discipline -- --test-threads=1
+
+  # ---------------------------------------------------------------------------
+  # ULE product floor path tests (non-dead commercial wiring)
+  # ---------------------------------------------------------------------------
+  ule-product-path:
+    name: ULE product path tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo
+        uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: arch-gates
+
+      - name: Test isa + resilience + demo-taskflow
+        run: |
+          cargo test -p axiom-isa -p axiom-resilience -p axiom-demo-taskflow -- --test-threads=1
+
+  # ---------------------------------------------------------------------------
+  # Forbidden dual-authority / dual-runtime patterns (heuristic, crates only)
+  # ---------------------------------------------------------------------------
+  forbidden-patterns:
+    name: Forbidden architecture patterns
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Ban dual-history / dual-runtime markers in crates
+        shell: bash
+        run: |
+          set -euo pipefail
+          fail=0
+          # Scan Rust sources under crates/ only (docs may discuss deprecation).
+          ROOT="crates"
+
+          check_absent() {
+            local pat="$1"
+            local msg="$2"
+            if grep -RIn --include='*.rs' -E "$pat" "$ROOT" 2>/dev/null | grep -v -E 'deprecated|DEPRECATION|must not|forbid|BAN|禁止|not a|不得' >/tmp/arch_hits.txt; then
+              if [[ -s /tmp/arch_hits.txt ]]; then
+                echo "::error::$msg"
+                cat /tmp/arch_hits.txt
+                fail=1
+              fi
+            fi
+          }
+
+          # Authoritative second history store types (not prose).
+          check_absent 'struct[[:space:]]+ExecutionStepStore' \
+            'Found ExecutionStepStore — Witness is the sole history authority'
+          check_absent 'impl[[:space:]]+.*ExecutionStepStore' \
+            'Found ExecutionStepStore impl — dual history forbidden'
+
+          # Explicit dual-runtime host markers in product code.
+          check_absent 'struct[[:space:]]+DualRuntimeHost' \
+            'DualRuntimeHost is forbidden under ULE single-kernel constitution'
+          check_absent 'fn[[:space:]]+start_le_peer_runtime' \
+            'LE peer runtime start is forbidden'
+
+          if [[ "$fail" -ne 0 ]]; then
+            echo ""
+            echo "See docs/unified/UNIFIED_MODEL.md and docs/guide/agent-work-guide.md"
+            exit 1
+          fi
+          echo "OK: no forbidden dual-authority patterns in crates/"
+
+  # ---------------------------------------------------------------------------
+  # Aggregate gate — single required check name for branch protection
+  # ---------------------------------------------------------------------------
+  architecture-gates-ok:
+    name: architecture-gates-ok
+    runs-on: ubuntu-latest
+    needs: [archcheck, isa-discipline, ule-product-path, forbidden-patterns]
+    steps:
+      - name: All architecture gates passed
+        run: echo "archcheck + ISA discipline + product path + forbidden patterns = green"

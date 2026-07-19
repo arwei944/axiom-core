@@ -25,6 +25,7 @@ Do **not** run a long-lived dual runtime or federation bridge as steady state.
 | [`AGENTS.md`](AGENTS.md) | **智能体根契约（自动加载 / 强制）** |
 | [`docs/guide/agent-work-guide.md`](docs/guide/agent-work-guide.md) | 智能体工作指导与约束（细则） |
 | [`docs/guide/AGENT_ONBOARDING_PACK.md`](docs/guide/AGENT_ONBOARDING_PACK.md) | **新智能体入职包（文档+门禁+DoD）** |
+| [`.github/workflows/architecture-gates.yml`](.github/workflows/architecture-gates.yml) | **CI 架构门禁（archcheck / discipline / path）** |
 | [`docs/COMMERCIAL_OPS.md`](docs/COMMERCIAL_OPS.md) | 运维 / 健康 / 鉴权 / 部署 |
 | [`docs/ENGINEERING_HARDENING_v050.md`](docs/ENGINEERING_HARDENING_v050.md) | v0.5.0 工程清单与生产接线 |
 | [`docs/TASK_CHECKLIST.md`](docs/TASK_CHECKLIST.md) | 升级任务清单（open = 0） |

@@ -56,10 +56,16 @@
 ## 5. 验证基线命令
 
 ```powershell
-cargo test -p axiom-isa -p axiom-resilience -p axiom-demo-taskflow
+# 与 CI Architecture Gates 对齐
+cargo run -p archcheck -- -a .axiom/architecture.toml -w .
+cargo test -p axiom-isa discipline -- --test-threads=1
+cargo test -p axiom-demo-taskflow --test isa_discipline -- --test-threads=1
+cargo test -p axiom-isa -p axiom-resilience -p axiom-demo-taskflow -- --test-threads=1
 cargo run -p axiom-demo-taskflow -- success
 cargo run -p axiom-demo-taskflow -- handoff
 ```
+
+CI 工作流：`.github/workflows/architecture-gates.yml`（required 建议名：`architecture-gates-ok`）。
 
 ## 6. 冲突与升级
 

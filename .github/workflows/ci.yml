@@ -2,14 +2,26 @@ name: CI
 
 on:
   push:
-    branches: [ main ]
+    branches: [master, main]
   pull_request:
-    branches: [ main ]
+    branches: [master, main]
 
 env:
   CARGO_TERM_COLOR: always
 
 jobs:
+  # Lightweight pointer: full architecture enforcement lives in architecture-gates.yml
+  # (archcheck, ISA discipline, ULE product path, forbidden patterns).
+  architecture-gates-pointer:
+    name: see Architecture Gates workflow
+    runs-on: ubuntu-latest
+    steps:
+      - name: Architecture compliance
+        run: |
+          echo "Architecture enforcement runs in workflow: Architecture Gates"
+          echo "Jobs: archcheck | ISA discipline | ULE product path | forbidden-patterns"
+          echo "Required check name for branch protection: architecture-gates-ok"
+
   build:
     runs-on: ubuntu-latest
     steps:
