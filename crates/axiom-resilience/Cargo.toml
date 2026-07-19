@@ -1,0 +1,15 @@
+[package]
+name = "axiom-resilience"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+description = "ULE U2 resilience: retry + circuit breaker over ISA Ports"
+repository.workspace = true
+
+[dependencies]
+axiom-isa = { path = "../axiom-isa" }
+axiom-kernel = { workspace = true }
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["rt-multi-thread", "macros"] }

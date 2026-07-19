@@ -1,5 +1,12 @@
 # Axiom Architecture Migration Handover
 
+> **2026-07-19 更新**：ULE 商用交付 0.5.0 + `TASK_CHECKLIST` 全关。  
+> 请优先阅读：
+> - [ENGINEERING_HARDENING_v050.md](./ENGINEERING_HARDENING_v050.md) — 工程硬化与生产接线  
+> - [COMMERCIAL_OPS.md](./COMMERCIAL_OPS.md) — 运维  
+> - [../../unified/COMMERCIAL_DELIVERY.md](../../unified/COMMERCIAL_DELIVERY.md) — 产品交付说明  
+> 主语言：**Rust**；`low-entropy-core` 为只读归档。
+
 ## 1. 当前真实完成度
 
 | 阶段 | 完成度 | 说明 |

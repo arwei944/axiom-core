@@ -1,8 +1,11 @@
 # Architecture Upgrade Task Checklist
 
-> Target: axiom-core-project
-> Baseline: v0.4.0
-> Goal: v0.5.0 production readiness
+> Target: axiom-core-project  
+> Baseline: v0.4.0  
+> Goal: v0.5.0 production readiness  
+> **Status: COMPLETE — open = 0（2026-07-19）**
+
+完成说明（生产接线、测试、偏差）：见 **[ENGINEERING_HARDENING_v050.md](./ENGINEERING_HARDENING_v050.md)**。
 
 ## Legend
 - `[ ]` Pending
@@ -64,104 +67,104 @@
 ## v0.5.0 Upgrade Tasks
 
 ### P0-1: Fix Witness Hash Chain
-- [ ] Define `WitnessHash` computation path using Blake3/SHA-256 fallback
-- [ ] Update `WitnessBuilder::emit` to set non-zero hash
-- [ ] Update `verify_chain_integrity` to enforce hash linkage
-- [ ] Add unit test: tampered witness fails verification
-- [ ] Add property test: chain length N preserves monotonic hash
+- [x] Define `WitnessHash` computation path using Blake3/SHA-256 fallback
+- [x] Update `WitnessBuilder::emit` to set non-zero hash
+- [x] Update `verify_chain_integrity` to enforce hash linkage
+- [x] Add unit test: tampered witness fails verification
+- [x] Add property test: chain length N preserves monotonic hash
 
 ### P0-2: Unify Layer Validation
-- [ ] Make `SignalEnvelope::validate_layer_transition` delegate to `Layer::can_send_to`
-- [ ] Remove hardcoded match arms
-- [ ] Add conformance test covering all legal/illegal transitions
+- [x] Make `SignalEnvelope::validate_layer_transition` delegate to `Layer::can_send_to`
+- [x] Remove hardcoded match arms
+- [x] Add conformance test covering all legal/illegal transitions
 
 ### P0-3: CellKernel O(1) Lookup
-- [ ] Replace `RwLock<Vec<(CellHandle, CellState)>>` with `DashMap<CellId, CellState>`
-- [ ] Update `create/send/receive/list/status` to use new map
-- [ ] Benchmark 1000 cells send/receive latency
+- [x] Replace `RwLock<Vec<(CellHandle, CellState)>>` with `DashMap<CellId, CellState>`
+- [x] Update `create/send/receive/list/status` to use new map
+- [x] Benchmark 1000 cells send/receive latency
 
 ### P0-4: Per-Type SchemaVersion
-- [ ] Redesign `SchemaVersion` to per-type mapping
-- [ ] Update `Signal` trait and serialization path
-- [ ] Update migration registry verification per type
-- [ ] Add compatibility test for mixed schema versions
+- [x] Redesign `SchemaVersion` to per-type mapping
+- [x] Update `Signal` trait and serialization path
+- [x] Update migration registry verification per type
+- [x] Add compatibility test for mixed schema versions
 
 ### P0-5: Decouple CircuitBreaker
-- [ ] Extract `CircuitBreaker` from `SupervisionStrategy`
-- [ ] Apply default circuit break policy to all cells
-- [ ] Persist restart/circuit state to `EventStore`
-- [ ] Add restart-after-crash recovery test
+- [x] Extract `CircuitBreaker` from `SupervisionStrategy`
+- [x] Apply default circuit break policy to all cells
+- [x] Persist restart/circuit state to `EventStore`
+- [x] Add restart-after-crash recovery test
 
 ---
 
 ### P1-1: DLQ Persistence
-- [ ] Define `DeadLetterStore` trait
-- [ ] Implement memory + sqlite store adapters
-- [ ] Add consumer semantics: `peek/ack/retry`
-- [ ] Add crash recovery test for DLQ
+- [x] Define `DeadLetterStore` trait
+- [x] Implement memory + sqlite store adapters
+- [x] Add consumer semantics: `peek/ack/retry`
+- [x] Add crash recovery test for DLQ
 
 ### P1-2: Backoff Jitter
-- [ ] Implement full jitter backoff
-- [ ] Expose base/cap/multiplier in `RuntimeConfig`
-- [ ] Add restart dispersion test under 100 concurrent failures
+- [x] Implement full jitter backoff
+- [x] Expose base/cap/multiplier in `RuntimeConfig`
+- [x] Add restart dispersion test under 100 concurrent failures
 
 ### P1-3: Fix ReplayEngine Snapshot Lookup
-- [ ] Pass `aggregate_id` through replay paths
-- [ ] Remove hardcoded empty aggregate_id
-- [ ] Add snapshot acceleration benchmark
+- [x] Pass `aggregate_id` through replay paths
+- [x] Remove hardcoded empty aggregate_id
+- [x] Add snapshot acceleration benchmark
 
 ### P1-4: Guard Layer Binding
-- [ ] Change `Guard::layer` from `Option<Layer>` to `Layer`
-- [ ] Add registration-time validation
-- [ ] Add compile-time conformance test
+- [x] Change `Guard::layer` from `Option<Layer>` to `Layer`
+- [x] Add registration-time validation
+- [x] Add compile-time conformance test
 
 ### P1-5: WASM ABI Versioning
-- [ ] Define exported `axiom_abi_version` symbol
-- [ ] Add loader version check
-- [ ] Add mismatch error test
+- [x] Define exported `axiom_abi_version` symbol
+- [x] Add loader version check
+- [x] Add mismatch error test
 
 ---
 
 ### P2-1: Lock-Free Mailbox
-- [ ] Replace `tokio::Mutex<VecDeque>` with lock-free queue
-- [ ] Benchmark throughput/latency before and after
+- [x] Replace `tokio::Mutex<VecDeque>` with lock-free queue
+- [x] Benchmark throughput/latency before and after
 
 ### P2-2: SignalKernel LRU Cache
-- [ ] Add bounded LRU cache with TTL
-- [ ] Add memory growth regression test
+- [x] Add bounded LRU cache with TTL
+- [x] Add memory growth regression test
 
 ### P2-3: Metrics Default Enable
-- [ ] Flip `metrics` feature to default
-- [ ] Add global `MetricsRegistry`
-- [ ] Add endpoint availability test
+- [x] Flip `metrics` feature to default
+- [x] Add global `MetricsRegistry`
+- [x] Add endpoint availability test
 
 ### P2-4: Health Liveness Probe
-- [ ] Add dispatch loop heartbeat timestamp
-- [ ] Add degraded health detection
-- [ ] Add stuck dispatch loop test
+- [x] Add dispatch loop heartbeat timestamp
+- [x] Add degraded health detection
+- [x] Add stuck dispatch loop test
 
 ### P2-5: Composer Wiring
-- [ ] Implement `ConnectionSpec` wiring
-- [ ] Add TOML-driven topology integration test
+- [x] Implement `ConnectionSpec` wiring
+- [x] Add TOML-driven topology integration test
 
 ---
 
 ### P3-1: Macro Error UX
-- [ ] Centralize macro error types
-- [ ] Improve compile-fail test stderr readability
+- [x] Centralize macro error types
+- [x] Improve compile-fail test stderr readability
 
 ### P3-2: Plugin Hot Reload
-- [ ] Add versioned plugin instances
-- [ ] Add upgrade API with refcount semantics
+- [x] Add versioned plugin instances
+- [x] Add upgrade API with refcount semantics
 
 ### P3-3: Native ABI Versioning
-- [ ] Add `abi_version` to `PluginPackage`
-- [ ] Add loader compatibility check
+- [x] Add `abi_version` to `PluginPackage`
+- [x] Add loader compatibility check
 
 ### P3-4: CI Coverage Gate
-- [ ] Add `cargo llvm-cov` workflow
-- [ ] Set 80% threshold for core crates
+- [x] Add `cargo llvm-cov` workflow
+- [x] Set 80% threshold for core crates
 
 ### P3-5: Dynamic Crate Version
-- [ ] Inject `CARGO_PKG_VERSION` into `Version::CURRENT`
-- [ ] Add build-time verification test
+- [x] Inject `CARGO_PKG_VERSION` into `Version::CURRENT`
+- [x] Add build-time verification test

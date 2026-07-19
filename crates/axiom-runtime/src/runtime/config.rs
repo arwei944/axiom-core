@@ -11,6 +11,11 @@ impl Default for RuntimeConfig {
             telemetry_enabled: false,
             dlq_capacity: 1000,
             api_endpoint: None,
+            backoff_base_ms: 100,
+            backoff_cap_ms: 30_000,
+            backoff_multiplier: 2.0,
+            metrics_enabled: true,
+            heartbeat_stale_ms: 5_000,
         }
     }
 }

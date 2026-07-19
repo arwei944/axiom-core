@@ -405,11 +405,24 @@ impl Witness {
         }
     }
 
+    /// Verify prev_hash linkage **and** that each stored hash matches recompute.
     pub fn verify_chain_integrity(witnesses: &[Self]) -> bool {
-        for window in witnesses.windows(2) {
-            let prev = &window[0];
-            let curr = &window[1];
-            if curr.prev_hash.as_ref() != Some(&prev.hash) {
+        if witnesses.is_empty() {
+            return true;
+        }
+        for (i, w) in witnesses.iter().enumerate() {
+            if let Ok(computed) = w.compute_hash() {
+                if computed.0 != w.hash.0 {
+                    return false;
+                }
+            } else {
+                return false;
+            }
+            if i == 0 {
+                continue;
+            }
+            let prev = &witnesses[i - 1];
+            if w.prev_hash.as_ref() != Some(&prev.hash) {
                 return false;
             }
         }
@@ -547,5 +560,64 @@ mod tests {
 
         let h = w.compute_hash().unwrap();
         assert_eq!(h, w.compute_hash().unwrap());
+    }
+
+    fn sample_witness(id: &str, prev: Option<WitnessHash>, summary: &str) -> Witness {
+        let mut w = Witness {
+            witness_id: WitnessId::new(id),
+            schema_version: SchemaVersion::new(1),
+            cell_id: "c1".into(),
+            correlation_id: CorrelationId::new("corr"),
+            trace_id: None,
+            triggering_msg_id: None,
+            vector_clock: VectorClock::new(),
+            timestamp_ns: 1,
+            prev_hash: prev,
+            state_before_hash: None,
+            state_after_hash: None,
+            hash: WitnessHash::zero(),
+            summary: summary.into(),
+            outcome: TransitionOutcome::Success,
+            metrics: WitnessMetrics::default(),
+            version_info: crate::version::VersionInfo::current(),
+            signal_fingerprint: [0u8; 32],
+            payload_size_bytes: 0,
+            kind: WitnessKind::StateTransition,
+        };
+        w.hash = w.compute_hash().unwrap();
+        w
+    }
+
+    #[test]
+    fn emit_sets_non_zero_hash() {
+        let w = sample_witness("w0", None, "first");
+        assert_ne!(w.hash.0, [0u8; 32]);
+    }
+
+    #[test]
+    fn tampered_witness_fails_verification() {
+        let w0 = sample_witness("w0", None, "a");
+        let mut w1 = sample_witness("w1", Some(w0.hash), "b");
+        let chain = vec![w0, w1.clone()];
+        assert!(Witness::verify_chain_integrity(&chain));
+        // tamper summary without recomputing hash
+        w1.summary = "evil".into();
+        let bad = vec![chain[0].clone(), w1];
+        assert!(!Witness::verify_chain_integrity(&bad));
+    }
+
+    #[test]
+    fn chain_length_preserves_linkage() {
+        let mut chain = Vec::new();
+        let mut prev = None;
+        for i in 0..16 {
+            let w = sample_witness(&format!("w{i}"), prev, &format!("step-{i}"));
+            prev = Some(w.hash);
+            chain.push(w);
+        }
+        assert!(Witness::verify_chain_integrity(&chain));
+        // break middle link
+        chain[8].prev_hash = Some(WitnessHash([9u8; 32]));
+        assert!(!Witness::verify_chain_integrity(&chain));
     }
 }

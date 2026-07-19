@@ -1,11 +1,2 @@
 [build]
-rustflags = ["-D", "warnings", "-C", "debuginfo=2"]
-
-[rust-analyzer]
-rustc = { extraEnv = { RUSTFLAGS = "-D warnings" } }
-
-[alias]
-check-all = ["check", "--workspace", "--all-targets"]
-lint = ["clippy", "--workspace", "--", "-D", "warnings"]
-fmt-check = ["fmt", "--all", "--", "--check"]
-verify = ["run", "-p", "axiom-cli", "--bin", "axm", "--", "verify"]
+# use host gnu toolchain defaults

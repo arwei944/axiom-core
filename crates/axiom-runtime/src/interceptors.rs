@@ -132,11 +132,33 @@ impl BusInterceptor for CapabilityVersionInterceptor {
     }
 }
 
-pub struct GuardInterceptor;
+pub struct GuardInterceptor {
+    registry: std::sync::Arc<parking_lot::RwLock<axiom_kernel::GuardRegistry>>,
+}
 
 impl GuardInterceptor {
     pub fn new() -> Self {
-        Self
+        Self {
+            registry: std::sync::Arc::new(parking_lot::RwLock::new(
+                axiom_kernel::GuardRegistry::new(),
+            )),
+        }
+    }
+
+    pub fn registry(&self) -> std::sync::Arc<parking_lot::RwLock<axiom_kernel::GuardRegistry>> {
+        self.registry.clone()
+    }
+
+    /// Registration entry used by product code (validates Guard layer).
+    pub fn register_guard(
+        &self,
+        guard: axiom_kernel::BoxedGuard,
+        layer: axiom_kernel::RuntimeTier,
+    ) -> Result<(), String> {
+        self.registry
+            .write()
+            .register(guard, layer)
+            .map_err(|e| e.to_string())
     }
 }
 
@@ -151,14 +173,104 @@ impl BusInterceptor for GuardInterceptor {
         "guard"
     }
     fn intercept(&self, env: &SignalEnvelope) -> InterceptDecision {
-        let allowed = env.signal_type != "ForbiddenSignal";
-        if allowed {
-            InterceptDecision::Allow
-        } else {
-            InterceptDecision::Reject {
+        if env.signal_type == "ForbiddenSignal" {
+            return InterceptDecision::Reject {
                 reason: format!("guard blocked signal: {}", env.signal_type),
-            }
+            };
         }
+        // Production path: run registered guards for the envelope target layer.
+        let adapter = EnvelopeAsSignal(env);
+        match self.registry.read().check_all(&adapter, env.target_layer) {
+            Ok(()) => InterceptDecision::Allow,
+            Err(e) => InterceptDecision::Reject {
+                reason: format!("guard rejected: {e}"),
+            },
+        }
+    }
+}
+
+/// Thin Signal adapter over SignalEnvelope for Guard::check.
+struct EnvelopeAsSignal<'a>(&'a SignalEnvelope);
+
+impl axiom_kernel::signal::Signal for EnvelopeAsSignal<'_> {
+    fn signal_type(&self) -> &'static str {
+        // Guard checks use type name; leak is avoided by using a static for tests
+        // and env signal_type for matching via as_any if needed.
+        "envelope"
+    }
+    fn msg_id(&self) -> &axiom_kernel::id::MsgId {
+        &self.0.msg_id
+    }
+    fn correlation_id(&self) -> &axiom_kernel::id::CorrelationId {
+        &self.0.correlation_id
+    }
+    fn vector_clock(&self) -> &axiom_kernel::signal::VectorClock {
+        &self.0.vector_clock
+    }
+    fn timestamp_ns(&self) -> u64 {
+        self.0.timestamp_ns
+    }
+    fn kind(&self) -> axiom_kernel::signal::SignalKind {
+        self.0.kind
+    }
+    fn layer(&self) -> axiom_kernel::layer::RuntimeTier {
+        self.0.source_layer
+    }
+    fn as_any(&self) -> &dyn std::any::Any {
+        self.0
+    }
+    fn clone_signal(&self) -> Box<dyn axiom_kernel::signal::Signal> {
+        Box::new(OwnedEnvSignal(self.0.clone()))
+    }
+    fn validate(&self) -> axiom_kernel::axiom::ValidationResult {
+        axiom_kernel::axiom::ValidationResult::default()
+    }
+    fn serialize_to_json(&self) -> axiom_kernel::KernelResult<serde_json::Value> {
+        Ok(self.0.payload.clone())
+    }
+    fn schema_version(&self) -> axiom_kernel::SchemaVersion {
+        self.0.schema_version
+    }
+}
+
+struct OwnedEnvSignal(SignalEnvelope);
+
+impl axiom_kernel::signal::Signal for OwnedEnvSignal {
+    fn signal_type(&self) -> &'static str {
+        "envelope"
+    }
+    fn msg_id(&self) -> &axiom_kernel::id::MsgId {
+        &self.0.msg_id
+    }
+    fn correlation_id(&self) -> &axiom_kernel::id::CorrelationId {
+        &self.0.correlation_id
+    }
+    fn vector_clock(&self) -> &axiom_kernel::signal::VectorClock {
+        &self.0.vector_clock
+    }
+    fn timestamp_ns(&self) -> u64 {
+        self.0.timestamp_ns
+    }
+    fn kind(&self) -> axiom_kernel::signal::SignalKind {
+        self.0.kind
+    }
+    fn layer(&self) -> axiom_kernel::layer::RuntimeTier {
+        self.0.source_layer
+    }
+    fn as_any(&self) -> &dyn std::any::Any {
+        &self.0
+    }
+    fn clone_signal(&self) -> Box<dyn axiom_kernel::signal::Signal> {
+        Box::new(OwnedEnvSignal(self.0.clone()))
+    }
+    fn validate(&self) -> axiom_kernel::axiom::ValidationResult {
+        axiom_kernel::axiom::ValidationResult::default()
+    }
+    fn serialize_to_json(&self) -> axiom_kernel::KernelResult<serde_json::Value> {
+        Ok(self.0.payload.clone())
+    }
+    fn schema_version(&self) -> axiom_kernel::SchemaVersion {
+        self.0.schema_version
     }
 }
 
@@ -221,7 +333,7 @@ mod tests {
 
     #[test]
     fn guard_blocks_forbidden_signal() {
-        let i = GuardInterceptor;
+        let i = GuardInterceptor::new();
         let mut e = make_env(0, "g");
         e.signal_type = "ForbiddenSignal".into();
         assert!(matches!(i.intercept(&e), InterceptDecision::Reject { .. }));
@@ -229,8 +341,41 @@ mod tests {
 
     #[test]
     fn guard_allows_normal_signal() {
-        let i = GuardInterceptor;
+        let i = GuardInterceptor::new();
         let e = make_env(0, "g");
         assert!(matches!(i.intercept(&e), InterceptDecision::Allow));
+    }
+
+    /// Path-driving: registered rejecting guard is invoked by intercept() on a normal signal.
+    #[test]
+    fn registered_guard_rejects_via_intercept() {
+        use axiom_kernel::guard::Guard;
+        use axiom_kernel::signal::Signal;
+
+        struct RejectAll;
+        impl Guard for RejectAll {
+            fn id(&self) -> &'static str {
+                "reject-all"
+            }
+            fn layer(&self) -> RuntimeTier {
+                RuntimeTier::Exec
+            }
+            fn check(&self, _signal: &dyn Signal) -> axiom_kernel::KernelResult<()> {
+                Err(axiom_kernel::KernelError::InternalError(
+                    "blocked by test guard".into(),
+                ))
+            }
+        }
+
+        let i = GuardInterceptor::new();
+        i.register_guard(Box::new(RejectAll), RuntimeTier::Exec)
+            .unwrap();
+        let e = make_env(0, "normal");
+        match i.intercept(&e) {
+            InterceptDecision::Reject { reason } => {
+                assert!(reason.contains("blocked") || reason.contains("guard"), "{reason}");
+            }
+            other => panic!("expected Reject from registry, got {other:?}"),
+        }
     }
 }

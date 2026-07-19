@@ -38,7 +38,9 @@ pub use entropy::{
     WEIGHT_DUPLICATE_MESSAGES, WEIGHT_REJECTED_BY_GUARDIAN, WEIGHT_STALE_STATE_VIOLATIONS,
     WEIGHT_TIMEOUTS, YELLOW_THRESHOLD,
 };
-pub use guard::{BoxedGuard, DynGuard, Guard};
+pub use guard::{
+    validate_guard_registration, BoxedGuard, DynGuard, Guard, GuardRegistry,
+};
 pub use heatmap::collector::UsageSnapshot;
 pub use heatmap::{HeatmapCollector, HeatmapExporter};
 pub use id::{AxiomId, CellId, CorrelationId, LensId, MsgId, TraceId, WitnessId};

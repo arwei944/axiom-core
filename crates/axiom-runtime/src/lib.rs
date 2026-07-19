@@ -4,6 +4,7 @@ pub mod constants;
 pub mod constraint_validator;
 pub mod dispatch;
 pub mod dlq;
+pub mod dlq_store;
 pub mod entropy_gov;
 pub mod entropy_interceptors;
 pub mod guardian;
@@ -18,6 +19,7 @@ pub use api::{DataSourceError, EntropySnapshotData, RuntimeDataSource, SignalEve
 pub use bus::{BusInterceptor, InterceptDecision, MessageBus};
 pub use dispatch::DispatchContext;
 pub use dlq::{DeadLetter, DeadLetterQueue};
+pub use dlq_store::{DeadLetterStore, MemoryDeadLetterStore, SqliteDeadLetterStore};
 pub use entropy_gov::{EntropyEvent, EntropyGovernorCell, EntropySnapshot, GovernanceAction};
 pub use entropy_interceptors::{EmergencyInterceptor, ThrottleInterceptor};
 pub use guardian::ArchitectureGuardian;

@@ -1,5 +1,6 @@
 version: '3.8'
 
+# Single-kernel product: Axiom host only (no LE dual-runtime service).
 services:
   axiom-api:
     build: .
@@ -8,6 +9,7 @@ services:
     environment:
       - RUST_LOG=info
       - AXIOM_DB_PATH=/data/axiom.sqlite
+      - AXIOM_API_KEY=${AXIOM_API_KEY:-}
       - OPENAI_API_KEY=${OPENAI_API_KEY}
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
     volumes:
@@ -18,6 +20,24 @@ services:
       timeout: 3s
       retries: 3
       start_period: 10s
+    restart: unless-stopped
+
+  # ULE commercial reference path (task pipeline on AxiomRuntime)
+  ule-taskflow:
+    build:
+      context: .
+      dockerfile: Dockerfile.taskflow
+    command: ["./taskflow", "health", "--health-addr", "0.0.0.0:19092"]
+    ports:
+      - "19092:19092"
+    environment:
+      - RUST_LOG=info
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:19092/health"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 5s
     restart: unless-stopped
 
 volumes:

@@ -5,11 +5,17 @@ use tokio::sync::RwLock;
 pub struct PluginRegistry {
     plugins: RwLock<HashMap<String, Box<dyn crate::plugin::abi::AxiomPlugin>>>,
     kinds: RwLock<HashMap<PluginKind, Vec<String>>>,
+    /// Refcount for hot-reload (P3-2).
+    refcounts: RwLock<HashMap<String, u32>>,
 }
 
 impl PluginRegistry {
     pub fn new() -> Self {
-        Self { plugins: RwLock::new(HashMap::new()), kinds: RwLock::new(HashMap::new()) }
+        Self {
+            plugins: RwLock::new(HashMap::new()),
+            kinds: RwLock::new(HashMap::new()),
+            refcounts: RwLock::new(HashMap::new()),
+        }
     }
 
     pub async fn register(&self, plugin: Box<dyn crate::plugin::abi::AxiomPlugin>) {
@@ -18,7 +24,43 @@ impl PluginRegistry {
         let mut kinds = self.kinds.write().await;
         kinds.entry(kind).or_default().push(id.clone());
         let mut plugins = self.plugins.write().await;
-        plugins.insert(id, plugin);
+        plugins.insert(id.clone(), plugin);
+        let mut rc = self.refcounts.write().await;
+        *rc.entry(id).or_insert(0) += 1;
+    }
+
+    /// Hot-upgrade: replace instance when refcount allows (P3-2).
+    pub async fn upgrade(
+        &self,
+        plugin: Box<dyn crate::plugin::abi::AxiomPlugin>,
+    ) -> PluginResult<()> {
+        let id = plugin.id().to_string();
+        let rc = self.refcounts.read().await.get(&id).copied().unwrap_or(0);
+        if rc > 1 {
+            return Err(PluginError::LoadFailed(format!(
+                "plugin {id} still has {rc} refs; drain before upgrade"
+            )));
+        }
+        self.register(plugin).await;
+        Ok(())
+    }
+
+    pub async fn acquire(&self, id: &str) -> bool {
+        let plugins = self.plugins.read().await;
+        if !plugins.contains_key(id) {
+            return false;
+        }
+        drop(plugins);
+        let mut rc = self.refcounts.write().await;
+        *rc.entry(id.to_string()).or_insert(0) += 1;
+        true
+    }
+
+    pub async fn release(&self, id: &str) {
+        let mut rc = self.refcounts.write().await;
+        if let Some(c) = rc.get_mut(id) {
+            *c = c.saturating_sub(1);
+        }
     }
 
     fn detect_plugin_kind(capabilities: &[crate::plugin::abi::CapabilityDescriptor]) -> PluginKind {

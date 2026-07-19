@@ -4,6 +4,43 @@
 
 **Axiom Core** 是一个面向智能体（Agent）的确定性优先运行时架构——用五个核心原语构建低熵、可观测、可自愈的多智能体系统。
 
+## ULE commercial path (single kernel) — U3–U5 complete
+
+This monorepo is the **only host** for the Unified Low-Entropy (ULE) product.  
+**`low-entropy-core` is archived/read-only assets** (see `../low-entropy-core/ARCHIVED.md`) — **not** a peer runtime for new work.
+
+| Pillar | Authority |
+|--------|-----------|
+| Host | **AxiomRuntime** (Rust) |
+| History | **Witness** only (no dual ExecutionStep authority) |
+| Admit / entropy | **Governor** only (`axiom_isa::product_decide` / `product_admit`) |
+| Business ISA | **Atom / Port / Adapter / Composer** (Composer-in-Cell) |
+| Agent transfer | **HandoffRequest** as Signal payload + controlled Workbench |
+| Observation | Single surface `/api/v1/surface` (not dual dashboards) |
+
+Do **not** run a long-lived dual runtime or federation bridge as steady state.  
+
+| 文档 | 说明 |
+|------|------|
+| [`docs/COMMERCIAL_OPS.md`](docs/COMMERCIAL_OPS.md) | 运维 / 健康 / 鉴权 / 部署 |
+| [`docs/ENGINEERING_HARDENING_v050.md`](docs/ENGINEERING_HARDENING_v050.md) | v0.5.0 工程清单与生产接线 |
+| [`docs/TASK_CHECKLIST.md`](docs/TASK_CHECKLIST.md) | 升级任务清单（open = 0） |
+| [`../unified/COMMERCIAL_DELIVERY.md`](../unified/COMMERCIAL_DELIVERY.md) | 商用交付说明 |
+| [`../unified/FEATURE_THEME_MATRIX.md`](../unified/FEATURE_THEME_MATRIX.md) | 主题 T1–T15 **完全满足** |
+
+```powershell
+# 核心包测试（工程硬化 + ULE）
+cargo test -p axiom-kernel -p axiom-runtime -p axiom-store --lib
+cargo test -p axiom-isa -p axiom-resilience -p axiom-demo-taskflow
+
+# 商用 CLI
+cargo run -p axiom-demo-taskflow -- success        # task path
+cargo run -p axiom-demo-taskflow -- handoff        # U3 agent path
+cargo run -p axiom-demo-taskflow -- handoff-reject
+cargo run -p axiom-demo-taskflow -- surface        # U4 unified query
+cargo run -p axiom-demo-taskflow -- health
+```
+
 ## 为什么需要 Axiom Core？
 
 UC Berkeley 对 1642+ 条多智能体执行轨迹的研究发现：**41%–86.7% 的失败源于架构缺陷，而非 AI 能力不足**。现有智能体框架（LangChain、CrewAI、AutoGPT 等）本质是"把 LLM 调用串起来"的工具库，没有解决分布式系统的经典问题——状态一致性、故障隔离、因果追踪、架构约束——这些问题在非确定性的 LLM 场景下被指数级放大。

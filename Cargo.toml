@@ -2,6 +2,9 @@
 members = [
     "crates/axiom-core",
     "crates/axiom-kernel",
+    "crates/axiom-isa",
+    "crates/axiom-resilience",
+    "crates/axiom-demo-taskflow",
     "crates/axiom-plugin-test",
     "crates/axiom-plugin-wasm-sdk",
     "crates/axiom-plugin-example-wasm",
@@ -83,3 +86,6 @@ axiom-planner = { path = "crates/axiom-planner" }
 axiom-prompt = { path = "crates/axiom-prompt" }
 axiom-identity = { path = "crates/axiom-identity" }
 axiom-kernel = { path = "crates/axiom-kernel" }
+axiom-isa = { path = "crates/axiom-isa" }
+axiom-resilience = { path = "crates/axiom-resilience" }
+axiom-demo-taskflow = { path = "crates/axiom-demo-taskflow" }

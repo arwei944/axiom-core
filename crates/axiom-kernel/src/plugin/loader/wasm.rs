@@ -24,6 +24,14 @@ impl WasmPluginLoader {
         let instance = Instance::new(&mut store, &module, &[])
             .map_err(|e| PluginError::LoadFailed(e.to_string()))?;
 
+        // P1-5: optional axiom_abi_version export must match host when present.
+        if let Ok(abi_fn) = instance.get_typed_func::<(), u32>(&mut store, "axiom_abi_version") {
+            let abi = abi_fn
+                .call(&mut store, ())
+                .map_err(|e| PluginError::LoadFailed(e.to_string()))?;
+            crate::plugin::package::check_abi_compatible(abi)?;
+        }
+
         let create = instance
             .get_typed_func::<(), i32>(&mut store, "axiom_plugin_create")
             .map_err(|e| PluginError::MissingSymbol(e.to_string()))?;

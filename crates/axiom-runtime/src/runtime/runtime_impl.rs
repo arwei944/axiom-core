@@ -15,7 +15,12 @@ use tokio::sync::RwLock;
 impl AxiomRuntime {
     pub fn new(config: RuntimeConfig) -> Self {
         let bus = Arc::new(MessageBus::new());
-        let supervisor = Arc::new(Supervisor::new());
+        // P1-2: plumb RuntimeConfig backoff into Supervisor
+        let supervisor = Arc::new(Supervisor::with_backoff(crate::supervisor::BackoffConfig {
+            base_ms: config.backoff_base_ms,
+            cap_ms: config.backoff_cap_ms,
+            multiplier: config.backoff_multiplier,
+        }));
         let governor = Arc::new(EntropyGovernorCell::default());
         let throttle_state = Arc::new(parking_lot::RwLock::new(std::collections::HashMap::new()));
         let emergency_mode = Arc::new(parking_lot::RwLock::new(false));

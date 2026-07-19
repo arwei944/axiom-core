@@ -43,6 +43,16 @@ pub struct RuntimeConfig {
     pub dlq_capacity: usize,
     /// API 网关监听地址（如 "0.0.0.0:9092"），由应用层使用 axiom-api 启动。
     pub api_endpoint: Option<std::net::SocketAddr>,
+    /// Backoff base delay (ms) for restarts (P1-2).
+    pub backoff_base_ms: u64,
+    /// Backoff cap (ms).
+    pub backoff_cap_ms: u64,
+    /// Backoff exponential multiplier.
+    pub backoff_multiplier: f64,
+    /// Enable metrics by default (P2-3).
+    pub metrics_enabled: bool,
+    /// Heartbeat older than this (ms) marks health degraded (P2-4).
+    pub heartbeat_stale_ms: u64,
 }
 
 #[derive(Clone)]
@@ -97,6 +107,12 @@ pub struct RuntimeHealth {
     pub store_connected: bool,
     /// 快照存储是否连接。
     pub snapshot_store_connected: bool,
+    /// Dispatch loop heartbeat (unix ms) — P2-4.
+    pub last_heartbeat_ms: u64,
+    /// Health degraded when heartbeat is stale.
+    pub degraded: bool,
+    /// True when metrics_enabled was consumed on start (P2-3 production path).
+    pub metrics_active: bool,
 }
 
 pub struct RuntimeBuilder {

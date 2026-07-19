@@ -26,6 +26,8 @@ pub struct DispatchContext {
     pub events_since_snapshot:
         std::sync::Arc<parking_lot::RwLock<std::collections::HashMap<String, u64>>>,
     pub cell_kernel: Option<std::sync::Arc<axiom_kernel::CellKernel>>,
+    /// Shared with health poller — production liveness probe (P2-4).
+    pub health: std::sync::Arc<tokio::sync::RwLock<crate::runtime::RuntimeHealth>>,
 }
 
 impl DispatchContext {
@@ -47,6 +49,7 @@ impl DispatchContext {
             parking_lot::RwLock<std::collections::HashMap<String, u64>>,
         >,
         cell_kernel: Option<std::sync::Arc<axiom_kernel::CellKernel>>,
+        health: std::sync::Arc<tokio::sync::RwLock<crate::runtime::RuntimeHealth>>,
     ) -> Self {
         Self {
             bus,
@@ -59,6 +62,7 @@ impl DispatchContext {
             dlq,
             events_since_snapshot,
             cell_kernel,
+            health,
         }
     }
 }

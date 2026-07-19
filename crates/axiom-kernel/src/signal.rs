@@ -99,35 +99,35 @@ impl SignalEnvelope {
         }
     }
 
+    /// Single authority: delegates to [`RuntimeTier::can_send_to`].
     pub fn validate_layer_transition(&self) -> crate::KernelResult<()> {
-        use crate::RuntimeTier::*;
-        match (self.source_layer, self.target_layer) {
-            (Exec, Agent) => Err(crate::KernelError::LayerViolation {
+        if self.source_layer.can_send_to(self.target_layer) {
+            Ok(())
+        } else {
+            Err(crate::KernelError::LayerViolation {
                 from: self.source_layer,
                 to: self.target_layer,
                 signal_type: self.signal_type.clone(),
                 source_cell: self.source_cell.clone().unwrap_or_default(),
-            }),
-            (Exec, Oversight) => Err(crate::KernelError::LayerViolation {
-                from: self.source_layer,
-                to: self.target_layer,
-                signal_type: self.signal_type.clone(),
-                source_cell: self.source_cell.clone().unwrap_or_default(),
-            }),
-            (Validate, Agent) => Err(crate::KernelError::LayerViolation {
-                from: self.source_layer,
-                to: self.target_layer,
-                signal_type: self.signal_type.clone(),
-                source_cell: self.source_cell.clone().unwrap_or_default(),
-            }),
-            _ => Ok(()),
+            })
         }
     }
+}
+
+/// Bounded LRU cache entry for SignalKernel short-circuit (P2-2).
+#[derive(Clone)]
+struct CacheEntry {
+    fingerprint: [u8; 32],
+    inserted_ns: u64,
 }
 
 pub struct SignalKernel {
     handlers: RwLock<Vec<crate::axiom::BoxedSignalHandler>>,
     heatmap: std::sync::Arc<RwLock<HeatmapCollector>>,
+    /// signal_type -> last successful envelope fingerprint
+    cache: RwLock<std::collections::HashMap<String, CacheEntry>>,
+    cache_capacity: usize,
+    cache_ttl_ns: u64,
 }
 
 impl SignalKernel {
@@ -135,24 +135,96 @@ impl SignalKernel {
         Self {
             handlers: RwLock::new(Vec::new()),
             heatmap: std::sync::Arc::new(RwLock::new(HeatmapCollector::new())),
+            cache: RwLock::new(std::collections::HashMap::new()),
+            cache_capacity: 256,
+            cache_ttl_ns: 5_000_000_000, // 5s
         }
     }
 
     pub fn with_heatmap(heatmap: std::sync::Arc<RwLock<HeatmapCollector>>) -> Self {
-        Self { handlers: RwLock::new(Vec::new()), heatmap }
+        Self {
+            handlers: RwLock::new(Vec::new()),
+            heatmap,
+            cache: RwLock::new(std::collections::HashMap::new()),
+            cache_capacity: 256,
+            cache_ttl_ns: 5_000_000_000,
+        }
+    }
+
+    pub fn with_cache_limits(mut self, capacity: usize, ttl_ns: u64) -> Self {
+        self.cache_capacity = capacity.max(1);
+        self.cache_ttl_ns = ttl_ns;
+        self
     }
 
     pub fn heatmap(&self) -> std::sync::Arc<RwLock<HeatmapCollector>> {
         self.heatmap.clone()
     }
 
+    pub async fn cache_len(&self) -> usize {
+        self.cache.read().await.len()
+    }
+
+    fn fingerprint(env: &SignalEnvelope) -> [u8; 32] {
+        use std::collections::hash_map::DefaultHasher;
+        use std::hash::{Hash, Hasher};
+        let mut h = DefaultHasher::new();
+        env.signal_type.hash(&mut h);
+        env.msg_id.as_str().hash(&mut h);
+        env.payload.to_string().hash(&mut h);
+        let v = h.finish();
+        let mut out = [0u8; 32];
+        out[..8].copy_from_slice(&v.to_be_bytes());
+        out
+    }
+
     pub async fn send(&self, mut envelope: SignalEnvelope) -> KernelResult<SignalEnvelope> {
+        envelope.validate_layer_transition()?;
+        let fp = Self::fingerprint(&envelope);
+        let now = crate::clock::global_clock().now_ns();
+        {
+            let cache = self.cache.read().await;
+            if let Some(entry) = cache.get(&envelope.signal_type) {
+                if entry.fingerprint == fp
+                    && now.saturating_sub(entry.inserted_ns) < self.cache_ttl_ns
+                {
+                    self.heatmap
+                        .write()
+                        .await
+                        .record_signal_send(envelope.signal_type.clone());
+                    return Ok(envelope);
+                }
+            }
+        }
+
         let mut handlers = self.handlers.write().await;
         for handler in handlers.iter_mut() {
             handler.handle(&mut envelope)?;
         }
         drop(handlers);
-        self.heatmap.write().await.record_signal_send(envelope.signal_type.clone());
+
+        {
+            let mut cache = self.cache.write().await;
+            if cache.len() >= self.cache_capacity {
+                // drop arbitrary oldest-ish: clear half
+                let keys: Vec<_> = cache.keys().take(cache.len() / 2).cloned().collect();
+                for k in keys {
+                    cache.remove(&k);
+                }
+            }
+            cache.insert(
+                envelope.signal_type.clone(),
+                CacheEntry {
+                    fingerprint: fp,
+                    inserted_ns: now,
+                },
+            );
+        }
+
+        self.heatmap
+            .write()
+            .await
+            .record_signal_send(envelope.signal_type.clone());
         Ok(envelope)
     }
 
@@ -170,6 +242,66 @@ impl Default for SignalKernel {
 
 pub fn now_ns() -> u64 {
     crate::clock::global_clock().now_ns()
+}
+
+#[cfg(test)]
+mod layer_tests {
+    use super::*;
+    use crate::id::{CorrelationId, MsgId};
+    use crate::layer::RuntimeTier;
+
+    fn env(from: RuntimeTier, to: RuntimeTier) -> SignalEnvelope {
+        SignalEnvelope {
+            msg_id: MsgId::new("m"),
+            correlation_id: CorrelationId::new("c"),
+            trace_id: None,
+            signal_type: "T".into(),
+            vector_clock: VectorClock::new(),
+            timestamp_ns: 1,
+            kind: SignalKind::Command,
+            source_layer: from,
+            target_layer: to,
+            source_cell: None,
+            target_cell: None,
+            payload: serde_json::Value::Null,
+            schema_version: SchemaVersion::new(1),
+            parent_msg_id: None,
+            hop_count: 0,
+        }
+    }
+
+    #[test]
+    fn layer_validation_matches_can_send_to() {
+        for from in [
+            RuntimeTier::Oversight,
+            RuntimeTier::Agent,
+            RuntimeTier::Validate,
+            RuntimeTier::Exec,
+        ] {
+            for to in [
+                RuntimeTier::Oversight,
+                RuntimeTier::Agent,
+                RuntimeTier::Validate,
+                RuntimeTier::Exec,
+            ] {
+                let e = env(from, to);
+                let ok = e.validate_layer_transition().is_ok();
+                assert_eq!(ok, from.can_send_to(to), "{from:?} -> {to:?}");
+            }
+        }
+    }
+
+    #[tokio::test]
+    async fn lru_cache_bounded() {
+        let sk = SignalKernel::new().with_cache_limits(4, u64::MAX);
+        for i in 0..20 {
+            let mut e = env(RuntimeTier::Exec, RuntimeTier::Exec);
+            e.signal_type = format!("T{i}");
+            e.msg_id = MsgId::new(format!("m{i}"));
+            sk.send(e).await.unwrap();
+        }
+        assert!(sk.cache_len().await <= 4);
+    }
 }
 
 pub trait Signal: Send + Sync {

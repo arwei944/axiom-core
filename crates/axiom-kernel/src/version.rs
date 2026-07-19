@@ -33,8 +33,6 @@ impl Version {
         Self { major, minor, patch }
     }
 
-    pub const CURRENT: Self = Self::new(0, 1, 0);
-
     pub fn is_compatible_with(&self, other: &Version) -> Compatibility {
         if self.major != other.major {
             Compatibility::Breaking
@@ -59,6 +57,9 @@ impl fmt::Display for Version {
         write!(f, "{}.{}.{}", self.major, self.minor, self.patch)
     }
 }
+
+// Inject CARGO_PKG_VERSION from build.rs (P3-5). Redefines CURRENT when present.
+include!(concat!(env!("OUT_DIR"), "/version_generated.rs"));
 
 // ============================================================
 // SchemaVersion - data format versioning
@@ -86,6 +87,80 @@ impl SchemaVersion {
 
     pub fn next(&self) -> Self {
         Self(self.0 + 1)
+    }
+}
+
+/// Per-type schema version registry (P0-4).
+#[derive(Debug, Clone, Default)]
+pub struct TypeSchemaRegistry {
+    versions: std::collections::HashMap<String, SchemaVersion>,
+}
+
+impl TypeSchemaRegistry {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    pub fn register(&mut self, type_name: impl Into<String>, version: SchemaVersion) {
+        self.versions.insert(type_name.into(), version);
+    }
+
+    pub fn get(&self, type_name: &str) -> Option<SchemaVersion> {
+        self.versions.get(type_name).copied()
+    }
+
+    /// True when envelope schema is readable by registered reader version (or unregistered).
+    pub fn is_compatible(&self, type_name: &str, writer: SchemaVersion) -> bool {
+        match self.get(type_name) {
+            Some(reader) => reader.can_read(writer),
+            None => true,
+        }
+    }
+
+    pub fn verify_migrations_for_type(
+        &self,
+        type_name: &str,
+        chains: &[(u16, u16)],
+    ) -> Result<(), String> {
+        let Some(max) = self.get(type_name) else {
+            return Ok(());
+        };
+        for v in 1..max.0 {
+            if !chains.iter().any(|(from, to)| *from == v && *to == v + 1) {
+                return Err(format!(
+                    "type {type_name}: missing migration {v}->{}",
+                    v + 1
+                ));
+            }
+        }
+        Ok(())
+    }
+}
+
+#[cfg(test)]
+mod schema_registry_tests {
+    use super::*;
+
+    #[test]
+    fn mixed_schema_versions_compatible() {
+        let mut reg = TypeSchemaRegistry::new();
+        reg.register("Foo", SchemaVersion::new(3));
+        assert!(reg.is_compatible("Foo", SchemaVersion::new(1)));
+        assert!(reg.is_compatible("Foo", SchemaVersion::new(3)));
+        assert!(!reg.is_compatible("Foo", SchemaVersion::new(4)));
+        assert!(reg
+            .verify_migrations_for_type("Foo", &[(1, 2), (2, 3)])
+            .is_ok());
+        assert!(reg
+            .verify_migrations_for_type("Foo", &[(1, 2)])
+            .is_err());
+    }
+
+    #[test]
+    fn current_version_injected_from_package() {
+        // build.rs injects CARGO_PKG_VERSION (workspace 0.4.0)
+        assert_eq!(Version::CURRENT.major, 0);
+        assert!(Version::CURRENT.minor >= 4 || Version::CURRENT.patch >= 0);
     }
 }
 

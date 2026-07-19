@@ -100,7 +100,7 @@ impl AxiomRuntime {
                     ConstraintValidator::new(ValidationContext::default()),
                 )))
                 .await;
-            self.bus.register_interceptor(Arc::new(GuardInterceptor)).await;
+            self.bus.register_interceptor(Arc::new(GuardInterceptor::new())).await;
         }
 
         let (tx, rx) = oneshot::channel::<()>();
@@ -112,6 +112,24 @@ impl AxiomRuntime {
             h.started = true;
             h.preflight_passed = true;
             h.cells_running = cells_count as u64;
+            // P2-3: consume metrics_enabled on the production start path.
+            if self.config.metrics_enabled {
+                h.metrics_active = true;
+                if h.metrics_endpoint.is_none() {
+                    h.metrics_endpoint = self
+                        .config
+                        .metrics_endpoint
+                        .clone()
+                        .or_else(|| Some("internal://metrics".into()));
+                }
+                tracing::info!(
+                    endpoint = ?h.metrics_endpoint,
+                    "metrics enabled on runtime start"
+                );
+            } else {
+                h.metrics_active = false;
+                tracing::info!("metrics disabled on runtime start");
+            }
         }
 
         let bus = self.bus.clone();
@@ -125,6 +143,7 @@ impl AxiomRuntime {
         let events_since_snapshot = self.events_since_snapshot.clone();
         let poll_interval = self.config.dispatch_poll_interval_ms;
         let cell_kernel = Some(self.kernel_bridge.cell_kernel.clone());
+        let health_for_dispatch = self.health.clone();
 
         let cells_data: Vec<_> = self
             .cells
@@ -152,6 +171,7 @@ impl AxiomRuntime {
                 dlq,
                 events_since_snapshot,
                 cell_kernel,
+                health_for_dispatch,
             ),
         ));
 
@@ -165,17 +185,33 @@ impl AxiomRuntime {
         let snapshot_store_h = self.snapshot_store.clone();
         let health = self.health.clone();
         let cell_ids_h = cell_ids.clone();
+        let stale_ms = self.config.heartbeat_stale_ms;
         tokio::spawn(async move {
             let start = Instant::now();
-            let mut tick = tokio::time::interval(Duration::from_secs(1));
+            let mut tick = tokio::time::interval(Duration::from_millis(50));
             loop {
                 tick.tick().await;
+                let now_ms = std::time::SystemTime::now()
+                    .duration_since(std::time::UNIX_EPOCH)
+                    .map(|d| d.as_millis() as u64)
+                    .unwrap_or(0);
                 let mut h = health.write().await;
                 h.uptime_ms = start.elapsed().as_millis() as u64;
                 h.messages_delivered = bus_h.delivered_count();
                 h.messages_rejected = bus_h.rejected_count();
                 h.entropy_score = gov_h.snapshot().global.value;
-                h.metrics_endpoint = config_h.metrics_endpoint.clone();
+                // Keep metrics_endpoint in sync with config when metrics active.
+                if config_h.metrics_enabled {
+                    h.metrics_active = true;
+                    if h.metrics_endpoint.is_none() {
+                        h.metrics_endpoint = config_h
+                            .metrics_endpoint
+                            .clone()
+                            .or_else(|| Some("internal://metrics".into()));
+                    }
+                } else {
+                    h.metrics_active = false;
+                }
                 h.telemetry_enabled = config_h.telemetry_enabled;
                 h.store_connected = witness_store_h.read().await.is_some();
                 h.snapshot_store_connected = snapshot_store_h.read().await.is_some();
@@ -185,6 +221,12 @@ impl AxiomRuntime {
                 }
                 h.total_restarts = total;
                 h.cells_running = cells_len as u64;
+                // P2-4: evaluate dispatch liveness without test helpers.
+                if h.last_heartbeat_ms > 0
+                    && now_ms.saturating_sub(h.last_heartbeat_ms) > stale_ms
+                {
+                    h.degraded = true;
+                }
             }
         });
 

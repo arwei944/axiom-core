@@ -17,6 +17,7 @@ use proc_macro::TokenStream;
 mod axiom;
 mod capability;
 mod cell;
+mod error;
 mod guard;
 mod lens;
 mod migration;

@@ -1,7 +1,24 @@
 # Axiom Core 生产部署指南
 
-> **版本:** v0.3.0
-> **最后更新:** 2026-07-04
+> **版本:** v0.5.0（对齐 ULE 商用交付 + 工程清单关闭）  
+> **最后更新:** 2026-07-19  
+> **补充文档:** [COMMERCIAL_OPS.md](./COMMERCIAL_OPS.md) · [ENGINEERING_HARDENING_v050.md](./ENGINEERING_HARDENING_v050.md)
+
+---
+
+## 0. 当前交付边界（摘要）
+
+| 已具备 | 说明 |
+|--------|------|
+| 单核宿主 | AxiomRuntime（Rust） |
+| 健康 / 降级 | dispatch 心跳 + poller `degraded` |
+| 商用 CLI | `taskflow` success/handoff/surface/health |
+| 工程清单 | `TASK_CHECKLIST.md` open = 0 |
+
+| 后置 | 说明 |
+|------|------|
+| 多租户 / 计费 / 跨区 HA | 非当前范围 |
+| 全 workspace 强制全绿 | 以 kernel/runtime/ULE 路径为准 |
 
 ---
 

@@ -2,6 +2,7 @@
 # Layer 0: 顶层应用
 axiom-cli = 0
 axiom-bench = 0
+axiom-demo-taskflow = 0
 
 # Layer 1: 可视化与API网关
 axiom-viz = 1
@@ -30,8 +31,10 @@ axiom-store = 5
 
 # Layer 6: （预留）
 
-# Layer 7: 核心原语
+# Layer 7: 核心原语 + 业务 ISA / 韧性标准库（ULE U0–U2）
 axiom-kernel = 7
+axiom-isa = 7
+axiom-resilience = 7
 axiom-core = 7  # deprecated: compatibility layer over axiom-kernel
 
 # Layer 8: Proc-macro（豁免）

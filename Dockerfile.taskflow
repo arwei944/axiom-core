@@ -1,0 +1,38 @@
+# ULE commercial taskflow binary (single-kernel reference path)
+# Build: docker build -f Dockerfile.taskflow -t ule-taskflow .
+# Run:   docker run --rm ule-taskflow success
+#        docker run --rm -p 19092:19092 ule-taskflow health --health-addr 0.0.0.0:19092
+
+FROM rust:1.85-slim AS builder
+
+WORKDIR /app
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    gcc \
+    pkg-config \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY Cargo.toml Cargo.lock ./
+COPY crates ./crates
+COPY tools ./tools
+COPY .axiom ./.axiom
+COPY xtask ./xtask
+COPY examples ./examples
+
+RUN cargo build --release -p axiom-demo-taskflow
+
+FROM debian:bookworm-slim
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    ca-certificates \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+COPY --from=builder /app/target/release/taskflow /app/taskflow
+
+ENV RUST_LOG=info
+EXPOSE 19092
+
+# Default smoke: success scenario (Composer-in-Cell on AxiomRuntime)
+CMD ["./taskflow", "success"]

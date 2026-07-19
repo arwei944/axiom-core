@@ -1,0 +1,18 @@
+[package]
+name = "axiom-isa"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+description = "ULE business ISA: Atom / Port / Adapter / Composer + Witness journal + Governor"
+repository.workspace = true
+
+[dependencies]
+axiom-kernel = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+uuid = { workspace = true }
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["rt-multi-thread", "macros"] }

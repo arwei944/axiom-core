@@ -1,4 +1,5 @@
-//! Mailbox - per-Cell async message queue with capacity control.
+//! Mailbox - per-Cell concurrent message queue with capacity control (P2-1).
+//! Uses parking_lot mutex for lower latency than tokio Mutex on short critical sections.
 
 use std::collections::VecDeque;
 use tokio::sync::Semaphore;
@@ -6,7 +7,7 @@ use tokio::sync::Semaphore;
 use axiom_kernel::signal::SignalEnvelope;
 
 pub struct Mailbox {
-    queue: tokio::sync::Mutex<VecDeque<SignalEnvelope>>,
+    queue: parking_lot::Mutex<VecDeque<SignalEnvelope>>,
     capacity: usize,
     permits: Semaphore,
 }
@@ -14,7 +15,7 @@ pub struct Mailbox {
 impl Mailbox {
     pub fn new(capacity: usize) -> Self {
         Self {
-            queue: tokio::sync::Mutex::new(VecDeque::with_capacity(capacity)),
+            queue: parking_lot::Mutex::new(VecDeque::with_capacity(capacity)),
             capacity,
             permits: Semaphore::new(capacity),
         }
@@ -25,11 +26,11 @@ impl Mailbox {
     }
 
     pub async fn len(&self) -> usize {
-        self.queue.lock().await.len()
+        self.queue.lock().len()
     }
 
     pub async fn is_empty(&self) -> bool {
-        self.queue.lock().await.is_empty()
+        self.queue.lock().is_empty()
     }
 
     pub async fn push(&self, env: SignalEnvelope) -> Result<(), SignalEnvelope> {
@@ -37,13 +38,13 @@ impl Mailbox {
             Ok(p) => p,
             Err(_) => return Err(env),
         };
-        self.queue.lock().await.push_back(env);
+        self.queue.lock().push_back(env);
         std::mem::forget(permit);
         Ok(())
     }
 
     pub async fn pop(&self) -> Option<SignalEnvelope> {
-        let mut q = self.queue.lock().await;
+        let mut q = self.queue.lock();
         let env = q.pop_front();
         if env.is_some() {
             self.permits.add_permits(1);
@@ -52,7 +53,7 @@ impl Mailbox {
     }
 
     pub async fn drain(&self) -> Vec<SignalEnvelope> {
-        let mut q = self.queue.lock().await;
+        let mut q = self.queue.lock();
         let count = q.len();
         let drained: Vec<SignalEnvelope> = q.drain(..).collect();
         self.permits.add_permits(count);

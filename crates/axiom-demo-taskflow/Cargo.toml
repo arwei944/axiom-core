@@ -1,0 +1,28 @@
+[package]
+name = "axiom-demo-taskflow"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+description = "ULE commercial path: task pipeline on AxiomRuntime (Composer-in-Cell + Witness + Governor)"
+repository.workspace = true
+
+[[bin]]
+name = "taskflow"
+path = "src/main.rs"
+
+[dependencies]
+axiom-isa = { path = "../axiom-isa" }
+axiom-resilience = { path = "../axiom-resilience" }
+axiom-kernel = { workspace = true }
+axiom-runtime = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+clap = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+uuid = { workspace = true }
+tokio = { workspace = true }
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["rt-multi-thread", "macros", "time"] }

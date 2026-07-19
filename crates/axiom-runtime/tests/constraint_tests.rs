@@ -42,7 +42,7 @@ fn capability_version_interceptor_allows_when_no_registered() {
 
 #[test]
 fn guard_interceptor_blocks_forbidden_signal() {
-    let interceptor = GuardInterceptor;
+    let interceptor = GuardInterceptor::new();
     let mut env = make_env(0, "guard-bad", "ForbiddenSignal");
     env.source_layer = RuntimeTier::Exec;
     env.target_layer = RuntimeTier::Exec;
@@ -51,7 +51,7 @@ fn guard_interceptor_blocks_forbidden_signal() {
 
 #[test]
 fn guard_interceptor_allows_normal_signal() {
-    let interceptor = GuardInterceptor;
+    let interceptor = GuardInterceptor::new();
     let env = make_env(0, "guard-ok", "NormalSignal");
     assert!(matches!(interceptor.intercept(&env), InterceptDecision::Allow));
 }
@@ -59,7 +59,7 @@ fn guard_interceptor_allows_normal_signal() {
 #[tokio::test]
 async fn bus_rejects_illegal_message_with_reason() {
     let bus = MessageBus::new();
-    bus.register_interceptor(Arc::new(GuardInterceptor)).await;
+    bus.register_interceptor(Arc::new(GuardInterceptor::new())).await;
     let mut env = make_env(0, "bus-bad", "ForbiddenSignal");
     env.source_layer = RuntimeTier::Exec;
     env.target_layer = RuntimeTier::Exec;
@@ -78,7 +78,7 @@ async fn constraint_validator_shared_across_interceptors() {
     let validator =
         ConstraintValidator::new(ValidationContext::from_envelope(&make_env(0, "v", "T")));
     let cap = CapabilityVersionInterceptor::new(validator.clone());
-    let guard = GuardInterceptor;
+    let guard = GuardInterceptor::new();
     let env = make_env(0, "shared", "NormalSignal");
     assert!(matches!(cap.intercept(&env), InterceptDecision::Allow));
     assert!(matches!(guard.intercept(&env), InterceptDecision::Allow));

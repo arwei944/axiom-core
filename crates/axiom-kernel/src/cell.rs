@@ -4,6 +4,7 @@ use crate::id::CellId;
 use crate::signal::SignalEnvelope;
 use crate::HeatmapCollector;
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 use std::future::Future;
 use std::pin::Pin;
 use tokio::sync::RwLock;
@@ -29,12 +30,29 @@ pub enum SupervisionStrategy {
     Restart { max_retries: u32 },
     Stop,
     Escalate,
+    /// Explicit circuit-break policy (optional). Default CB still applies to all cells.
     CircuitBreak { failure_threshold: u32, reset_after_ms: u64 },
 }
 
 impl Default for SupervisionStrategy {
     fn default() -> Self {
         SupervisionStrategy::Restart { max_retries: 3 }
+    }
+}
+
+/// Default circuit-break policy applied even when strategy is Restart/Stop/Escalate (P0-5).
+#[derive(Debug, Clone, Copy)]
+pub struct DefaultCircuitPolicy {
+    pub failure_threshold: u32,
+    pub reset_after_ms: u64,
+}
+
+impl Default for DefaultCircuitPolicy {
+    fn default() -> Self {
+        Self {
+            failure_threshold: 5,
+            reset_after_ms: 30_000,
+        }
     }
 }
 
@@ -49,6 +67,9 @@ pub trait DynCell: Send + 'static {
     fn layer(&self) -> crate::RuntimeTier;
     fn as_any(&self) -> &dyn std::any::Any;
     fn as_any_mut(&mut self) -> &mut dyn std::any::Any;
+    fn supported_signals(&self) -> &[&'static str] {
+        &[]
+    }
 }
 
 pub trait DynHandleCell: DynCell {
@@ -83,6 +104,10 @@ impl RuntimeCellHandle {
     ) -> BoxHandleFuture<'a> {
         self.inner.handle_dyn(env, ctx)
     }
+
+    pub fn supported_signals(&self) -> &[&'static str] {
+        self.inner.supported_signals()
+    }
 }
 
 impl std::ops::Deref for RuntimeCellHandle {
@@ -97,21 +122,25 @@ pub trait Cell: Send + Sync {
     fn cell_kind(&self) -> CellKind;
 }
 
+/// O(1) lookup CellKernel (HashMap under RwLock) — P0-3.
 pub struct CellKernel {
-    cells: RwLock<Vec<(CellHandle, CellState)>>,
+    cells: RwLock<HashMap<String, (CellHandle, CellState)>>,
     heatmap: std::sync::Arc<RwLock<HeatmapCollector>>,
 }
 
 impl CellKernel {
     pub fn new() -> Self {
         Self {
-            cells: RwLock::new(Vec::new()),
+            cells: RwLock::new(HashMap::new()),
             heatmap: std::sync::Arc::new(RwLock::new(HeatmapCollector::new())),
         }
     }
 
     pub fn with_heatmap(heatmap: std::sync::Arc<RwLock<HeatmapCollector>>) -> Self {
-        Self { cells: RwLock::new(Vec::new()), heatmap }
+        Self {
+            cells: RwLock::new(HashMap::new()),
+            heatmap,
+        }
     }
 
     pub fn heatmap(&self) -> std::sync::Arc<RwLock<HeatmapCollector>> {
@@ -119,18 +148,24 @@ impl CellKernel {
     }
 
     pub async fn create(&self, kind: CellKind) -> CellHandle {
-        let handle = CellHandle { id: CellId::new(uuid::Uuid::new_v4().to_string()), kind };
+        let handle = CellHandle {
+            id: CellId::new(uuid::Uuid::new_v4().to_string()),
+            kind,
+        };
         let mut cells = self.cells.write().await;
-        cells.push((handle.clone(), CellState::new()));
+        cells.insert(handle.id.as_str().to_string(), (handle.clone(), CellState::new()));
         handle
     }
 
     pub async fn send(&self, handle: &CellHandle, msg: Message) -> KernelResult<()> {
         let mut cells = self.cells.write().await;
-        if let Some((_, state)) = cells.iter_mut().find(|(h, _)| h.id == handle.id) {
+        if let Some((_, state)) = cells.get_mut(handle.id.as_str()) {
             state.inbox.push_back(msg);
             drop(cells);
-            self.heatmap.write().await.record_cell_message(handle.id.to_string());
+            self.heatmap
+                .write()
+                .await
+                .record_cell_message(handle.id.to_string());
             Ok(())
         } else {
             Err(KernelError::CellNotFound(handle.id.to_string()))
@@ -139,7 +174,7 @@ impl CellKernel {
 
     pub async fn receive(&self, handle: &CellHandle) -> KernelResult<Option<Message>> {
         let mut cells = self.cells.write().await;
-        if let Some((_, state)) = cells.iter_mut().find(|(h, _)| h.id == handle.id) {
+        if let Some((_, state)) = cells.get_mut(handle.id.as_str()) {
             Ok(state.inbox.pop_front())
         } else {
             Err(KernelError::CellNotFound(handle.id.to_string()))
@@ -152,7 +187,14 @@ impl CellKernel {
 
     pub async fn list(&self) -> Vec<(CellHandle, usize)> {
         let cells = self.cells.read().await;
-        cells.iter().map(|(handle, state)| (handle.clone(), state.inbox.len())).collect()
+        cells
+            .values()
+            .map(|(handle, state)| (handle.clone(), state.inbox.len()))
+            .collect()
+    }
+
+    pub async fn status(&self) -> Vec<CellStatus> {
+        self.list().await.into_iter().map(Into::into).collect()
     }
 }
 
@@ -169,7 +211,9 @@ struct CellState {
 
 impl CellState {
     fn new() -> Self {
-        Self { inbox: std::collections::VecDeque::new() }
+        Self {
+            inbox: std::collections::VecDeque::new(),
+        }
     }
 }
 
@@ -182,12 +226,38 @@ pub struct CellStatus {
 
 impl From<(CellHandle, usize)> for CellStatus {
     fn from((handle, queued): (CellHandle, usize)) -> Self {
-        Self { id: handle.id.to_string(), kind: format!("{:?}", handle.kind), queued }
+        Self {
+            id: handle.id.to_string(),
+            kind: format!("{:?}", handle.kind),
+            queued,
+        }
     }
 }
 
-impl CellKernel {
-    pub async fn status(&self) -> Vec<CellStatus> {
-        self.list().await.into_iter().map(Into::into).collect()
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::axiom::Message;
+
+    #[tokio::test]
+    async fn o1_lookup_1000_cells() {
+        let k = CellKernel::new();
+        let mut handles = Vec::new();
+        for _ in 0..1000 {
+            handles.push(k.create(CellKind::Exec).await);
+        }
+        let start = std::time::Instant::now();
+        for h in &handles {
+            k.send(h, Message::new(b"m".to_vec())).await.unwrap();
+            let _ = k.receive(h).await.unwrap();
+        }
+        let elapsed = start.elapsed();
+        // Should complete well under a second for 1000 roundtrips
+        assert!(
+            elapsed.as_millis() < 2000,
+            "too slow: {:?}",
+            elapsed
+        );
+        assert_eq!(k.count().await, 1000);
     }
 }

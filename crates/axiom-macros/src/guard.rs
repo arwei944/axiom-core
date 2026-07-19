@@ -25,9 +25,10 @@ pub fn impl_guard(attr: TokenStream, item: TokenStream) -> TokenStream {
     }
 
     if layer.is_none() {
-        return syn::Error::new_spanned(
-            &input,
-            "Guard requires a `layer = \"...\"` attribute (e.g. exec, validate, agent, oversight)",
+        return crate::error::missing_attr(
+            input.ident.span(),
+            "layer",
+            "#[guard(layer = \"exec\")]",
         )
         .to_compile_error()
         .into();
@@ -43,13 +44,13 @@ pub fn impl_guard(attr: TokenStream, item: TokenStream) -> TokenStream {
             fn id(&self) -> &'static str {
                 #name_str
             }
-            fn layer(&self) -> Option<::axiom_kernel::RuntimeTier> {
+            fn layer(&self) -> ::axiom_kernel::RuntimeTier {
                 match #layer_str {
-                    "exec" => Some(::axiom_kernel::RuntimeTier::Exec),
-                    "validate" => Some(::axiom_kernel::RuntimeTier::Validate),
-                    "agent" => Some(::axiom_kernel::RuntimeTier::Agent),
-                    "oversight" => Some(::axiom_kernel::RuntimeTier::Oversight),
-                    _ => None,
+                    "exec" => ::axiom_kernel::RuntimeTier::Exec,
+                    "validate" => ::axiom_kernel::RuntimeTier::Validate,
+                    "agent" => ::axiom_kernel::RuntimeTier::Agent,
+                    "oversight" => ::axiom_kernel::RuntimeTier::Oversight,
+                    other => panic!("invalid guard layer: {other}"),
                 }
             }
             fn check(&self, signal: &dyn ::axiom_kernel::signal::Signal) -> ::axiom_kernel::KernelResult<()> {

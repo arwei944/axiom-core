@@ -41,6 +41,7 @@ pub async fn run_dispatch_loop(
         dlq,
         events_since_snapshot,
         cell_kernel,
+        health,
     } = ctx;
 
     let mut interval = tokio::time::interval(Duration::from_millis(poll_interval));
@@ -52,6 +53,17 @@ pub async fn run_dispatch_loop(
                 break;
             }
             _ = interval.tick() => {
+                // P2-4 production path: advance liveness heartbeat each dispatch tick.
+                let now_ms = std::time::SystemTime::now()
+                    .duration_since(std::time::UNIX_EPOCH)
+                    .map(|d| d.as_millis() as u64)
+                    .unwrap_or(0);
+                {
+                    let mut h = health.write().await;
+                    h.last_heartbeat_ms = now_ms;
+                    h.degraded = false;
+                }
+
                 let oversight_cell_id = CellId::new("oversight:runtime");
                 let mut oversight_ctx = CellContext::new(&oversight_cell_id, RuntimeTier::Oversight);
 
