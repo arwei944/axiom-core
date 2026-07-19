@@ -5,6 +5,8 @@
 | **Status** | Normative for AI/coding agents working on this monorepo |
 | **Audience** | 编码智能体、编排 Agent、人工 reviewer |
 | **Host** | `axiom-core`（ULE-on-Axiom / Rust） |
+| **Root contract** | [`../../AGENTS.md`](../../AGENTS.md)（工具常自动加载） |
+| **Onboarding pack** | [`AGENT_ONBOARDING_PACK.md`](./AGENT_ONBOARDING_PACK.md)（文档+门禁+DoD 总包） |
 | **Constitution** | [`../unified/UNIFIED_MODEL.md`](../unified/UNIFIED_MODEL.md) |
 | **Theme matrix** | [`../unified/FEATURE_THEME_MATRIX.md`](../unified/FEATURE_THEME_MATRIX.md) |
 | **Reference path** | `crates/axiom-demo-taskflow/` · `crates/axiom-isa/` |
