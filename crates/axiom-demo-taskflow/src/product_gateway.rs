@@ -482,13 +482,28 @@ pub async fn boot_write_runtime(
     runs: SharedRunLog,
     governor: GovernorConfig,
 ) -> Result<Arc<tokio::sync::Mutex<WriteRuntime>>, String> {
-    use crate::runtime_host::{RunRequest, RuntimeHost};
+    boot_write_runtime_ex(metrics, events, alerts, runs, governor, false, false).await
+}
+
+/// Extended boot: optional Governor trip / entropy preload (reject-path tests).
+pub async fn boot_write_runtime_ex(
+    metrics: SharedMetrics,
+    events: SharedEventBus,
+    alerts: SharedAlerts,
+    runs: SharedRunLog,
+    governor: GovernorConfig,
+    trip_governor: bool,
+    preload_entropy: bool,
+) -> Result<Arc<tokio::sync::Mutex<WriteRuntime>>, String> {
     use crate::pipeline::FailMode;
+    use crate::runtime_host::{RunRequest, RuntimeHost};
 
     let mut req = RunRequest::default();
     req.fail = FailMode::None;
     req.governor = governor;
     req.submissions = 0;
+    req.trip_governor = trip_governor;
+    req.preload_entropy = preload_entropy;
     let host = RuntimeHost::boot(&req).await?;
     Ok(Arc::new(tokio::sync::Mutex::new(WriteRuntime {
         host,

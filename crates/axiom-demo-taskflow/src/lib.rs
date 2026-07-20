@@ -25,7 +25,9 @@ pub use lenses::{list_lens_ids, project_lens, LENS_GOVERNOR, LENS_HEALTH, LENS_M
 pub use metrics::{new_metrics, ProductMetrics, SharedMetrics};
 pub use pipeline::{FailMode, TaskPipeline, TaskResult};
 pub use plugin_host::{ProductPluginHost, PluginSurfaceInfo};
-pub use product_gateway::{boot_write_runtime, GatewayConfig, ProductGateway, WriteRuntime};
+pub use product_gateway::{
+    boot_write_runtime, boot_write_runtime_ex, GatewayConfig, ProductGateway, WriteRuntime,
+};
 pub use runtime_host::{run_commercial, RunRequest, RuntimeHost};
 pub use task_cell::{TaskCell, TaskRunOutcome, SIGNAL_SUBMIT, TASK_CELL_ID};
 pub use workbench::{run_workbench, workbench_composer, workbench_composer_with_limits};

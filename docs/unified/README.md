@@ -7,6 +7,7 @@
 | [MVP_ACCEPTANCE.md](./MVP_ACCEPTANCE.md) | MVP |
 | [COMMERCIAL_DELIVERY.md](./COMMERCIAL_DELIVERY.md) | **商用交付 v0.5.0（U3–U5 + 工程清单）** |
 | [FEATURE_THEME_MATRIX.md](./FEATURE_THEME_MATRIX.md) | **主题 T1–T15 完全满足矩阵** |
+| [INTENT_COMPLETE.md](./INTENT_COMPLETE.md) | **初心 100% 产品地板 · 严格验收合同** |
 | [VERIFICATION_RECEIPT.md](./VERIFICATION_RECEIPT.md) | 验收收据 |
 | [`../guide/agent-work-guide.md`](../guide/agent-work-guide.md) | **智能体工作指导与约束（强制）** |
 | [`../guide/frontend-integration.md`](../guide/frontend-integration.md) | 前端对接 |

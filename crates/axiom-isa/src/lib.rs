@@ -31,9 +31,12 @@ pub use primitives::{
     SeqComposer, StepKind,
 };
 
-/// Product-facing sole admit entry (U4 narrative freeze).
+/// Product-facing **sole** admit entry (constitutional freeze).
 ///
-/// All commercial cells must call this (or [`Governor::admit`]) — never a second Guardian/Oversight decide path.
+/// **Commercial business Cells MUST call this function by name** before Composer work.
+/// Do not call [`Governor::admit`] directly on product write paths (keeps a single
+/// greppable / reviewable product admit surface). Never use runtime/oversight
+/// entropy cells as product authorization.
 pub fn product_admit(governor: &Governor, journal: &mut WitnessJournal<'_>) -> IsaResult<()> {
     governor.admit(journal)
 }

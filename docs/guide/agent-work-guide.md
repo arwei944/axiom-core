@@ -44,7 +44,7 @@
 
 | ID | 约束 |
 |----|------|
-| **P1** | 商业路径准入只调用 `axiom_isa::product_admit` 或 `Governor::admit`（及 `product_decide`） |
+| **P1** | 商业路径准入 **只**调用 `axiom_isa::product_admit`（禁止裸 `Governor::admit`）及 `product_decide` |
 | **P2** | ISA 步骤写历史只用 `WitnessJournal` + `run_atom` / `run_port` / `run_adapter` |
 | **P3** | Handoff 只能是 **Signal 载荷**（`HandoffRequest`），不是第二消息系统 |
 | **P4** | Workbench **必须受控**（allow-list + limits）；禁止无沙箱任意 shell/写盘 |
@@ -254,7 +254,7 @@ crates/<feature>/
 ### 实现
 
 - [ ] 使用 `run_atom` / `run_port`（及需要的 `run_adapter`）  
-- [ ] `product_admit`（或等价唯一 API）在业务主路径上  
+- [ ] **`product_admit` 具名调用**在业务主路径上（禁止裸 admit）  
 - [ ] Witness 链可验证（或路径测试覆盖）  
 - [ ] 韧性装饰未手写三套  
 

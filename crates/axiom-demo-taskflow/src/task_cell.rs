@@ -2,7 +2,9 @@
 
 use crate::pipeline::{FailMode, TaskPipeline, TaskResult};
 use crate::store::InMemoryTaskStore;
-use axiom_isa::{Composer, Governor, GovernorConfig, IsaError, WitnessJournal};
+use axiom_isa::{
+    product_admit, Composer, Governor, GovernorConfig, IsaError, WitnessJournal,
+};
 use axiom_kernel::cell::{BoxHandleFuture, DynCell, DynHandleCell};
 use axiom_kernel::context::{CellContext, OutgoingWitness};
 use axiom_kernel::id::CellId;
@@ -34,7 +36,7 @@ pub fn new_shared_outcome() -> SharedOutcome {
     Arc::new(Mutex::new(None))
 }
 
-/// Exec-tier Cell: Governor admit → Composer → Witness (returned to runtime).
+/// Exec-tier Cell: **sole** [`product_admit`] → Composer → Witness (returned to runtime).
 pub struct TaskCell {
     id: CellId,
     pipeline: TaskPipeline,
@@ -99,7 +101,8 @@ impl TaskCell {
             return (false, None, Some(msg), ws);
         }
 
-        if let Err(e) = self.governor.admit(&mut journal) {
+        // Sole product admit API — never bare admit; runtime entropy cells are non-authoritative.
+        if let Err(e) = product_admit(&self.governor, &mut journal) {
             self.governor.record_rejected();
             let ws = wrap_witnesses(journal.into_witnesses());
             return (false, None, Some(e.to_string()), ws);

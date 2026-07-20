@@ -34,6 +34,7 @@ Do **not** run a long-lived dual runtime or federation bridge as steady state.
 | [`docs/unified/COMMERCIAL_DELIVERY.md`](docs/unified/COMMERCIAL_DELIVERY.md) | 商用交付说明 |
 | [`docs/unified/FEATURE_THEME_MATRIX.md`](docs/unified/FEATURE_THEME_MATRIX.md) | 主题 T1–T15 **完全满足** |
 | [`docs/unified/UNIFIED_MODEL.md`](docs/unified/UNIFIED_MODEL.md) | ULE 宪法 |
+| [`docs/unified/INTENT_COMPLETE.md`](docs/unified/INTENT_COMPLETE.md) | **初心 100% 产品地板 · 严格验收** |
 | [`docs/unified/DUAL_GOVERNOR_NOTE.md`](docs/unified/DUAL_GOVERNOR_NOTE.md) | 产品 admit 唯一说明 |
 | [`docs/openapi.yaml`](docs/openapi.yaml) | OpenAPI 0.5.0（含 write/SSE） |
 

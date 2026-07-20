@@ -1,15 +1,15 @@
 # 统一内核宪法（UNIFIED MODEL）
 
-**状态**：冻结草案（U0）  
-**版本**：0.1.0  
-**日期**：2026-07-19  
+**状态**：宪法有效 · **产品地板初心 100% 达成**（见 [INTENT_COMPLETE.md](./INTENT_COMPLETE.md)）  
+**版本**：0.5.0（对齐 commercial floor；本文条款自 0.1 冻结起未破坏）  
+**日期**：2026-07-20  
 **宿主**：Axiom（Rust）  
-**收编方**：low-entropy-core（业务 ISA / 标准库 / 流程）  
-**目标产品名（暂定）**：ULE — Unified Low-Entropy Kernel  
+**收编方**：low-entropy-core（业务 ISA / 标准库 / 流程）— 现为归档只读资产  
+**目标产品名**：ULE — Unified Low-Entropy Kernel  
 
 > 本文是大一统的**唯一词汇与边界真相源**。  
 > 与本文冲突的实现、文档、桥接、双写，一律视为违规，进入 [DEPRECATION.md](./DEPRECATION.md)。  
-> MVP 可演示验收见 [MVP_ACCEPTANCE.md](./MVP_ACCEPTANCE.md)。
+> 产品地板严格验收：[INTENT_COMPLETE.md](./INTENT_COMPLETE.md) · MVP：[MVP_ACCEPTANCE.md](./MVP_ACCEPTANCE.md)。
 
 ---
 

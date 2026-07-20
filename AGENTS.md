@@ -50,9 +50,13 @@
 
 - [ ] `cargo test -p <你的crate> -p axiom-isa`（及相关路径）通过  
 - [ ] 存在 `*_path` 测试或 `cargo run -p …` 可演示主路径  
-- [ ] 无 Atom 内 IO；主路径有 `product_admit`（若业务 Cell）  
+- [ ] **商业 Cell 只调用 `product_admit`（禁止裸 `.admit(`）**  
+- [ ] 无 Atom 内 IO  
 - [ ] 自检：`docs/guide/agent-work-guide.md` §7 全部可勾  
 - [ ] 未扩大宪法 Out-of-scope  
+- [ ] 产品地板初心合同：[`docs/unified/INTENT_COMPLETE.md`](docs/unified/INTENT_COMPLETE.md)  
+
+**产品地板初心状态：100% 达成（INTENT_COMPLETE）。** 不得以交易 OMS / HA 等非目标否定。
 
 ## 5. 验证基线命令
 
