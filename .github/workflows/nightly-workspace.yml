@@ -1,0 +1,36 @@
+# Best-effort full workspace tests — NOT a required Architecture Gate.
+# Historical crates may fail; record logs for debt tracking only.
+
+name: Nightly Workspace (best-effort)
+
+on:
+  schedule:
+    - cron: "0 6 * * *"
+  workflow_dispatch:
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  workspace-test:
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: nightly-ws
+      - name: cargo test --workspace (best-effort)
+        run: |
+          set +e
+          cargo test --workspace -- --test-threads=1 2>&1 | tee workspace-nightly.log
+          code=${PIPESTATUS[0]}
+          echo "exit_code=$code" >> workspace-nightly.log
+          # Always upload; do not fail required merge gates
+          exit 0
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: workspace-nightly-log
+          path: workspace-nightly.log

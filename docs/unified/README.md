@@ -9,6 +9,10 @@
 | [FEATURE_THEME_MATRIX.md](./FEATURE_THEME_MATRIX.md) | **主题 T1–T15 完全满足矩阵** |
 | [VERIFICATION_RECEIPT.md](./VERIFICATION_RECEIPT.md) | 验收收据 |
 | [`../guide/agent-work-guide.md`](../guide/agent-work-guide.md) | **智能体工作指导与约束（强制）** |
+| [`../guide/frontend-integration.md`](../guide/frontend-integration.md) | 前端对接 |
+| [`../guide/secrets-and-llm.md`](../guide/secrets-and-llm.md) | 密钥 / LLM env |
+| [DUAL_GOVERNOR_NOTE.md](./DUAL_GOVERNOR_NOTE.md) | 产品 admit 唯一 |
+| [`../openapi.yaml`](../openapi.yaml) | OpenAPI 0.5.0 |
 | `../../low-entropy-core/ARCHIVED.md`（若并列检出） | **LE 只读归档声明** |
 | [`../COMMERCIAL_OPS.md`](../COMMERCIAL_OPS.md) | 运维 / 健康 / 部署 |
 | [`../ENGINEERING_HARDENING_v050.md`](../ENGINEERING_HARDENING_v050.md) | **工程硬化与生产接线** |

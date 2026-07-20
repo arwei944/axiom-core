@@ -17,7 +17,8 @@
 | 2 | [`docs/guide/agent-work-guide.md`](docs/guide/agent-work-guide.md) | 工作指导与 MUST/MUST NOT |
 | 3 | [`docs/guide/AGENT_ONBOARDING_PACK.md`](docs/guide/AGENT_ONBOARDING_PACK.md) | 入职包、门禁、完成定义 |
 | 4 | 最近邻参考：`crates/axiom-demo-taskflow/` + `crates/axiom-isa/` | 合法代码形状 |
-| 5 | 若动 API/前端边界：[`docs/guide/agent-work-guide.md`](docs/guide/agent-work-guide.md) §后端路径 + 宪法 U7 | 网关只做适配 |
+| 5 | 若动 API/前端：[`docs/guide/frontend-integration.md`](docs/guide/frontend-integration.md) | 网关只做适配 |
+| 6 | 双熵类型：[`docs/unified/DUAL_GOVERNOR_NOTE.md`](docs/unified/DUAL_GOVERNOR_NOTE.md) | 产品 admit 唯一 |
 
 读完须能口头复述：**Signal→Cell→Composer(Atom/Port/Adapter)→Witness→Governor**。
 

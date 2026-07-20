@@ -21,6 +21,8 @@ pub enum LlmError {
     Timeout,
     #[error("out of budget")]
     OutOfBudget,
+    #[error("missing credential: {0}")]
+    MissingCredential(String),
     #[error("unknown error")]
     Unknown,
 }

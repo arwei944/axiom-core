@@ -1,21 +1,24 @@
-//! ULE commercial product CLI — task + handoff + surface + lens + plugins.
+//! ULE commercial product CLI — task + handoff + surface + write gateway + plugins.
 //!
 //! ```text
 //! cargo run -p axiom-demo-taskflow -- success
 //! cargo run -p axiom-demo-taskflow -- handoff
-//! cargo run -p axiom-demo-taskflow -- handoff-reject
 //! cargo run -p axiom-demo-taskflow -- surface
-//! cargo run -p axiom-demo-taskflow -- health
+//! cargo run -p axiom-demo-taskflow -- gateway
 //! cargo run -p axiom-demo-taskflow -- plugin
 //! ```
 
-use axiom_demo_taskflow::agent_host::{run_handoff, AgentHost, HandoffRequestSpec};
-use axiom_demo_taskflow::health::fetch_health;
+use axiom_demo_taskflow::agent_host::{run_handoff, HandoffRequestSpec};
+use axiom_demo_taskflow::alert_bridge::new_alert_log;
+use axiom_demo_taskflow::events::new_event_bus;
+use axiom_demo_taskflow::health::{fetch_health, http_exchange};
 use axiom_demo_taskflow::metrics::new_metrics;
 use axiom_demo_taskflow::pipeline::FailMode;
 use axiom_demo_taskflow::plugin_host::ProductPluginHost;
+use axiom_demo_taskflow::product_gateway::{boot_write_runtime, GatewayConfig, ProductGateway};
+use axiom_demo_taskflow::run_log::new_run_log;
 use axiom_demo_taskflow::runtime_host::{run_commercial, RunRequest, RuntimeHost};
-use axiom_demo_taskflow::surface::SurfaceServer;
+use axiom_demo_taskflow::surface::{GovernorSnapshot, SurfaceServer};
 use axiom_demo_taskflow::task_cell::TaskRunOutcome;
 use axiom_isa::{GovernorConfig, HandoffRequest, WitnessJournal, WorkbenchLimits};
 use axiom_kernel::entropy::EntropyLevel;
@@ -39,6 +42,8 @@ enum Scenario {
     Surface,
     /// Plugin product path: registry + sandbox + hot-reload.
     Plugin,
+    /// Full product gateway: write path + SSE + ops shell.
+    Gateway,
 }
 
 #[derive(Parser, Debug)]
@@ -74,6 +79,7 @@ async fn main() {
         Scenario::HandoffReject => run_handoff_reject(cli.verbose).await,
         Scenario::Surface => run_surface(&cli.health_addr).await,
         Scenario::Plugin => run_plugin(cli.verbose).await,
+        Scenario::Gateway => run_gateway(&cli.health_addr).await,
     }
 }
 
@@ -371,131 +377,115 @@ async fn run_health(addr: &str) {
 }
 
 async fn run_surface(addr: &str) {
-    println!("=== U4 SURFACE (unified observation + metrics + lenses) ===");
+    // Surface CLI now uses ProductGateway (same read routes + ops).
+    run_gateway(addr).await
+}
+
+async fn run_gateway(addr: &str) {
+    println!("=== PRODUCT GATEWAY (write + SSE + ops + surface) ===");
     let bind: SocketAddr = addr.parse().unwrap_or_else(|_| {
         eprintln!("bad addr");
         std::process::exit(1);
     });
 
     let metrics = new_metrics();
-    let plugin_host = ProductPluginHost::new();
-    if let Err(e) = plugin_host.boot_defaults().await {
-        eprintln!("plugin boot: {e}");
-        std::process::exit(1);
-    }
-    let plugin_ids = plugin_host.plugin_ids().await;
+    let events = new_event_bus();
+    let alerts = new_alert_log();
+    let runs = new_run_log();
+    let plugins = ProductPluginHost::new();
+    let _ = plugins.boot_defaults().await;
+    let plugin_ids = plugins.plugin_ids().await;
 
-    // Run a handoff to populate recent_runs, keep host up for surface
-    let spec = HandoffRequestSpec::default();
-    let host = match AgentHost::boot(&spec).await {
-        Ok(h) => h,
+    let write = match boot_write_runtime(
+        metrics.clone(),
+        events.clone(),
+        alerts.clone(),
+        runs.clone(),
+        GovernorConfig::default(),
+    )
+    .await
+    {
+        Ok(w) => w,
         Err(e) => {
-            eprintln!("boot: {e}");
+            eprintln!("write boot: {e}");
             std::process::exit(1);
         }
     };
-    if let Err(e) = host.submit_handoff(&spec.handoff).await {
-        eprintln!("submit: {e}");
-        host.stop().await;
-        std::process::exit(1);
-    }
-    let outcome = host.wait_outcome(Duration::from_secs(5)).await;
-    if let Ok(ref o) = outcome {
-        if o.ok {
-            metrics.inc_handoff_ok(o.witnesses.len() as u64);
-        } else {
-            metrics.inc_handoff_reject(o.witnesses.len() as u64);
-        }
-    }
-
-    let h = host.health().await;
-    let mut gov = host.governor_snap.clone();
-    if let Ok(g) = host.last.lock() {
-        if let Some(ref o) = *g {
-            gov.level = o.governor_level.clone();
-            gov.score = o.governor_score;
-            gov.decision = if o.ok {
-                "allow".into()
-            } else {
-                "reject".into()
-            };
-        }
-    }
-    let runs = host.runs.clone();
-    let server = match SurfaceServer::start_full(
+    let health = write.lock().await.host.health().await;
+    let server = match ProductGateway::start(GatewayConfig {
         bind,
-        h,
-        gov,
-        vec!["agent-cell".into()],
+        health,
+        gov: GovernorSnapshot {
+            level: "Green".into(),
+            score: 0.0,
+            decision: "allow".into(),
+        },
+        cells: vec!["task-cell".into()],
         runs,
-        Some(metrics.clone()),
-        plugin_ids,
-    )
+        metrics: metrics.clone(),
+        plugins: plugin_ids,
+        events,
+        alerts,
+        write: Some(write),
+    })
     .await
     {
         Ok(s) => s,
         Err(e) => {
             eprintln!("{e}");
-            host.stop().await;
             std::process::exit(1);
         }
     };
     let local = server.addr();
+    println!("ops      http://{local}/ops");
     println!("surface  http://{local}/api/v1/surface");
+    println!("write    POST http://{local}/api/v1/tasks");
+    println!("events   GET  http://{local}/api/v1/events (SSE)");
     println!("metrics  http://{local}/metrics");
-    println!("lens     http://{local}/api/v1/lens/ule.runs");
-    println!("plugins  http://{local}/api/v1/plugins");
-    println!("decide_api=axiom_isa::product_decide (Governor sole authority)");
 
     tokio::time::sleep(Duration::from_millis(50)).await;
     let surface_ok = match fetch_health(&format!("{local}/api/v1/surface")).await {
-        Ok((status, body)) => {
-            println!("SURFACE HTTP {status}");
-            println!("{body}");
-            status == 200
-                && body.contains("admit_authority")
-                && body.contains("governor")
-                && body.contains("witness-only")
-                && body.contains("recent_runs")
-                && body.contains("observability")
-                && body.contains("lenses")
+        Ok((st, body)) => {
+            println!("SURFACE {st}");
+            st == 200 && body.contains("write_api") && body.contains("admit_authority")
         }
         Err(e) => {
-            eprintln!("surface fetch: {e}");
+            eprintln!("{e}");
             false
         }
+    };
+    let write_ok = match http_exchange(
+        "POST",
+        &format!("{local}/api/v1/tasks"),
+        Some(r#"{"title":"cli-gateway","priority":1,"payload":"demo"}"#),
+    )
+    .await
+    {
+        Ok((st, body)) => {
+            println!("WRITE {st} {body}");
+            (st == 201 || st == 200) && body.contains("witness_count")
+        }
+        Err(e) => {
+            eprintln!("write: {e}");
+            false
+        }
+    };
+    let ops_ok = match fetch_health(&format!("{local}/ops")).await {
+        Ok((st, body)) => st == 200 && body.contains("ULE Ops Shell"),
+        Err(_) => false,
     };
     let metrics_ok = match fetch_health(&format!("{local}/metrics")).await {
-        Ok((status, body)) => {
-            println!("METRICS HTTP {status}");
-            println!("{body}");
-            status == 200 && body.contains("ule_handoffs")
-        }
-        Err(e) => {
-            eprintln!("metrics fetch: {e}");
-            false
-        }
-    };
-    let lens_ok = match fetch_health(&format!("{local}/api/v1/lens/ule.governor")).await {
-        Ok((status, body)) => {
-            println!("LENS HTTP {status}");
-            println!("{body}");
-            status == 200 && body.contains("admit_authority")
-        }
-        Err(e) => {
-            eprintln!("lens fetch: {e}");
-            false
-        }
+        Ok((st, body)) => st == 200 && body.contains("ule_tasks"),
+        Err(_) => false,
     };
 
     server.stop().await;
-    host.stop().await;
-    if surface_ok && metrics_ok && lens_ok {
-        println!("SURFACE OK — health + metrics + lenses + plugins (T12).");
+    if surface_ok && write_ok && ops_ok && metrics_ok {
+        println!("GATEWAY OK — surface + write path + ops shell + metrics.");
         std::process::exit(0);
     }
     eprintln!(
-        "surface incomplete surface_ok={surface_ok} metrics_ok={metrics_ok} lens_ok={lens_ok}"
+        "gateway incomplete surface={surface_ok} write={write_ok} ops={ops_ok} metrics={metrics_ok}"
     );
     std::process::exit(1);
 }

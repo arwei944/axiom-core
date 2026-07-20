@@ -15,8 +15,10 @@ pub mod journal;
 pub mod primitives;
 
 pub use discipline::{
-    assert_witness_step_kinds, policy_text, scan_source, DisciplineReport, DisciplineViolation,
-    BANNED_SIDE_EFFECT_TOKENS, COMMERCIAL_ISA_SOURCES, REQUIRED_ISA_HELPERS,
+    assert_witness_step_kinds, discover_composer_sources, is_composer_bearing_source, policy_text,
+    scan_source, scan_workspace_commercial, DisciplineReport, DisciplineViolation,
+    BANNED_SIDE_EFFECT_TOKENS, COMMERCIAL_CRATE_SRC_ROOTS, COMMERCIAL_ISA_SOURCES,
+    REQUIRED_ISA_HELPERS,
 };
 pub use error::{IsaError, IsaResult};
 pub use governor::{Decision, Governor, GovernorConfig};

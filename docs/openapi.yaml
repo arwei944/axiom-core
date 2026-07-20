@@ -1,15 +1,19 @@
 openapi: "3.0.3"
 info:
-  title: Axiom Core API
-  description: Unified API gateway for Axiom Core runtime - Deterministic-first runtime architecture for reliable agentic systems
-  version: "1.0.0"
+  title: Axiom Core / ULE Product API
+  description: |
+    Unified API contracts for Axiom runtime (`axiom-api`) and ULE commercial ProductGateway
+    (`axiom-demo-taskflow` gateway). Business logic remains Signal→Cell→Composer; HTTP is U7 only.
+  version: "0.5.0"
   contact:
     name: Axiom Core Contributors
-    url: https://github.com/arwei944/axiom-kernel
+    url: https://github.com/arwei944/axiom-core
 
 servers:
+  - url: http://localhost:19092
+    description: ULE ProductGateway (taskflow gateway / surface)
   - url: http://localhost:9092
-    description: Local development server
+    description: axiom-api skeleton
 
 paths:
   /api/v1/health:
@@ -88,20 +92,148 @@ paths:
 
   /api/v1/metrics:
     get:
-      summary: Get Prometheus metrics
-      description: Returns Prometheus-format metrics for monitoring and observability
+      summary: Get metrics (JSON on ProductGateway; Prometheus text also at /metrics)
+      description: ProductGateway returns JSON snapshot at this path; Prometheus text at GET /metrics
       responses:
         '200':
           description: Successful response
           content:
+            application/json:
+              schema:
+                type: object
             text/plain:
               schema:
                 type: string
-                description: Prometheus text format metrics
+                description: Prometheus text format metrics (also on /metrics)
         '404':
           description: Metrics not configured
 
+  /metrics:
+    get:
+      summary: Prometheus text exposition (ProductGateway)
+      responses:
+        '200':
+          description: Prometheus text
+          content:
+            text/plain:
+              schema:
+                type: string
+
+  /api/v1/surface:
+    get:
+      summary: Unified observation surface (ULE ProductGateway)
+      description: |
+        Single host truth — health, governor (admit_authority=governor), runs, metrics,
+        write_api, events_api, ops_shell. Not a second dashboard authority.
+      responses:
+        '200':
+          description: Surface JSON
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  admit_authority:
+                    type: string
+                    example: governor
+                  history:
+                    type: string
+                    example: witness-only
+                  write_api:
+                    type: string
+                  events_api:
+                    type: string
+
+  /api/v1/tasks:
+    post:
+      summary: Submit task (write path → Signal SubmitTask → TaskCell)
+      description: |
+        U7 adapter only. Publishes SubmitTask Signal to TaskCell; Governor product_admit
+        runs inside the Cell before Composer. Returns witness_count and governor fields.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [title, payload]
+              properties:
+                title:
+                  type: string
+                priority:
+                  type: integer
+                payload:
+                  type: string
+      responses:
+        '201':
+          description: Task accepted and processed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TaskWriteResult'
+        '403':
+          description: Governor rejected admit
+        '422':
+          description: Pipeline / validation failure
+        '400':
+          description: Invalid JSON
+
+  /api/v1/events:
+    get:
+      summary: Server-Sent Events push stream
+      description: |
+        SSE stream. Event types include stream.open, task.completed, governor.alert.
+      responses:
+        '200':
+          description: text/event-stream
+          content:
+            text/event-stream:
+              schema:
+                type: string
+
+  /ops:
+    get:
+      summary: Minimal ops HTML shell
+      responses:
+        '200':
+          description: HTML
+          content:
+            text/html:
+              schema:
+                type: string
+
+  /api/v1/alerts:
+    get:
+      summary: Governor-linked alert log (demo floor)
+      responses:
+        '200':
+          description: Alert list
+          content:
+            application/json:
+              schema:
+                type: object
+
 components:
+  schemas:
+    TaskWriteResult:
+      type: object
+      properties:
+        ok:
+          type: boolean
+        error:
+          type: string
+          nullable: true
+        governor_level:
+          type: string
+        governor_score:
+          type: number
+        witness_count:
+          type: integer
+        admit_authority:
+          type: string
+          example: governor
+        path:
+          type: string
   schemas:
     ApiHealth:
       type: object

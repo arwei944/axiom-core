@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>ULE Ops Shell</title>
+  <style>
+    :root { font-family: ui-sans-serif, system-ui, sans-serif; color: #e8eaed; background: #0f1115; }
+    body { margin: 0; padding: 1.25rem; max-width: 960px; }
+    h1 { font-size: 1.25rem; margin: 0 0 0.5rem; }
+    .muted { color: #9aa0a6; font-size: 0.85rem; }
+    .row { display: flex; gap: 0.75rem; flex-wrap: wrap; margin: 0.75rem 0; }
+    button, input { background: #1a1d24; color: #e8eaed; border: 1px solid #333; border-radius: 6px; padding: 0.45rem 0.75rem; }
+    button { cursor: pointer; }
+    button:hover { border-color: #5c6bc0; }
+    pre { background: #161a22; border: 1px solid #2a2f3a; border-radius: 8px; padding: 0.75rem; overflow: auto; font-size: 0.8rem; }
+    .pill { display: inline-block; padding: 0.15rem 0.5rem; border-radius: 999px; background: #243; font-size: 0.75rem; }
+    .ok { background: #1b5e20; } .bad { background: #b71c1c; }
+    #events { min-height: 6rem; }
+  </style>
+</head>
+<body>
+  <h1>ULE Ops Shell</h1>
+  <p class="muted">
+    Loads unified surface/health from the same origin commercial gateway.
+    Write path: <code>POST /api/v1/tasks</code> → Signal → TaskCell.
+    Push: <code>GET /api/v1/events</code> (SSE).
+  </p>
+  <div class="row">
+    <span id="status" class="pill">idle</span>
+    <button id="btn-surface" type="button">Refresh surface</button>
+    <button id="btn-health" type="button">Health</button>
+    <button id="btn-task" type="button">Submit task</button>
+    <button id="btn-sse" type="button">Connect SSE</button>
+  </div>
+  <pre id="out">Click Refresh surface…</pre>
+  <h2 class="muted">SSE events</h2>
+  <pre id="events">(not connected)</pre>
+  <script>
+    // Same-origin relative URLs — works when served by ProductGateway.
+    const $ = (id) => document.getElementById(id);
+    const out = $('out');
+    const status = $('status');
+    function setStatus(text, ok) {
+      status.textContent = text;
+      status.className = 'pill ' + (ok === true ? 'ok' : ok === false ? 'bad' : '');
+    }
+    async function getJson(path) {
+      const r = await fetch(path);
+      const t = await r.text();
+      try { return { status: r.status, body: JSON.parse(t) }; }
+      catch { return { status: r.status, body: t }; }
+    }
+    $('btn-surface').onclick = async () => {
+      setStatus('loading…');
+      try {
+        const { status: st, body } = await getJson('/api/v1/surface');
+        out.textContent = JSON.stringify(body, null, 2);
+        setStatus('surface ' + st, st === 200);
+      } catch (e) {
+        out.textContent = String(e);
+        setStatus('error', false);
+      }
+    };
+    $('btn-health').onclick = async () => {
+      const { status: st, body } = await getJson('/api/v1/health');
+      out.textContent = JSON.stringify(body, null, 2);
+      setStatus('health ' + st, st === 200);
+    };
+    $('btn-task').onclick = async () => {
+      setStatus('posting…');
+      try {
+        const r = await fetch('/api/v1/tasks', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            title: 'ops-shell-task',
+            priority: 1,
+            payload: 'from ops shell'
+          })
+        });
+        const t = await r.text();
+        let body; try { body = JSON.parse(t); } catch { body = t; }
+        out.textContent = JSON.stringify(body, null, 2);
+        setStatus('task ' + r.status, r.status === 200 || r.status === 201);
+      } catch (e) {
+        out.textContent = String(e);
+        setStatus('error', false);
+      }
+    };
+    let es;
+    $('btn-sse').onclick = () => {
+      if (es) { es.close(); }
+      $('events').textContent = 'connecting…';
+      es = new EventSource('/api/v1/events');
+      es.onmessage = (ev) => {
+        $('events').textContent = (ev.data + '\n') + $('events').textContent.slice(0, 4000);
+      };
+      es.addEventListener('task.completed', (ev) => {
+        $('events').textContent = ('[task.completed] ' + ev.data + '\n') + $('events').textContent.slice(0, 4000);
+      });
+      es.addEventListener('governor.alert', (ev) => {
+        $('events').textContent = ('[governor.alert] ' + ev.data + '\n') + $('events').textContent.slice(0, 4000);
+      });
+      es.onerror = () => setStatus('sse error', false);
+      es.onopen = () => setStatus('sse open', true);
+    };
+  </script>
+</body>
+</html>

@@ -25,6 +25,8 @@ Do **not** run a long-lived dual runtime or federation bridge as steady state.
 | [`AGENTS.md`](AGENTS.md) | **智能体根契约（自动加载 / 强制）** |
 | [`docs/guide/agent-work-guide.md`](docs/guide/agent-work-guide.md) | 智能体工作指导与约束（细则） |
 | [`docs/guide/AGENT_ONBOARDING_PACK.md`](docs/guide/AGENT_ONBOARDING_PACK.md) | **新智能体入职包（文档+门禁+DoD）** |
+| [`docs/guide/frontend-integration.md`](docs/guide/frontend-integration.md) | 前端对接 / Surface vs gateway |
+| [`docs/guide/secrets-and-llm.md`](docs/guide/secrets-and-llm.md) | 密钥与 LLM 环境变量 |
 | [`.github/workflows/architecture-gates.yml`](.github/workflows/architecture-gates.yml) | **CI 架构门禁（archcheck / discipline / path）** |
 | [`docs/COMMERCIAL_OPS.md`](docs/COMMERCIAL_OPS.md) | 运维 / 健康 / 鉴权 / 部署 |
 | [`docs/ENGINEERING_HARDENING_v050.md`](docs/ENGINEERING_HARDENING_v050.md) | v0.5.0 工程清单与生产接线 |
@@ -32,6 +34,10 @@ Do **not** run a long-lived dual runtime or federation bridge as steady state.
 | [`docs/unified/COMMERCIAL_DELIVERY.md`](docs/unified/COMMERCIAL_DELIVERY.md) | 商用交付说明 |
 | [`docs/unified/FEATURE_THEME_MATRIX.md`](docs/unified/FEATURE_THEME_MATRIX.md) | 主题 T1–T15 **完全满足** |
 | [`docs/unified/UNIFIED_MODEL.md`](docs/unified/UNIFIED_MODEL.md) | ULE 宪法 |
+| [`docs/unified/DUAL_GOVERNOR_NOTE.md`](docs/unified/DUAL_GOVERNOR_NOTE.md) | 产品 admit 唯一说明 |
+| [`docs/openapi.yaml`](docs/openapi.yaml) | OpenAPI 0.5.0（含 write/SSE） |
+
+**Version:** workspace **0.5.0** · tag **v0.5.0-commercial**
 
 ```powershell
 # 核心包测试（工程硬化 + ULE）
@@ -41,8 +47,8 @@ cargo test -p axiom-isa -p axiom-resilience -p axiom-demo-taskflow
 # 商用 CLI
 cargo run -p axiom-demo-taskflow -- success        # task path
 cargo run -p axiom-demo-taskflow -- handoff        # U3 agent path
-cargo run -p axiom-demo-taskflow -- handoff-reject
-cargo run -p axiom-demo-taskflow -- surface        # U4 unified query
+cargo run -p axiom-demo-taskflow -- gateway        # write + SSE + ops shell
+cargo run -p axiom-demo-taskflow -- surface        # same gateway floor
 cargo run -p axiom-demo-taskflow -- health
 ```
 

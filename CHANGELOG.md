@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.5.0] - 2026-07-19 — ULE commercial floor (`v0.5.0-commercial`)
+
+### Added
+- **ULE product floor**: `axiom-isa` (Atom/Port/Adapter/Composer, Governor, Handoff, discipline discovery), `axiom-resilience`, `axiom-demo-taskflow` commercial CLI.
+- **Product gateway**: `POST /api/v1/tasks` (Signal → TaskCell), `GET /api/v1/events` (SSE), ops shell at `/ops`, unified surface/metrics/lenses.
+- **Observability**: Prometheus text `/metrics`, product counters, Governor↔alert linkage events.
+- **Env LLM Port**: `EnvLlmProposePort` + `axiom_llm::credentials` (env keys only; mock via `AXIOM_LLM_MOCK`).
+- **Architecture Gates CI**: archcheck, ISA discipline, product path tests, forbidden dual-history patterns; required check `architecture-gates-ok`.
+- **Agent pack**: `AGENTS.md`, `docs/guide/agent-work-guide.md`, `docs/guide/AGENT_ONBOARDING_PACK.md`.
+- **Docs**: `docs/unified/*` constitution pack, `docs/guide/frontend-integration.md`, dual-admit note.
+
+### Changed
+- Workspace package version **0.4.0 → 0.5.0** (aligns tag `v0.5.0-commercial`).
+- Architecture Observer gatecheck runs **strict**.
+
+### Notes
+- Trading OMS vertical and multi-region/multi-tenant platform features remain out of this release.
+- Historical crates may still fail full `cargo test --workspace`; required gates cover product/architecture jobs only (see nightly workflow).
+
+---
+
 ## [0.4.0] - 2026-07-08
 
 ### Added

@@ -7,18 +7,24 @@
 //! This module provides:
 //! 1. Policy constants (banned I/O tokens outside Port impls).
 //! 2. Source-text scanner for commercial crates (CI / path tests).
-//! 3. Runtime journal-prefix helpers for step-kind verification.
+//! 3. **Auto-discovery** of Composer-bearing sources under commercial crate trees.
+//! 4. Runtime journal-prefix helpers for step-kind verification.
 
 use crate::error::{IsaError, IsaResult};
 use crate::primitives::StepKind;
+use std::path::Path;
 
-/// Files under commercial path that **must** express side effects only via ISA helpers.
+/// Baseline commercial sources (always scanned). Discovery may add more.
 pub const COMMERCIAL_ISA_SOURCES: &[&str] = &[
     "crates/axiom-demo-taskflow/src/pipeline.rs",
     "crates/axiom-demo-taskflow/src/workbench.rs",
     "crates/axiom-demo-taskflow/src/task_cell.rs",
     "crates/axiom-demo-taskflow/src/agent_cell.rs",
+    "crates/axiom-demo-taskflow/src/llm_port.rs",
 ];
+
+/// Crate source roots walked by [`discover_composer_sources`].
+pub const COMMERCIAL_CRATE_SRC_ROOTS: &[&str] = &["crates/axiom-demo-taskflow/src"];
 
 /// Tokens that indicate raw I/O and must not appear in Atom-only helpers.
 /// Port `impl` blocks may contain I/O; the scanner exempts lines inside
@@ -57,11 +63,123 @@ pub struct DisciplineReport {
     pub saw_port_trait_or_fn: bool,
 }
 
+/// True when source text looks like a Composer orchestration module (not a pure cell shell).
+pub fn is_composer_bearing_source(path: &str, source: &str) -> bool {
+    let p = path.replace('\\', "/");
+    // Cell shells hold a Composer but do not implement ISA steps themselves.
+    if p.ends_with("_cell.rs") || p.contains("/cells/") {
+        return false;
+    }
+    // Port-only modules (e.g. llm_port.rs) — banned I/O scan only.
+    if p.ends_with("llm_port.rs") || p.contains("/ports/") {
+        return false;
+    }
+    if p.contains("pipeline") || p.contains("workbench") {
+        return true;
+    }
+    // Construction / impl sites — not mere type mentions in fields.
+    if source.contains("SeqComposer::new") {
+        return true;
+    }
+    if source.contains("impl Composer")
+        || (source.contains("impl<") && source.contains(" for ") && source.contains("Composer"))
+    {
+        return true;
+    }
+    // Explicit orchestration helpers used together.
+    source.contains("run_atom")
+        && source.contains("run_port")
+        && (source.contains("WitnessJournal") || source.contains("fn compose"))
+}
+
+/// Discover Composer-bearing `.rs` files under commercial crate trees (relative paths).
+///
+/// Unions baseline [`COMMERCIAL_ISA_SOURCES`] with auto-discovered paths so new
+/// Composer modules cannot evade CI by omitting a manual list entry.
+pub fn discover_composer_sources(workspace: impl AsRef<Path>) -> Vec<String> {
+    let root = workspace.as_ref();
+    let mut found: Vec<String> = COMMERCIAL_ISA_SOURCES
+        .iter()
+        .map(|s| (*s).to_string())
+        .collect();
+
+    for rel_root in COMMERCIAL_CRATE_SRC_ROOTS {
+        let dir = root.join(rel_root);
+        if !dir.is_dir() {
+            continue;
+        }
+        walk_rs(&dir, root, &mut found);
+    }
+
+    found.sort();
+    found.dedup();
+    found
+}
+
+fn walk_rs(dir: &Path, workspace: &Path, out: &mut Vec<String>) {
+    let Ok(entries) = std::fs::read_dir(dir) else {
+        return;
+    };
+    for ent in entries.flatten() {
+        let path = ent.path();
+        if path.is_dir() {
+            walk_rs(&path, workspace, out);
+            continue;
+        }
+        if path.extension().and_then(|e| e.to_str()) != Some("rs") {
+            continue;
+        }
+        // Skip pure module roots without orchestration markers unless baseline.
+        let Ok(src) = std::fs::read_to_string(&path) else {
+            continue;
+        };
+        let rel = path
+            .strip_prefix(workspace)
+            .unwrap_or(&path)
+            .to_string_lossy()
+            .replace('\\', "/");
+        if is_composer_bearing_source(&rel, &src) || out.iter().any(|x| x == &rel) {
+            if !out.iter().any(|x| x == &rel) {
+                out.push(rel);
+            }
+        }
+    }
+}
+
+/// Scan all discovered commercial sources; returns failing reports only.
+pub fn scan_workspace_commercial(workspace: impl AsRef<Path>) -> Vec<DisciplineReport> {
+    let root = workspace.as_ref();
+    let mut bad = Vec::new();
+    for rel in discover_composer_sources(root) {
+        let path = root.join(&rel);
+        let Ok(src) = std::fs::read_to_string(&path) else {
+            bad.push(DisciplineReport {
+                path: rel,
+                violations: vec![DisciplineViolation {
+                    line: 0,
+                    kind: "missing-file".into(),
+                    detail: "discovered path unreadable".into(),
+                }],
+                ..Default::default()
+            });
+            continue;
+        };
+        let report = scan_source(&rel, &src);
+        if !report.ok() {
+            bad.push(report);
+        }
+    }
+    bad
+}
+
 impl DisciplineReport {
     /// Composer sources must call `run_atom`/`run_port`.
     /// Cell hosts only need zero banned side-effects (they compose via workbench/pipeline).
     pub fn requires_isa_helpers(&self) -> bool {
-        self.path.contains("pipeline") || self.path.contains("workbench")
+        // Path-only fallback when source not retained on report.
+        self.path.contains("pipeline")
+            || self.path.contains("workbench")
+            || (self.saw_run_atom && self.saw_run_port && !self.path.contains("llm_port"))
     }
 
     pub fn ok(&self) -> bool {
@@ -111,6 +229,7 @@ pub fn scan_source(path: &str, source: &str) -> DisciplineReport {
         path: path.to_string(),
         ..Default::default()
     };
+    let composer = is_composer_bearing_source(path, source);
 
     let mut in_port_impl = 0i32;
     let mut brace_depth = 0i32;
@@ -176,8 +295,8 @@ pub fn scan_source(path: &str, source: &str) -> DisciplineReport {
         }
     }
 
-    // Soft structural requirements for commercial composers.
-    if path.contains("pipeline") || path.contains("workbench") {
+    // Soft structural requirements for commercial composers (path + discovery markers).
+    if composer {
         if !report.saw_run_atom {
             report.violations.push(DisciplineViolation {
                 line: 0,
@@ -297,5 +416,27 @@ struct PortFn;
         assert!(assert_witness_step_kinds(&bad).is_err());
         let good = vec!["atom:validate:run".into(), "port:execute:ok".into()];
         assert!(assert_witness_step_kinds(&good).is_ok());
+    }
+
+    #[test]
+    fn discover_includes_baseline_and_composer_markers() {
+        let root = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("..")
+            .join("..");
+        let found = discover_composer_sources(&root);
+        assert!(
+            found.iter().any(|p| p.ends_with("pipeline.rs")),
+            "discover must find pipeline.rs: {found:?}"
+        );
+        assert!(
+            found.iter().any(|p| p.ends_with("workbench.rs")),
+            "discover must find workbench.rs: {found:?}"
+        );
+        let bad = scan_workspace_commercial(&root);
+        assert!(
+            bad.is_empty(),
+            "workspace commercial scan must pass: {:?}",
+            bad.iter().map(|r| r.summary()).collect::<Vec<_>>()
+        );
     }
 }

@@ -1,6 +1,8 @@
 //! T8 — commercial path must express side effects only via Atom/Port ISA helpers.
 
-use axiom_isa::{scan_source, COMMERCIAL_ISA_SOURCES};
+use axiom_isa::{
+    discover_composer_sources, scan_workspace_commercial, COMMERCIAL_ISA_SOURCES,
+};
 use std::path::PathBuf;
 
 fn workspace_root() -> PathBuf {
@@ -13,26 +15,29 @@ fn workspace_root() -> PathBuf {
 #[test]
 fn commercial_sources_pass_isa_discipline() {
     let root = workspace_root();
-    let mut failures = Vec::new();
-    for rel in COMMERCIAL_ISA_SOURCES {
-        let path = root.join(rel);
-        let src = match std::fs::read_to_string(&path) {
-            Ok(s) => s,
-            Err(e) => {
-                failures.push(format!("missing {rel}: {e}"));
-                continue;
-            }
-        };
-        let report = scan_source(rel, &src);
-        if !report.ok() {
-            failures.push(report.summary());
-        }
-    }
+    let discovered = discover_composer_sources(&root);
+    assert!(
+        discovered.len() >= COMMERCIAL_ISA_SOURCES.len(),
+        "discovery must cover baseline list: {discovered:?}"
+    );
+    let failures = scan_workspace_commercial(&root);
     assert!(
         failures.is_empty(),
         "ISA discipline violations:\n{}",
-        failures.join("\n")
+        failures
+            .iter()
+            .map(|r| r.summary())
+            .collect::<Vec<_>>()
+            .join("\n")
     );
+}
+
+#[test]
+fn discovery_picks_up_composer_markers() {
+    let root = workspace_root();
+    let found = discover_composer_sources(&root);
+    assert!(found.iter().any(|p| p.ends_with("pipeline.rs")), "{found:?}");
+    assert!(found.iter().any(|p| p.ends_with("workbench.rs")), "{found:?}");
 }
 
 #[test]

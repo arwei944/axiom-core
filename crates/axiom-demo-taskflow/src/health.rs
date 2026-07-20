@@ -102,11 +102,21 @@ impl HealthServer {
 
 /// One-shot client GET against a health URL (raw TCP).
 pub async fn fetch_health(url_path_host: &str) -> Result<(u16, String), String> {
-    // url_path_host like "127.0.0.1:19092/health"
+    http_exchange("GET", url_path_host, None).await
+}
+
+/// Raw HTTP client for path tests (GET/POST).
+///
+/// `url_path_host` like `127.0.0.1:19092/api/v1/tasks`.
+pub async fn http_exchange(
+    method: &str,
+    url_path_host: &str,
+    body: Option<&str>,
+) -> Result<(u16, String), String> {
     let (hostport, path) = if let Some(i) = url_path_host.find('/') {
         (&url_path_host[..i], &url_path_host[i..])
     } else {
-        (url_path_host, "/health")
+        (url_path_host, "/")
     };
     let addr: SocketAddr = hostport
         .parse()
@@ -114,9 +124,15 @@ pub async fn fetch_health(url_path_host: &str) -> Result<(u16, String), String> 
     let mut sock = tokio::net::TcpStream::connect(addr)
         .await
         .map_err(|e| format!("connect: {e}"))?;
-    let req = format!(
-        "GET {path} HTTP/1.1\r\nHost: {hostport}\r\nConnection: close\r\n\r\n"
-    );
+    let body = body.unwrap_or("");
+    let req = if method.eq_ignore_ascii_case("POST") {
+        format!(
+            "POST {path} HTTP/1.1\r\nHost: {hostport}\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}",
+            body.len()
+        )
+    } else {
+        format!("GET {path} HTTP/1.1\r\nHost: {hostport}\r\nConnection: close\r\n\r\n")
+    };
     sock.write_all(req.as_bytes())
         .await
         .map_err(|e| format!("write: {e}"))?;
@@ -125,13 +141,12 @@ pub async fn fetch_health(url_path_host: &str) -> Result<(u16, String), String> 
         .await
         .map_err(|e| format!("read: {e}"))?;
     let text = String::from_utf8_lossy(&buf).to_string();
-    let status = if text.starts_with("HTTP/1.1 200") {
-        200
-    } else if text.starts_with("HTTP/1.1 404") {
-        404
-    } else {
-        0
-    };
+    let status_line = text.lines().next().unwrap_or("");
+    let status = status_line
+        .split_whitespace()
+        .nth(1)
+        .and_then(|s| s.parse().ok())
+        .unwrap_or(0);
     let body = text
         .split("\r\n\r\n")
         .nth(1)
